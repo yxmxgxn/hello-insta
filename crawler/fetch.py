@@ -185,7 +185,8 @@ def err_text(e: urllib.error.HTTPError) -> str:
     if err.get("error_subcode") == 2207013:
         return "個人アカウント(取得不可)"
     if err.get("code") == 190:
-        return "アクセストークンが無効(期限切れ?)"
+        # subcode で理由が分かる(460=パスワード変更、463=期限切れ、467=ログアウトなどでセッション無効)
+        return f"アクセストークンが無効(190/{err.get('error_subcode')} {err.get('message', '')})"
     return f"{err.get('code')}/{err.get('error_subcode')} {err.get('message', '')}"
 
 
@@ -258,7 +259,9 @@ def main() -> int:
                                         "state": {"after": st["after"], "done": st["done"]}})
                 saved += len(media.get("data", []))
     except urllib.error.HTTPError:
-        warn("アクセストークンが無効です。Graph API エクスプローラーで発行し直して IG_ACCESS_TOKEN を更新してください")
+        # failed の最後が、止まる原因になったトークンのエラー(Meta が返した文言つき)
+        warn("アクセストークンが無効です。Graph API エクスプローラーで発行し直して IG_ACCESS_TOKEN を更新してください\n"
+             + (failed[-1] if failed else ""))
         return 1
 
     pending = sum(1 for t in targets if not state.get(t["username"], {}).get("done"))
