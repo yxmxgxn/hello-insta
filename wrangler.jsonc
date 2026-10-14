@@ -11,6 +11,10 @@
   // 公開URL insta.karin-archive.com はダッシュボードで付けたカスタムドメイン
   // (Workers & Pages → hello-insta → 設定 → ドメインとルート)。
   // ここに routes を書くとデプロイ用トークンにゾーンの権限が要るので書かない
+  // 毎日 JST 20:00 に Discord へ件数と新着を報告する(src/worker.js の scheduled)
+  "triggers": {
+    "crons": ["0 11 * * *"]
+  },
   // 1分あたりの同一IPからの公開API呼び出し上限(Workers のレート制限バインディング)
   "unsafe": {
     "bindings": [

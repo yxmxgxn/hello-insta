@@ -13,6 +13,8 @@
  *   POST /api/crawl/error      取得エラーを記録
  *   POST /api/crawl/import     旧DBからの移行用。bigram 済みの行をそのまま入れる
  *
+ * 定期実行: 毎日 JST 20:00 に、収録件数・前回からの増加数・新着投稿を Discord へ送る(DISCORD_WEBHOOK)。
+ *
  * それ以外は静的アセット(public/)へ。
  */
 
@@ -191,9 +193,13 @@ async function crawlPosts(request, env) {
     if (!p.id || !ts) continue;
     const caption = p.caption || "";
     const excerpt = caption.split(/\s+/).filter(Boolean).join(" ").slice(0, EXCERPT_LEN);
+    // 取り直しでは added_at を変えない(初めて入った日時を残す)
     stmts.push(env.DB
-      .prepare("INSERT OR REPLACE INTO post(id, account, ts, permalink, media_type, excerpt) VALUES(?, ?, ?, ?, ?, ?)")
-      .bind(String(p.id), username, ts, String(p.permalink || ""), p.media_type || null, excerpt));
+      .prepare(
+        "INSERT INTO post(id, account, ts, permalink, media_type, excerpt, added_at) VALUES(?, ?, ?, ?, ?, ?, ?) " +
+        "ON CONFLICT(id) DO UPDATE SET account = excluded.account, ts = excluded.ts, permalink = excluded.permalink, " +
+        "media_type = excluded.media_type, excerpt = excluded.excerpt")
+      .bind(String(p.id), username, ts, String(p.permalink || ""), p.media_type || null, excerpt, nowJst()));
     stmts.push(env.DB.prepare("DELETE FROM post_fts WHERE id = ?").bind(String(p.id)));
     const grams = bigrams(normalize(caption)).join(" ");
     if (grams) stmts.push(env.DB.prepare("INSERT INTO post_fts(id, bigram) VALUES(?, ?)").bind(String(p.id), grams));
@@ -251,9 +257,75 @@ async function crawlImport(request, env) {
   return json({ ok: true, posts: posts.length, state: state.length });
 }
 
+/* ============================ 毎日の報告 ============================ */
+
+const SITE = "https://insta.karin-archive.com";
+const REPORT_LIST_MAX = 30;   // 新着として一覧に載せる最大件数(Discord の文字数上限に収める)
+const FRESH_DAYS = 3;         // 新着とみなす投稿日時の古さの上限
+
+// 収録件数と前回からの増加数、新着の一覧を送る。
+// 増加数には過去分の遡りで入った古い投稿も含む。
+// 新着は「前回の報告以降にDBへ入った」かつ「投稿が直近 FRESH_DAYS 日以内」のもの
+// (取得は数時間おきなので、投稿日時だけで区切ると報告の直前の投稿が漏れる。遡りで入った古い投稿は除く)
+async function dailyReport(env) {
+  if (!env.DISCORD_WEBHOOK) return;
+  const [{ results: tot }, { results: prev }] = await env.DB.batch([
+    env.DB.prepare("SELECT COUNT(*) AS n FROM post"),
+    env.DB.prepare("SELECT k, v FROM meta WHERE k IN ('report_at', 'report_total')"),
+  ]);
+  const total = tot[0].n;
+  const m = Object.fromEntries(prev.map((r) => [r.k, r.v]));
+  const now = nowJst();
+  // 初回は24時間前から
+  const since = m.report_at || new Date(Date.now() + (9 - 24) * 3600e3).toISOString().slice(0, 16).replace("T", " ");
+  const diff = m.report_total == null ? null : total - Number(m.report_total);
+
+  const { results: fresh } = await env.DB
+    .prepare(
+      "SELECT p.ts, p.permalink, p.excerpt, ifnull(a.name, p.account) AS name FROM post p " +
+      "LEFT JOIN account a ON a.username = p.account WHERE p.added_at > ? AND p.ts >= ? ORDER BY p.ts")
+    .bind(since, new Date(Date.now() + (9 - 24 * FRESH_DAYS) * 3600e3).toISOString().slice(0, 16).replace("T", " "))
+    .all();
+
+  const lines = fresh.slice(0, REPORT_LIST_MAX).map((r) => {
+    const text = (r.excerpt || "（本文なし）").slice(0, 40).replace(/[\[\]]/g, "");
+    return `${r.ts.slice(5).replace("-", "/")} **${r.name}** [${text}](${r.permalink.replace("/reel/", "/p/")})`;
+  });
+  if (fresh.length > REPORT_LIST_MAX) lines.push(`ほか ${fresh.length - REPORT_LIST_MAX} 件は[サイト](${SITE}/)で`);
+
+  const head =
+    `収録 **${total.toLocaleString()}** 件` +
+    (diff == null ? "" : `（前回から ${diff >= 0 ? "+" : ""}${diff.toLocaleString()}）`) +
+    `\n新着 **${fresh.length}** 件（${since.slice(5).replace("-", "/")} 〜 ${now.slice(5).replace("-", "/")}）`;
+
+  const res = await fetch(env.DISCORD_WEBHOOK, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      username: "Instagram 検索",  // ウェブフックは karin と共用。送り主の表示だけ変える
+      embeds: [{
+        title: "今日の Instagram",
+        url: SITE + "/",
+        description: (head + (lines.length ? "\n\n" + lines.join("\n") : "")).slice(0, 4000),
+        color: 0x8c6bb8,
+      }],
+    }),
+  });
+  if (!res.ok) throw new Error(`Discord ${res.status}`);
+
+  await env.DB.batch([
+    env.DB.prepare("INSERT OR REPLACE INTO meta(k, v) VALUES('report_at', ?)").bind(now),
+    env.DB.prepare("INSERT OR REPLACE INTO meta(k, v) VALUES('report_total', ?)").bind(String(total)),
+  ]);
+}
+
 /* ============================ ルーティング ============================ */
 
 export default {
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(dailyReport(env).catch((e) => console.log("毎日の報告に失敗", String(e))));
+  },
+
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     const p = url.pathname;

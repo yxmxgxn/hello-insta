@@ -10,7 +10,8 @@ CREATE TABLE IF NOT EXISTS post (
   ts         TEXT NOT NULL,     -- 投稿日時(JST, 'YYYY-MM-DD HH:MM')
   permalink  TEXT NOT NULL,
   media_type TEXT,              -- IMAGE / VIDEO / CAROUSEL_ALBUM
-  excerpt    TEXT               -- 本文の先頭(一覧表示用)
+  excerpt    TEXT,              -- 本文の先頭(一覧表示用)
+  added_at   TEXT               -- このDBに初めて入った日時(JST)。毎日の報告の「新着」に使う
 );
 CREATE INDEX IF NOT EXISTS post_ts ON post(ts);
 CREATE INDEX IF NOT EXISTS post_account_ts ON post(account, ts);
@@ -37,4 +38,10 @@ CREATE TABLE IF NOT EXISTS fetch_state (
   done       INTEGER NOT NULL DEFAULT 0,  -- 1=過去分を遡りきった
   last_error TEXT,              -- 直近の取得エラー(取れたら NULL に戻す)
   checked_at TEXT               -- 最後に取りに行った日時(JST)
+);
+
+-- 1回きりの覚え書き(前回の毎日の報告の時刻と件数など)
+CREATE TABLE IF NOT EXISTS meta (
+  k TEXT PRIMARY KEY,
+  v TEXT
 );
