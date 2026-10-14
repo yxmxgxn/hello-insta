@@ -30,21 +30,16 @@
       <input id="q" type="search" placeholder="本文から探す（空のままなら新着）" aria-label="検索語" enterkeyhint="search">
       <button type="submit">検索</button>
     </div>
-    <select id="acc" multiple size="7" aria-label="メンバー（Ctrl/⌘で複数選択）"></select>
+    <!-- 取得不可の人も並ぶので、検索結果の抜粋には使わせない(ページ全体は noindex にしない) -->
+    <select id="acc" multiple size="7" aria-label="メンバー（Ctrl/⌘で複数選択）" data-nosnippet></select>
     <div class="row">
       <label>いつから <input type="date" id="from"></label>
       <label>いつまで <input type="date" id="to"></label>
       <button type="button" class="ghost" id="reset">リセット</button>
     </div>
     <p class="hint">メンバー未選択なら全員。Ctrl（Macは⌘）を押しながらクリックで複数選べます。一覧のメンバー名を押すと、その人だけに絞り込めます。空白で区切ると「全部含む」投稿を探します。</p>
+    <p class="hint" data-nosnippet>選択欄の一番下の「取得不可」は、個人アカウントのため取れない人です。Instagramの公式APIで読めるのはビジネス／クリエイターアカウントだけで、切り替われば自動で取得が始まります。</p>
   </form>
-
-  <!-- 取れない人の一覧は検索結果の抜粋に使わせない(ページ全体は noindex にしない) -->
-  <details id="blocked" class="blocked" hidden data-nosnippet>
-    <summary>取得できないアカウント（<span id="blocked-count"></span>）</summary>
-    <p>このサイトは Instagram の公式API（Business Discovery）で投稿を集めています。このAPIで読めるのはビジネス／クリエイターアカウントだけなので、個人アカウントの人は取得できません。アカウントの種類が切り替われば、自動で取得が始まります。</p>
-    <ul id="blocked-list"></ul>
-  </details>
 
   <section class="cal" aria-label="投稿カレンダー">
     <div class="cal-head">

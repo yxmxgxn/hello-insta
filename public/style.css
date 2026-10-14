@@ -86,9 +86,3 @@ mark { background: var(--mark); color: var(--mark-ink); border-radius: 2px; }
 .site-foot { padding-top: 16px; padding-bottom: 32px; color: var(--muted); font-size: .8rem; border-top: 1px solid var(--line); margin-top: 24px; }
 .site-foot p { margin: 4px 0; }
 .site-foot a { color: inherit; }
-
-.blocked { margin: 8px 0 0; font-size: .85rem; color: var(--muted); }
-.blocked summary { cursor: pointer; }
-.blocked p { margin: 6px 0; }
-.blocked ul { margin: 0; padding-left: 1.2em; }
-.blocked a { color: inherit; }

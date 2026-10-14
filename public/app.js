@@ -25,9 +25,9 @@
 
   /* ---------- アカウント ---------- */
 
-  // 取得エラーの文言 → 一覧に出す理由
+  // 取得エラーの文言 → 選択肢に添える理由
   function reason(error) {
-    if (/個人アカウント/.test(error)) return "個人アカウントのため";
+    if (/個人アカウント/.test(error)) return "個人アカウント";
     return error;
   }
 
@@ -35,7 +35,7 @@
     var sel = $("acc"), groups = {}, order = [], blocked = [];
     list.forEach(function (a) {
       names[a.username] = a.name;
-      // 1件も取れていなくてエラーが記録されている人は選べなくし、下の一覧に理由を出す
+      // 1件も取れていなくてエラーが記録されている人は、いちばん下の「取得不可」にまとめて選べなくする
       if (!a.posts && a.error) {
         if (a.active) blocked.push(a);
         return;
@@ -51,20 +51,15 @@
     order.forEach(function (s) { sel.appendChild(groups[s]); });
 
     if (!blocked.length) return;
-    $("blocked-count").textContent = blocked.length;
-    var ul = $("blocked-list");
+    var g = document.createElement("optgroup");
+    g.label = "取得不可（" + blocked.length + "）";
     blocked.forEach(function (a) {
-      var li = document.createElement("li");
-      var link = document.createElement("a");
-      link.href = "https://www.instagram.com/" + a.username + "/";
-      link.target = "_blank";
-      link.rel = "noopener noreferrer";
-      link.textContent = a.name;
-      li.appendChild(link);
-      li.appendChild(document.createTextNode("（" + a.section + "）… " + reason(a.error)));
-      ul.appendChild(li);
+      var o = document.createElement("option");
+      o.disabled = true;
+      o.textContent = a.name + "（" + reason(a.error) + "）";
+      g.appendChild(o);
     });
-    $("blocked").hidden = false;
+    sel.appendChild(g);
   }
 
   /* ---------- 検索語のハイライト ---------- */
