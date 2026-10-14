@@ -195,11 +195,17 @@ def err_text(e: urllib.error.HTTPError) -> str:
     if err.get("code") == 190:
         # subcode で理由が分かる(460=パスワード変更、463=期限切れ、467=ログアウトなどでセッション無効)
         return f"アクセストークンが無効(190/{err.get('error_subcode')} {err.get('message', '')})"
+    if err.get("code") in (4, 17, 32, 613):
+        return f"回数制限({err.get('code')} {err.get('message', '')})"
     return f"{err.get('code')}/{err.get('error_subcode')} {err.get('message', '')}"
 
 
 def is_token_error(msg: str) -> bool:
     return msg.startswith("アクセストークン")
+
+
+class RateLimited(Exception):
+    """API の回数制限(code 4 / 17 / 32 / 613)。その回はそこで止め、続きは次の回に回す。"""
 
 
 # ---------- 本体 ----------
@@ -232,6 +238,9 @@ def main() -> int:
             return fetch_page(user, after)
         except urllib.error.HTTPError as e:
             msg = err_text(e)
+            # 回数制限は一時的なものなので、アカウントのエラーとしては記録せずにその回を終える
+            if msg.startswith("回数制限"):
+                raise RateLimited(msg) from None
             failed.append(f"{user}{'(遡り)' if after else ''}: {msg}")
             crawl("POST", "error", {"username": user, "error": msg})
             if is_token_error(msg):
@@ -270,6 +279,9 @@ def main() -> int:
                 crawl("POST", "posts", {"username": user, "posts": media.get("data", []),
                                         "state": {"after": st["after"], "done": st["done"]}})
                 saved += len(media.get("data", []))
+    except RateLimited as e:
+        # 失敗にはしない(次の回が続きから取る)。ここまでに取った分は保存済み
+        warn(f"API の回数制限に達したので、今回はここまで(API {calls}回 / 保存 {saved}件)。続きは次の回に取ります\n{e}")
     except urllib.error.HTTPError:
         # failed の最後が、止まる原因になったトークンのエラー(Meta が返した文言つき)
         warn("アクセストークンが無効です。Graph API エクスプローラーで発行し直して IG_ACCESS_TOKEN を更新してください\n"

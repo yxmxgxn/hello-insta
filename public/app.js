@@ -35,8 +35,9 @@
     var sel = $("acc"), groups = {}, order = [], blocked = [];
     list.forEach(function (a) {
       names[a.username] = a.name;
-      // 1件も取れていなくてエラーが記録されている人は、いちばん下の「取得不可」にまとめて選べなくする
-      if (!a.posts && a.error) {
+      // 1件も取れていなくて、個人アカウントで取れないと分かっている人は、いちばん下の「取得不可」にまとめて選べなくする
+      // (回数制限などの一時的なエラーの人は、ふつうに「未取得」で並べる)
+      if (!a.posts && /個人アカウント/.test(a.error || "")) {
         if (a.active) blocked.push(a);
         return;
       }
