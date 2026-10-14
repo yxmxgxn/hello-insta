@@ -73,6 +73,24 @@ function toJst(ts) {
   return new Date(d.getTime() + 9 * 3600e3).toISOString().slice(0, 16).replace("T", " ");
 }
 
+// 合言葉が合っているか(Basic認証の形。利用者名は何でもよく、合言葉だけを見る)
+function unlocked(request, pass) {
+  const got = request.headers.get("authorization") || "";
+  if (!got.startsWith("Basic ")) return false;
+  let decoded = "";
+  try {
+    decoded = new TextDecoder().decode(Uint8Array.from(atob(got.slice(6)), (c) => c.charCodeAt(0)));
+  } catch {
+    return false;
+  }
+  const given = decoded.slice(decoded.indexOf(":") + 1);
+  // 長さの違いで中身が漏れないよう、最後まで見てから比べる
+  if (given.length !== pass.length) return false;
+  let diff = 0;
+  for (let i = 0; i < pass.length; i++) diff |= given.charCodeAt(i) ^ pass.charCodeAt(i);
+  return diff === 0;
+}
+
 // 片割れになったサロゲート(以前の切り方で絵文字が割れたもの)を取り除く
 function dropBroken(s) {
   return String(s || "").replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, "");
@@ -313,6 +331,27 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     const p = url.pathname;
+
+    // 鍵: SITE_PASS(Worker のシークレット)があるあいだは、合言葉を知っている人だけ通す(Basic 認証。利用者名は何でもよい)。
+    // クローラ用APIは Bearer トークンで守っているので対象外。SITE_PASS を消せば関門ごと無くなる
+    if (env.SITE_PASS) {
+      if (p === "/robots.txt") {
+        return new Response("User-agent: *\nDisallow: /\n", {
+          headers: { "content-type": "text/plain; charset=utf-8", "x-robots-tag": "noindex, nofollow" },
+        });
+      }
+      if (!p.startsWith("/api/crawl/") && !unlocked(request, env.SITE_PASS)) {
+        return new Response("この画面は非公開です。\n", {
+          status: 401,
+          headers: {
+            "www-authenticate": 'Basic realm="hello-insta", charset="UTF-8"',
+            "content-type": "text/plain; charset=utf-8",
+            "cache-control": "no-store",
+            "x-robots-tag": "noindex, nofollow",
+          },
+        });
+      }
+    }
 
     // 公開API: 同一IPからの叩きすぎを止める
     if (p.startsWith("/api/") && !p.startsWith("/api/crawl/") && env.RL) {

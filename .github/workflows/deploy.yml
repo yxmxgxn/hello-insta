@@ -35,7 +35,7 @@ jobs:
           wranglerVersion: '4'
           command: d1 execute hello-insta --remote --command "ALTER TABLE post ADD COLUMN added_at TEXT"
 
-      # クローラ用APIの合言葉は GitHub の Secret から Worker の Secret へ流し込む
+      # クローラ用APIの合言葉(CRAWL_TOKEN)とサイトの鍵(SITE_PASS)は GitHub の Secret から Worker の Secret へ流し込む
       - name: Deploy to Cloudflare Workers
         uses: cloudflare/wrangler-action@v3
         with:
@@ -45,5 +45,8 @@ jobs:
           command: deploy
           secrets: |
             CRAWL_TOKEN
+            SITE_PASS
         env:
           CRAWL_TOKEN: ${{ secrets.CRAWL_TOKEN }}
+          # サイトの鍵の合言葉
+          SITE_PASS: ${{ secrets.SITE_PASS }}

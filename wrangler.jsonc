@@ -5,8 +5,9 @@
   "assets": {
     "directory": "./public",
     "binding": "ASSETS",
-    // Worker を通すのは API だけ。画面(静的ファイル)は Worker を通さず配信する
-    "run_worker_first": ["/api/*"]
+    // すべて Worker を通す。合言葉(SITE_PASS)を画面にも掛けるため。
+    // 鍵を外すときは ["/api/*"] に戻すと、静的ファイルは Worker を通らず配信される
+    "run_worker_first": true
   },
   // 公開URL insta.karin-archive.com はダッシュボードで付けたカスタムドメイン
   // (Workers & Pages → hello-insta → 設定 → ドメインとルート)。
