@@ -23,7 +23,7 @@
       "binding": "DB",
       "database_name": "hello-insta",
       // ダッシュボード → ストレージとデータベース → D1 → hello-insta
-      "database_id": "REPLACE_WITH_D1_ID"
+      "database_id": "fd432d2a-d80f-4105-9c47-fe8802e0b5d9"
     }
   ]
 }
