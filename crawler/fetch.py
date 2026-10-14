@@ -176,6 +176,14 @@ def fetch_page(username: str, after: str | None) -> dict:
     return data.get("business_discovery", {}).get("media", {})
 
 
+def next_state(page: dict) -> dict:
+    """次に遡るカーソルと、遡りきったか。
+    Business Discovery の入れ子の media には paging.next が付かないので、
+    カーソルが無いか、件数が1ページ分に満たなければ最後のページとみなす。"""
+    after = page.get("paging", {}).get("cursors", {}).get("after")
+    return {"after": after, "done": not after or len(page.get("data", [])) < PAGE_SIZE}
+
+
 def err_text(e: urllib.error.HTTPError) -> str:
     """APIエラーを短く。ビジネス/クリエイターでないアカウントは subcode 2207013 で返る。"""
     try:
@@ -206,6 +214,12 @@ def main() -> int:
     targets = load_targets()
     crawl("POST", "accounts", {"accounts": targets})
     state = {s["username"]: s for s in crawl("GET", "state")["state"]}
+    # 以前の判定(paging.next の有無)で、最初の1ページだけで「遡り完了」にされてしまった人を立て直す。
+    # カーソルが残っていて収録数がちょうど1ページ分の倍数なら、まだ続きがあるとみなして遡りを再開する
+    # (本当に終わっていた人は、次の1ページが空で返って正しく完了に戻る)
+    for st in state.values():
+        if st["done"] and st["after"] and st.get("posts") and st["posts"] % PAGE_SIZE == 0:
+            st["done"] = 0
 
     calls = 0
     saved = 0
@@ -238,8 +252,7 @@ def main() -> int:
             st = state.get(user)
             new_state = None
             if not st or (not st["after"] and not st["done"]):
-                paging = media.get("paging", {})
-                new_state = {"after": paging.get("cursors", {}).get("after"), "done": not paging.get("next")}
+                new_state = next_state(media)
                 state[user] = {"username": user, **new_state}
             crawl("POST", "posts", {"username": user, "posts": media.get("data", []), "state": new_state})
             saved += len(media.get("data", []))
@@ -252,8 +265,7 @@ def main() -> int:
                 media = get(user, st["after"])
                 if media is None:
                     break
-                paging = media.get("paging", {})
-                st = {"username": user, "after": paging.get("cursors", {}).get("after"), "done": not paging.get("next")}
+                st = {"username": user, **next_state(media)}
                 state[user] = st
                 crawl("POST", "posts", {"username": user, "posts": media.get("data", []),
                                         "state": {"after": st["after"], "done": st["done"]}})
