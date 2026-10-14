@@ -58,8 +58,22 @@ GROUPS: dict[str, str] = {
 }
 OG_SECTIONS = ["J.P ROOM", "M-line", "UP-FRONT PROMOTION"]
 
-# スプシの判定に乗らないが対象にするアカウント: ユーザー名 → (表示名, 見出し)
-EXTRA_ACCOUNTS: dict[str, tuple[str, str]] = {}
+# グループの公式アカウント(affiliation slug → ユーザー名)。各グループの見出しの一番上に「○○ 公式」で並べる
+GROUP_OFFICIAL: dict[str, str] = {
+    "morningmusume":  "morningmusume_official",
+    "angerme":        "angerme_official",
+    "juicejuice":     "juice_juice_official",
+    "tsubakifactory": "tsubakifactory_official",
+    "beyooooonds":    "beyooooonds_official",
+    "ochanorma":      "ocha_norma_official",
+    "rosychronicle":  "rosy_chronicle_official",
+}
+
+# スプシの判定に乗らないが対象にするアカウント: ユーザー名 → (表示名, 見出し)。一覧の一番下に並ぶ
+EXTRA_ACCOUNTS: dict[str, tuple[str, str]] = {
+    user: (user, "その他")
+    for user in ("hello_shop_official", "hp_officialfanclub", "helloproject_stream", "odybooks")
+}
 
 
 def warn(msg: str) -> None:
@@ -110,6 +124,9 @@ def load_targets() -> list[dict]:
         else:
             continue
         picked.append(((1, OG_SECTIONS.index(sec), m["num"]), m, sec))
+    # グループ公式は、そのグループのメンバーより前(加入順の番号 -1)に置く
+    for slug, user in GROUP_OFFICIAL.items():
+        picked.append(((0, group_order.index(slug), -1), {"name": f"{GROUPS[slug]} 公式", "ig": [user]}, GROUPS[slug]))
 
     out: dict[str, dict] = {}
     for _, m, sec in sorted(picked, key=lambda t: t[0]):
