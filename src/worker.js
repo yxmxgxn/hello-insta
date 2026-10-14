@@ -73,6 +73,11 @@ function toJst(ts) {
   return new Date(d.getTime() + 9 * 3600e3).toISOString().slice(0, 16).replace("T", " ");
 }
 
+// 片割れになったサロゲート(以前の切り方で絵文字が割れたもの)を取り除く
+function dropBroken(s) {
+  return String(s || "").replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, "");
+}
+
 const nowJst = () => new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 16).replace("T", " ");
 
 /* ============================ 公開API ============================ */
@@ -192,7 +197,8 @@ async function crawlPosts(request, env) {
     const ts = toJst(p.timestamp);
     if (!p.id || !ts) continue;
     const caption = p.caption || "";
-    const excerpt = caption.split(/\s+/).filter(Boolean).join(" ").slice(0, EXCERPT_LEN);
+    // 絵文字(サロゲートペア)を途中で割らないよう、文字単位(Array.from)で切る
+    const excerpt = Array.from(caption.split(/\s+/).filter(Boolean).join(" ")).slice(0, EXCERPT_LEN).join("");
     // 取り直しでは added_at を変えない(初めて入った日時を残す)
     stmts.push(env.DB
       .prepare(
@@ -288,7 +294,7 @@ async function dailyReport(env) {
     .all();
 
   const lines = fresh.slice(0, REPORT_LIST_MAX).map((r) => {
-    const text = (r.excerpt || "（本文なし）").slice(0, 40).replace(/[\[\]]/g, "");
+    const text = Array.from(dropBroken(r.excerpt) || "（本文なし）").slice(0, 40).join("").replace(/[\[\]]/g, "");
     return `${r.ts.slice(5).replace("-", "/")} **${r.name}** [${text}](${r.permalink.replace("/reel/", "/p/")})`;
   });
   if (fresh.length > REPORT_LIST_MAX) lines.push(`ほか ${fresh.length - REPORT_LIST_MAX} 件は[サイト](${SITE}/)で`);

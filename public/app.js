@@ -98,7 +98,9 @@
     a.href = post.permalink.replace("/reel/", "/p/");
     a.target = "_blank";
     a.rel = "noopener noreferrer";
-    if (post.excerpt) highlight(a, post.excerpt, q); else a.textContent = "（本文なし）";
+    // 以前の取り込みで絵文字が途中で割れた抜粋があるので、片割れのサロゲートを除いて出す
+    var text = (post.excerpt || "").replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, "");
+    if (text) highlight(a, text, q); else a.textContent = "（本文なし）";
     li.appendChild(a);
     return li;
   }
