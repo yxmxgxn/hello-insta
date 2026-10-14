@@ -181,7 +181,7 @@ def is_token_error(msg: str) -> bool:
 def main() -> int:
     for k in ("CRAWL_API", "CRAWL_TOKEN", "IG_USER_ID", "IG_ACCESS_TOKEN"):
         if not os.environ.get(k):
-            print(f"環境変数 {k} が未設定です", file=sys.stderr)
+            print(f"環境変数 {k} が未設定です(CRAWL_API は Variables、ほかは Secrets に登録)", file=sys.stderr)
             return 1
     max_calls = int(os.environ.get("MAX_CALLS") or 150)
 

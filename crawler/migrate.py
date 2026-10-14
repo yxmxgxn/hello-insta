@@ -12,6 +12,7 @@
 """
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -34,6 +35,10 @@ def old_query(sql: str) -> list[dict]:
 
 def main() -> int:
     drop_old = "--drop-old" in sys.argv
+    for k in ("CRAWL_API", "CRAWL_TOKEN"):
+        if not os.environ.get(k):
+            print(f"{k} が未設定です(CRAWL_API は Variables、CRAWL_TOKEN は Secrets に登録)", file=sys.stderr)
+            return 1
 
     old_count = old_query("SELECT COUNT(*) AS n FROM insta_post")[0]["n"]
     print(f"旧DBの投稿: {old_count}件")
