@@ -25,10 +25,21 @@
 
   /* ---------- アカウント ---------- */
 
+  // 取得エラーの文言 → 一覧に出す理由
+  function reason(error) {
+    if (/個人アカウント/.test(error)) return "個人アカウントのため";
+    return error;
+  }
+
   function fillAccounts(list) {
-    var sel = $("acc"), groups = {}, order = [];
+    var sel = $("acc"), groups = {}, order = [], blocked = [];
     list.forEach(function (a) {
       names[a.username] = a.name;
+      // 1件も取れていなくてエラーが記録されている人は選べなくし、下の一覧に理由を出す
+      if (!a.posts && a.error) {
+        if (a.active) blocked.push(a);
+        return;
+      }
       var sec = a.active ? a.section : "以前の対象";
       if (!groups[sec]) { groups[sec] = document.createElement("optgroup"); groups[sec].label = sec; order.push(sec); }
       var o = document.createElement("option");
@@ -38,6 +49,22 @@
       groups[sec].appendChild(o);
     });
     order.forEach(function (s) { sel.appendChild(groups[s]); });
+
+    if (!blocked.length) return;
+    $("blocked-count").textContent = blocked.length;
+    var ul = $("blocked-list");
+    blocked.forEach(function (a) {
+      var li = document.createElement("li");
+      var link = document.createElement("a");
+      link.href = "https://www.instagram.com/" + a.username + "/";
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      link.textContent = a.name;
+      li.appendChild(link);
+      li.appendChild(document.createTextNode("（" + a.section + "）… " + reason(a.error)));
+      ul.appendChild(li);
+    });
+    $("blocked").hidden = false;
   }
 
   /* ---------- 検索語のハイライト ---------- */

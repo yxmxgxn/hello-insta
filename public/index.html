@@ -39,6 +39,12 @@
     <p class="hint">メンバー未選択なら全員。Ctrl（Macは⌘）を押しながらクリックで複数選べます。一覧のメンバー名を押すと、その人だけに絞り込めます。空白で区切ると「全部含む」投稿を探します。</p>
   </form>
 
+  <details id="blocked" class="blocked" hidden>
+    <summary>取得できないアカウント（<span id="blocked-count"></span>）</summary>
+    <p>このサイトは Instagram の公式API（Business Discovery）で投稿を集めています。このAPIで読めるのはビジネス／クリエイターアカウントだけなので、個人アカウントの人は取得できません。アカウントの種類が切り替われば、自動で取得が始まります。</p>
+    <ul id="blocked-list"></ul>
+  </details>
+
   <section class="cal" aria-label="投稿カレンダー">
     <div class="cal-head">
       <button type="button" class="ghost" data-move="-12" aria-label="前の年">«</button>
