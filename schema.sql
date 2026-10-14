@@ -11,7 +11,9 @@ CREATE TABLE IF NOT EXISTS post (
   permalink  TEXT NOT NULL,
   media_type TEXT,              -- IMAGE / VIDEO / CAROUSEL_ALBUM
   excerpt    TEXT,              -- 本文の先頭(一覧表示用)
-  added_at   TEXT               -- このDBに初めて入った日時(JST)。毎日の報告の「新着」に使う
+  added_at   TEXT,              -- このDBに初めて入った日時(JST)。毎日の報告の「新着」に使う
+  like_count     INTEGER,       -- 最後に取ったときのいいね数(非表示の投稿は NULL)。公開画面には出さない
+  comments_count INTEGER        -- 最後に取ったときのコメント数。公開画面には出さない
 );
 CREATE INDEX IF NOT EXISTS post_ts ON post(ts);
 CREATE INDEX IF NOT EXISTS post_account_ts ON post(account, ts);

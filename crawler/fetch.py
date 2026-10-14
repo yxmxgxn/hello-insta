@@ -169,7 +169,7 @@ def crawl(method: str, path: str, body: dict | None = None) -> dict:
 def fetch_page(username: str, after: str | None) -> dict:
     media = f"media.limit({PAGE_SIZE})" + (f".after({after})" if after else "")
     fields = (f"business_discovery.username({username})"
-              f"{{{media}{{id,caption,timestamp,permalink,media_type}}}}")
+              f"{{{media}{{id,caption,timestamp,permalink,media_type,like_count,comments_count}}}}")
     q = urllib.parse.urlencode({"fields": fields, "access_token": os.environ["IG_ACCESS_TOKEN"]})
     with urllib.request.urlopen(f"{GRAPH}/{os.environ['IG_USER_ID']}?{q}", timeout=60) as res:
         data = json.loads(res.read().decode("utf-8"))

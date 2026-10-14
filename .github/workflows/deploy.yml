@@ -35,6 +35,24 @@ jobs:
           wranglerVersion: '4'
           command: d1 execute hello-insta --remote --command "ALTER TABLE post ADD COLUMN added_at TEXT"
 
+      - name: Add column post.like_count
+        continue-on-error: true
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: '4'
+          command: d1 execute hello-insta --remote --command "ALTER TABLE post ADD COLUMN like_count INTEGER"
+
+      - name: Add column post.comments_count
+        continue-on-error: true
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: '4'
+          command: d1 execute hello-insta --remote --command "ALTER TABLE post ADD COLUMN comments_count INTEGER"
+
       # クローラ用APIの合言葉(CRAWL_TOKEN)とサイトの鍵(SITE_PASS)は GitHub の Secret から Worker の Secret へ流し込む
       - name: Deploy to Cloudflare Workers
         uses: cloudflare/wrangler-action@v3
