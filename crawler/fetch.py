@@ -178,10 +178,13 @@ def fetch_page(username: str, after: str | None) -> dict:
 
 def next_state(page: dict) -> dict:
     """次に遡るカーソルと、遡りきったか。
-    Business Discovery の入れ子の media には paging.next が付かないので、
-    カーソルが無いか、件数が1ページ分に満たなければ最後のページとみなす。"""
+    続きがあっても1ページの件数が上限に満たないことがある(年齢制限の投稿などを除いた結果)ので、
+    件数では判断しない。カーソルが無いか、中身が0件のページが返ってきたら最後とみなす。
+    最後のときはカーソルも捨てる(残すと、下の立て直しで毎回確認しに行ってしまうため)。"""
     after = page.get("paging", {}).get("cursors", {}).get("after")
-    return {"after": after, "done": not after or len(page.get("data", [])) < PAGE_SIZE}
+    if not after or not page.get("data"):
+        return {"after": None, "done": True}
+    return {"after": after, "done": False}
 
 
 def err_text(e: urllib.error.HTTPError) -> str:
@@ -220,11 +223,11 @@ def main() -> int:
     targets = load_targets()
     crawl("POST", "accounts", {"accounts": targets})
     state = {s["username"]: s for s in crawl("GET", "state")["state"]}
-    # 以前の判定(paging.next の有無)で、最初の1ページだけで「遡り完了」にされてしまった人を立て直す。
-    # カーソルが残っていて収録数がちょうど1ページ分の倍数なら、まだ続きがあるとみなして遡りを再開する
-    # (本当に終わっていた人は、次の1ページが空で返って正しく完了に戻る)
+    # 以前の判定(paging.next の有無や、件数が1ページに満たないこと)で途中なのに「遡り完了」にされた人を立て直す。
+    # 完了なのにカーソルが残っている人は、まだ続きがあるかもしれないので遡りを再開する
+    # (本当に終わっていた人は、次の1ページが空で返ってカーソルごと消え、正しく完了に戻る)
     for st in state.values():
-        if st["done"] and st["after"] and st.get("posts") and st["posts"] % PAGE_SIZE == 0:
+        if st["done"] and st["after"]:
             st["done"] = 0
 
     calls = 0
