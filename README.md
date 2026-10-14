@@ -13,7 +13,6 @@ https://insta.karin-archive.com/
 | `public/` | 画面（静的ファイル。Worker を通さず配信） |
 | `schema.sql` | D1 `hello-insta` のテーブル。デプロイのたびに流す |
 | `crawler/fetch.py` | Graph API の Business Discovery で取得し、クローラ用API経由で D1 に書く |
-| `crawler/migrate.py` | karin-archive 時代のデータ（D1 `karin-hello`）を移す一度きりのスクリプト |
 
 ## 動き方
 

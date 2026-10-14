@@ -11,7 +11,6 @@
  *   POST /api/crawl/accounts   SNSスプシ由来の対象アカウントを丸ごと差し替え(外れた人は active=0)
  *   POST /api/crawl/posts      1ページ分の投稿と、そのアカウントの進み具合をまとめて書く
  *   POST /api/crawl/error      取得エラーを記録
- *   POST /api/crawl/import     旧DBからの移行用。bigram 済みの行をそのまま入れる
  *
  * 定期実行: 毎日 JST 20:00 に、収録件数・前回からの増加数・新着投稿を Discord へ送る(DISCORD_WEBHOOK)。
  *
@@ -242,28 +241,6 @@ async function crawlError(request, env) {
   return json({ ok: true });
 }
 
-// 旧DB(karin-hello の insta_post / insta_fts)からの移行用。
-// { posts: [{ id, account, ts, permalink, media_type, excerpt, bigram }], state: [{ username, after, done }] }
-async function crawlImport(request, env) {
-  const { posts = [], state = [] } = await request.json();
-  const stmts = [];
-  for (const p of posts) {
-    stmts.push(env.DB
-      .prepare("INSERT OR REPLACE INTO post(id, account, ts, permalink, media_type, excerpt) VALUES(?, ?, ?, ?, ?, ?)")
-      .bind(p.id, p.account, p.ts, p.permalink, p.media_type || null, p.excerpt || ""));
-    stmts.push(env.DB.prepare("DELETE FROM post_fts WHERE id = ?").bind(p.id));
-    if (p.bigram) stmts.push(env.DB.prepare("INSERT INTO post_fts(id, bigram) VALUES(?, ?)").bind(p.id, p.bigram));
-  }
-  for (const s of state) {
-    // 移行後に新しい取得が先に走っていたら、そちらを優先する(DO NOTHING)
-    stmts.push(env.DB
-      .prepare("INSERT INTO fetch_state(username, after, done) VALUES(?, ?, ?) ON CONFLICT(username) DO NOTHING")
-      .bind(s.username, s.after || null, s.done ? 1 : 0));
-  }
-  if (stmts.length) await env.DB.batch(stmts);
-  return json({ ok: true, posts: posts.length, state: state.length });
-}
-
 /* ============================ 毎日の報告 ============================ */
 
 const SITE = "https://insta.karin-archive.com";
@@ -360,7 +337,6 @@ export default {
         if (route === "POST accounts") return await crawlAccounts(request, env);
         if (route === "POST posts") return await crawlPosts(request, env);
         if (route === "POST error") return await crawlError(request, env);
-        if (route === "POST import") return await crawlImport(request, env);
         return new Response("Not found", { status: 404 });
       } catch (e) {
         // 例外のままだと Cloudflare の汎用エラー(1101)になって原因が分からないので中身を返す
