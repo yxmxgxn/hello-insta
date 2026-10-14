@@ -17,7 +17,7 @@ https://insta.karin-archive.com/
 ## 動き方
 
 - **Deploy**（`deploy.yml`）: main への push で、スキーマ適用 → Worker デプロイ
-- **Fetch**（`fetch.yml`）: 1日4回（JST 3:15 / 9:15 / 15:15 / 19:15）。対象アカウントを SNS一覧スプシから読み、全員の最新50件と、過去分の遡りを1回150回まで
+- **Fetch**（`fetch.yml`）: 2時間おき（JST の奇数時15分。遡りが終わったら1日4回に戻してよい）。対象アカウントを SNS一覧スプシから読み、全員の最新50件と、過去分の遡りを1回150回まで
 - **毎日の報告**（Worker の cron）: JST 20:00 に収録件数・前回からの増加数・新着を Discord へ（Worker のシークレット `DISCORD_WEBHOOK`）
 - 対象アカウントは karin-archive の SNS一覧スプシ（accounts シート）の所属で決まる。条件は `crawler/fetch.py` の `load_targets()`
 - 取れるのはビジネス／クリエイターアカウントだけ。個人アカウントは Fetch の警告に出る
