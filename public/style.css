@@ -86,3 +86,17 @@ mark { background: var(--mark); color: var(--mark-ink); border-radius: 2px; }
 .site-foot { padding-top: 16px; padding-bottom: 32px; color: var(--muted); font-size: .8rem; border-top: 1px solid var(--line); margin-top: 24px; }
 .site-foot p { margin: 4px 0; }
 .site-foot a { color: inherit; }
+
+/* ---------- 説明ページ(/about・/tech) ---------- */
+main.doc { line-height: 1.8; }
+.doc-lead { font-size: 1.05rem; margin: 0 0 28px; color: var(--text); }
+main.doc h2 { margin-top: 32px; margin-bottom: 12px; font-size: 1.3rem; border-bottom: 2px solid var(--line); padding-bottom: 6px; }
+main.doc h3 { margin-top: 20px; margin-bottom: 8px; font-size: 1.1rem; }
+main.doc h3 + p { margin-top: 0; }
+main.doc p { margin: 8px 0; }
+main.doc ul { margin: 8px 0; padding-left: 24px; }
+main.doc li { margin: 6px 0; }
+main.doc a { color: var(--accent); }
+.note { font-size: .92rem; color: var(--muted); margin-top: 12px; }
+main.doc strong { color: var(--accent); font-weight: 600; }
+.lead a { color: inherit; }
