@@ -1,0 +1,322 @@
+{
+ "a_h.curryfilm_": {
+  "after": null,
+  "done": true
+ },
+ "airisuzuki_official_uf": {
+  "after": "QVFIVExRVC1RY21Fb21xQ3Ezb2VPYkJuZAmM4dFBzYjUyU2s2OFh3UUVGcGhETDJJRXNMUkJXdXA1ZAEtKRmxvaHBPb3R0ZA2lET2xDYk93VEo1VXZAhN3AybGxB",
+  "done": true
+ },
+ "akari_endo.official": {
+  "after": null,
+  "done": false
+ },
+ "akari_takeuchi.official": {
+  "after": "QVFIVGF6NnlyaUVkWS1vdjJSSDczT003VFFNZA3VvNVFlZAWFjX241cHRaV2xQSDZAkTWtMaThKWmd3YlMwcFhnZA1RZAMWd1bGs4R2o4b0tlQWRoYTlBN1FIMGR3",
+  "done": true
+ },
+ "akari_uemura.official": {
+  "after": "QVFIVGRSNHp5ZAEltTHpkUUpKbmJ2Y0dad3NWYndhQXpub2k2TXNJdkVjNHM3N29McUlaNkIzTUdPbmRNMzlBV2xwTGpDZADIwZA1RZAZAk1EbWswNTVia2VYZAkh3",
+  "done": true
+ },
+ "akaritakeuchi_calligraphy": {
+  "after": null,
+  "done": false
+ },
+ "ako__yumigeta.official": {
+  "after": null,
+  "done": true
+ },
+ "ami_tanimoto.official": {
+  "after": "QVFIVFRNNXZAUR2tmY1ZAfckNYdzJXQjdwcWJtRU5qeVdKZADZAXaHNRVGtMWjFWd1MwOUhqODBOckpTSEFPTk91ZAW9MTjBYYTdndjNkLWZA1VjliWFdMYXNKaFRR",
+  "done": true
+ },
+ "ayumi_ishida.official": {
+  "after": "QVFIVEZAxdzNwV3lCUEY4dlhxb3ozdnNOYW1CbWE4eW1UWnJ0UndvNzctMDV6N2xzak9BdG5NTWtUdzJXMXRjeUNNcVlrSTVzdE5IRnBFS3ZAXSGRXdkdxeFJB",
+  "done": true
+ },
+ "chisaki__morito.official": {
+  "after": "QVFIVEFPbUFiWWUtS1YwXzRld0pSS1h2UUdpOHVRZAlZArOEc4c0NRQ1dQc1BlUV8tRUJ3M2pVVVNDaUpKendRWHZAvUmQtRVpnQmFuZAjQzOGcyM0tyQkxWR2h3",
+  "done": true
+ },
+ "hana_goto.official": {
+  "after": null,
+  "done": false
+ },
+ "hana_kojima.official": {
+  "after": "QVFIVE1XVndueFZArc2hHb09FU3o4T1ZAfOUdYNzFlQWl1eTZAYRXg1NU5udFF6cDRKMFZAMaEp3VkZA6OTBSYUVaMExtc1lTMFRiWE9tbnlTQlpVU3NFbHNPQTZAB",
+  "done": true
+ },
+ "haruka__inoue.official": {
+  "after": null,
+  "done": true
+ },
+ "harunaiikubo_official": {
+  "after": "QVFIVDdOR3RORjV6LWd5S3FsRmpBakJPUDJPRzVYUXljeENRVHdEWUxiV1l3ZA0w0ZA184UFAwVU1uOHdWamd4bVQwMEY2T1RnRUxqR3lNRjByZAkpBWHpFOVV3",
+  "done": true
+ },
+ "homare__okamura.official": {
+  "after": "QVFIVGhlM21DYTVSZAHNfWkRza0w1dndxd0hDUWlfWmwwOHJrb3A2NndTMzFaM05FOHUxaThqRWZArRXotZAURqX2FIdHdqNkJrdUo1YmZAjUDN5SVd6NUJFZAk53",
+  "done": true
+ },
+ "honoka_kobayashi.official": {
+  "after": "QVFIVHAxTGZA4TV82X0tqMWcyelJaS3VTME1OOG9XY2V2OUZAjU2E3UkhNa0ZAEZADV1MVh3Q2RGLTNDVUswUHNnRGIwM0o1NDN6Tnh6QkljRjRadWxSZAVBnR0tR",
+  "done": true
+ },
+ "i_am_takahashi": {
+  "after": "QVFIVDd2V1BNNTY5YkdfS1o5YTFMd2JRQ3JFeUROcmxZAVEhJSjdGbENLR0NFaUlYczdYRnhsRmxIYkxDMXhHeFVpMi14cFRMNUI1empvSFF4Umd1b0RJMm1n",
+  "done": true
+ },
+ "ichika_arisawa.official": {
+  "after": null,
+  "done": false
+ },
+ "iidakaori.official": {
+  "after": "QVFIVDc2NzNTVkRSblAyN0lHWVdzWjF0SnBxZA3QtSldicFRrQTJILXhzajFBVkgyTGJEUzl3b3p3YjUwcEh3eWdDRWQ1UVE0YzJYZAzdzb1JabmdlN1BjeVJn",
+  "done": true
+ },
+ "karin_miyamoto.official": {
+  "after": "QVFIVEd1RFIwUUFaLW51NnJpUjRLRGdmN2NiS3FYYUR4bUFJVmp3dDd6ZAW4tZAjJlSGRwNEFsWktYY2tfOWltVDcyMWdBVnU0UmxfaDItV2pYbngyNlIxczBR",
+  "done": true
+ },
+ "keiyasuda1206": {
+  "after": "QVFIVDdCVlFfVGNFRlNtcjVqQXVXaGo0ak5WS3lwWjhtUUJkVEh4OTFLNGU0cFF3LS1jMVVTNDhBc3dEVzJndzhKaGxkMUNnU0cwcTd4c2JJQXJ2NzVJVlp3",
+  "done": true
+ },
+ "kiki_asakura.official": {
+  "after": "QVFIVFE4VmtfanJUaC1XbE9Lenk0aVNtdEk3dlQ2YVN6a2tSVWxuMGV2TnJTM1lxenI0aTZAhWnFja0tsNEo0UE9xOTQzeUpsMUVjT1FMNU83OWdYTGZAacnNB",
+  "done": true
+ },
+ "kirara_yonemura.official": {
+  "after": "QVFIVHIwS2ZABZAlVNYlNvS3FDS3RYX2RJUTBkXzROVlFIOUpINzNRczhncUhEcHdxS1Y4TksyZAXJPZAE0tQU1pZAGNUUDktWTdPelpwSlFRZA3MzdEl1YXotM3hn",
+  "done": true
+ },
+ "kisaki_ebata.official": {
+  "after": null,
+  "done": false
+ },
+ "kokoro_maeda.official": {
+  "after": "QVFIVG01amFuQ1FOS2drbExFYm82YkNTcHY2WUJpSDJUM3NSR1BTb3J3a2ZAaRFpMSHRBcXZAvN0ZAXay1nRy0wYnpScENCalhIM21zcTRSN3A1N2dGcjFEZATFn",
+  "done": true
+ },
+ "kumai_yurina": {
+  "after": "QVFIVDFPOHRodzlFd3FOS3B1QTQ0ZATFsaEhBbmstVUxQM01WSnpIZAjNmZA2ZAFRGxOU2hFTDNWUmg5bDFnUFdySkNXY0VKUzlVS0lQS3dabGhTM1V2SWk1eURn",
+  "done": true
+ },
+ "layla_ise.official": {
+  "after": null,
+  "done": false
+ },
+ "maasa_sudo": {
+  "after": "QVFIVGoyQzVsZATBqVWRDaEpVOEZAFak5XeEFEVC1kSmxOaGpRd01RVVVEOG9oVVZAtTmJVeHpyMzNQR3g0dDRhVWlyZA0UxbjRzelY5TVF0M3g0XzViQzlsZAUVn",
+  "done": true
+ },
+ "madoka_saito.official": {
+  "after": "QVFIVFROWm9rS2RYdXlRSHZAfUkVwWmJkZAGRQMFJyUUpMd0o4ZAXh0czVDVGZAody0wcFNTb0tySjFvb2VVT1NSSGxXTklTUTBveXdtMmlpTW9wbVBvWlowODZAB",
+  "done": true
+ },
+ "mai_ozeki.official": {
+  "after": "QVFIVGx2SHNZASlRERFl0aUJOWmhERjd0d0V2QnkxTHA0VTBqY1lESnFGelF5R01OTGMybnFaRGxCV2dOazRpLWdJRkJULWxxWXZARZAEh0ZAkpMT0I0VlVPSlln",
+  "done": true
+ },
+ "maimiyajima_official_uf": {
+  "after": "QVFIVElELW1DTmRnT21RWWdabGhkMGsyTmVPY2VFMUxHWXprcHlTZAk5XalN3WVB6WnYybzBhNjhBLW1wSE9JLTlrWHo4RW1pcXh5bUd5UUQ5VTZA5bFBaU2tB",
+  "done": true
+ },
+ "manaka_inaba.official": {
+  "after": "QVFIVDR4V19tWWcxQTltSW0tRjRScFdCdDhiWmc4Vy0yaV81OWNMS0lVUzVtRUVoSEtMXzlpVlhFVzBqR1JwM21sTERRMTJkU0pCRmxMVlJ4RnpYajQ3ZAURB",
+  "done": true
+ },
+ "mao__akiyama.official": {
+  "after": "QVFIVFV6SFBTdU5EalpaNjZAKM2o4MlJYQVZAKNDVYSFg2Ymw1dkhGRFJtbWY1bEliUHNKZAC1lUzhlczFjSm0zVGRua2dxa1lTNFlvWkNNMzUySmRvM1BUaHhB",
+  "done": true
+ },
+ "marine_fukuda.official": {
+  "after": null,
+  "done": false
+ },
+ "mariyaguchi_official": {
+  "after": "QVFIVGVnTFJWWDdoVm9YRmh3QzJ3YWl4bXJwdGlIZAWVHd3ptOHZARRmJfd1lqSDFzeWJWMFRlWWRDS0ZAoTVFKZAWJnT0F1TXh2dkFDdjFCM3J6bm1IVjR1S2V3",
+  "done": true
+ },
+ "masaki.s_0507.official": {
+  "after": "QVFIVDlZAd1ppWjhEMDdrQ2xET0pab2htNzkwRXlHLW0zVVJNa0IzYlBlM253TThSV2d2SVRBLUNETXVyLXRLMUw3UXB1a3k2bFQ1eWxwcTYzVjJYc3pUVGtB",
+  "done": true
+ },
+ "mei_yamazaki.official": {
+  "after": "QVFIVEdackdydmdaeTRUNjNubnpKNEhWYzVYNnRnY0plVEp0SjlEYmRTWWdGTHA5ZA3MyWGhsZA3dKQmNkZAFNqRUJJTEluQ2xPMjh4NGkzVGpzcmJOcDVHdXVn",
+  "done": true
+ },
+ "mifu_kawashima.official": {
+  "after": null,
+  "done": false
+ },
+ "miki_nonaka.official": {
+  "after": "QVFIVGNTY3BEblRPWGdaRlhjUVg4WTV4ZAHJmcWNZAUlIzVGZApRDRHWWQ5ckdXWW1BdnNiNjJmeHhlZA2RhQURmMFROdzVCMkRTSHJ2WGUxZAFljRlNSZAVhuTEV3",
+  "done": true
+ },
+ "miku_nishizaki.official": {
+  "after": "QVFIVHNvcTZAyYUR6WnllVmRFOEtXcUQ3YVBoOXo4dGhTYlVBU0t2LTliajdUOS1jTjk0X0hqQkFINjFkajBvS1dZASnBHamowVXpoamhqOV9CaTFsQnV3a1BB",
+  "done": true
+ },
+ "minami_okamura.official": {
+  "after": "QVFIVGthX0hXbUZAzclBXaUg1aFY2RS14QVVaZAnJfMDc0OTJSS043NEp2UHB6aDV1ZAzFqTnBOQk9TSWxTUUVtdkY2OGtJM2F0YVFHU0VhOFpYUnV3ak8wZAmh3",
+  "done": true
+ },
+ "miyo_hirai.official": {
+  "after": null,
+  "done": false
+ },
+ "mizuho_ono.official": {
+  "after": "QVFIVFl4a3hMb1FkaGNYem1Qek0yNDBaU1Fqb01uSGZAuTXpNRUliem91aDFOV3pEUGtOZAWkxMmhZAY0tKOUpIUEoxSHNpSlRtekRtZAm9rTlVXYnpCbEgxN0xB",
+  "done": true
+ },
+ "mizuki_fukumura.official": {
+  "after": "QVFIVGdDc3RIZAy1yVi1lNnJock1RN2xTVjh6cmpIdU9heHdXaTlwRG10b3dnajhUNUJJU3gxcFRTT2w0enR3bWt4aU5zYWhvOWJPZA25ZAeUsxZAGJLR2c5R0RR",
+  "done": true
+ },
+ "moe_kamikokuryo.official": {
+  "after": "QVFIVDc1R2d3QkMtdFpCZAjBMcjctMTRRTDNnbW5td2VkZA3RUWm5mUHlRM29GemRkQ2hZATzZAWZAmc1MVI3X2huNWxOZA09XRTFDekVicWRTamJlZA21YYkt2T0l3",
+  "done": true
+ },
+ "momo_kitahara.official": {
+  "after": "QVFIVGpNQ3VHVS15MkJ3WWV1eXJkV19Sb3pRaHlEczNVOW1yTzdRelZAsRHJfODEyRzltbVhDRzlNbVdqbFdvZATNqd2FZAUGs4VDNnRDhpeFhWVEpOM2F1WlRn",
+  "done": true
+ },
+ "momohime_kiyono.official": {
+  "after": "QVFIVGZABQmVRUFVQajFlXzRrTkJ3UWZATdy1WQkJSbFZAfV19KRXR4eEtkeDB6bFA1eGRDZAENLRFp4MnNmQnFzSDdPYUFjTXNaTnBRa212clRpaWFhZAkV0YktR",
+  "done": true
+ },
+ "nanami_kubota.official": {
+  "after": "QVFIVE5UVWpYMno5azJ6ck1jTmJhNEtZAQXZAXYUktTE45R1ZANdGtHUVhqX3FIU09mcllnbVVMdVU5TnotWDNCdTM0STZAXWDVnQjh4Sjktekd2UXZApbWpJN1ln",
+  "done": true
+ },
+ "natsume_nakayama.official": {
+  "after": "QVFIVHpLaGFodEV2dktFaTl0TlNmcjFnUDZAKdDJ2Nmd2enRuSVU4UFZANY0pSdlNjUjc1Vk4xR2VBS245bG02cnFtQ1VNQ0E4ZA2kyTE1SNm9ZASmU1ejBwck5n",
+  "done": true
+ },
+ "rei_inoue.official": {
+  "after": "QVFIVE5BS3EtTUQzazVhQlg3aWZAZAcW5pamVwLUZAkdVZAmQmw3ZAHprdEFFbnF1cVZALcXJ2QnFYbG5LckljdUhrY1A0cDRYcGpBYkUyM3VvM29KWFRuZAWJGeG1n",
+  "done": true
+ },
+ "riai_matsunaga.official": {
+  "after": null,
+  "done": true
+ },
+ "rika_ishikawa_official": {
+  "after": "QVFIVFFsU1BZAWFhLaFBDSjZAYbzdfek5HcnUxcklZASTYwMW56UVZAZATjNrVTRkMnFxNGFHV3FOc2VsejgydzI0OUhabk1sRzI0OFdlS2NPQUNxRUNQX3NNY3BR",
+  "done": true
+ },
+ "rika_shimakura.official": {
+  "after": "QVFIVHBjXzNwTTgyUWlKVjdvOUVIQTB1UFRhUjM0OWNaVkZAsVWl2WUZAFei1xNGowSU9zWEdyQjVyNXJ1eXVkQS1wQjB4bDFudUF4VnpBdHhNYlo5QU1MTVpB",
+  "done": true
+ },
+ "rikako_sasaki.official": {
+  "after": "QVFIVDl3QURNVHdhOUlXMV8yUHRBRVIwaFNQbkJfSDBRNW02OVVRS0IwLWtZAX2Y5R0dUUlJxQ0k5VzY5a0V3cUZAwaHZATWm5CTU1DVzZABNVlMWC1aZAkRiaEt3",
+  "done": true
+ },
+ "riko_yamagishi.official": {
+  "after": "QVFIVG9PMVBJeW9ZAd3g5Q0ZA1Vms4Rm1KQU05SXhNcWk4UklEMXRLMnpDOWhheTNkRi1lVExzVVVTeHdoSlZANbm85cGtoTFVHZAUd4VmcwRVlTSEpJeW1pMDhR",
+  "done": true
+ },
+ "rin_hashisako.official": {
+  "after": null,
+  "done": false
+ },
+ "rin_kawana.official": {
+  "after": null,
+  "done": false
+ },
+ "rinakatsuta": {
+  "after": "QVFIVEl2STZANTUljLWpyNjNjQTVwYWNWb0xxUW1HaVNJMGVjZATdHUGhUZAjg3WFdlREhXdkF3MDFDd0ZArT0IyZAGhfYUZAiNnRTbldfS05UczhpR2hkVElhVVFn",
+  "done": true
+ },
+ "rio_sakurai.official": {
+  "after": "QVFIVG1EeV9IQ2ZAzM0FzVnFTWDRDaDhHbU14cHdLMnhwQUN2RUJjbWtrbE9lWmd3cm1SRk80S1hBTEc2Q0lTbmMwMTVZAbXNUQjRiTHh4Q0IzMm5udkE2X0Rn",
+  "done": true
+ },
+ "risa_irie.official": {
+  "after": "QVFIVGw5R2ZAzYzNENGkxX2JfODVwckRKQncwcXJ4QmVYbm9SNWVmN2pIXzNzVHdIcC1NbE54MEZAjN3R0NWNmLUd0UDBDQlpqcDJrVVJZAVEIzZATNEZAElDMG5R",
+  "done": true
+ },
+ "roko_tsutsui.official": {
+  "after": null,
+  "done": false
+ },
+ "ruli_hiromoto.official": {
+  "after": "QVFIVFZA3ZAjctY2dHZAjVjSkt2YVZA5Ukp1cF9sTGp1dXNWcWxmZAGhhay1WR1pVT0xmWjFVTzRKSWFXN0JqaDNzUUlfVDVfTExYWi1SVlJva0RRWTJEb1E1MTF3",
+  "done": true
+ },
+ "runo_yofu.official": {
+  "after": null,
+  "done": true
+ },
+ "ruru_dambara.official": {
+  "after": "QVFIVENuWXdjRHBCZAUNWWG9oS0FwYWM4NFBtTXFsOHVzcGRkcnlESHlHX1ZAiOFNzUUFfVl9BcXFzd3NvcWoySjNobjJhR2NjVnJsU2d5OFNQZAnMtNnZAFZAm9B",
+  "done": true
+ },
+ "saki__nakajima__uf": {
+  "after": "QVFIVGJXN3p1MGZAXeC1iSG1NcEVGdG9HbFhMS3JUQzNheVpwR29aY19nZA1NuZAzA3ZAjBVa2lNQW5ab0UwS0x3cVZA0V21IaTA1NklGMmNPR0xmaUh6aTNLbHdB",
+  "done": true
+ },
+ "sakura.ishiyama_official": {
+  "after": null,
+  "done": false
+ },
+ "saori_onoda.official": {
+  "after": "QVFIVHUtLURVTnZAmNDFNN0pjaTd6UVBNSVJCT2VMNndqZAG9uRkVBRFhUM2ptbE1FWTJ4T3hncWNsWElNbVZAVWm55Y19YVWE0V3pVT29rejdiMUloNXY0V1ln",
+  "done": true
+ },
+ "saya_eguchi.official": {
+  "after": "QVFIVHN2X0ZAyUWhwdm02V1ZAaM2owRlg5dXVHVDdkWnVOWEZAoenFhUmE4RVRrTHJNbU9HdFZAZAN0RBbHpqbFRIWDRSdXFzZA0RjcmExZAzZAPRVV0Yk9yRkIwUXBR",
+  "done": true
+ },
+ "shion_tamenaga.official": {
+  "after": null,
+  "done": false
+ },
+ "shiori_nishida.official": {
+  "after": null,
+  "done": false
+ },
+ "tanakareina.lovendor": {
+  "after": "QVFIVHRRVW8tN0lqUVNnOHZAWUnBidnhFTnpKdXNfT2xNVWp3bV9aMEszSjVkcDNwYWVuV295VUt0eTVPdGJSZA0lXWW1oSFF5WXRydnFzbmpLZAXJEVWxSa19B",
+  "done": true
+ },
+ "tsujinozomi_official": {
+  "after": "QVFIVGZATR0xIQUtYN25Va041TXUtVGVIY2Q2QlVRRzhQNUVGWUlmYW0tblowc0FoX2hDMXVBTXZAsRWhSZAXVXcEVLQ0VpdDdPZAkhsUVVwWThQUEFUbEs1TFVn",
+  "done": true
+ },
+ "utano_satoyoshi.official": {
+  "after": "QVFIVF9fT2F0ak45bWZAMclQ2a0k1U0FDZAlZA2YVlOa1M5ck1NVE5fRzFHZA0daRVBhTXNLY2ZAUbVNsUmFFTzlxTVA3SjFqWDlQOXc4cDQ0SXV1S2g4UFZAHWDFn",
+  "done": true
+ },
+ "wakana_matsumoto.official": {
+  "after": null,
+  "done": false
+ },
+ "yuka_miyazaki.official": {
+  "after": "QVFIVG1rWGxKS051VUs4NkMwem5aNVRHdUFuX05SMGt2VmNzbXZAuUHhVZATZAZAejlvR2MwQlpxMGwwU01FQnFnOGlwZAlNxRFlzeVBRVDBUc0IxWjhnZATVfUjVB",
+  "done": true
+ },
+ "yuki_hirayama.official": {
+  "after": null,
+  "done": false
+ },
+ "yukiho_shimoitani.official": {
+  "after": null,
+  "done": false
+ },
+ "yuko_nakazawa_": {
+  "after": "QVFIVDY0VWZAjTktaSzBRT0tNa0tfd1RDT1JJa2J6S01FZAVJVcWVCNGJUS1NRTDdBNlBxcU00QTFKWUFrMHk4VlZAzcjJyVWt6UFktRTlIRmhacmpadVV3eTJn",
+  "done": true
+ },
+ "yume_kudo.official": {
+  "after": "QVFIVE5lbV82eF9OQnBqQXVjSlpyc3hDeFdpMGNpSjl1RVAzLVpxSmMyYi1wdnF0MXM2RGVZAaVRZAcVo1U19mbWtOZAXgtQ3o4THBtR21UUXJOb0o2Qm82UmdB",
+  "done": true
+ },
+ "yuumi__kasai.official": {
+  "after": null,
+  "done": false
+ }
+}

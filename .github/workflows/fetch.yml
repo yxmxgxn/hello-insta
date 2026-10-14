@@ -1,0 +1,35 @@
+name: Fetch
+
+# 6時間ごとに取得する(JST 3:15 / 9:15 / 15:15 / 21:15)。
+# Graph API の上限は1時間200回なので、1回150回までに抑えれば間隔は十分空いている。
+on:
+  schedule:
+    - cron: '15 0,6,12,18 * * *'
+  workflow_dispatch:
+    inputs:
+      max_calls:
+        description: Graph API の呼び出し上限(1時間200回まで)
+        default: "150"
+
+concurrency:
+  group: fetch
+  cancel-in-progress: false
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Fetch
+        env:
+          CRAWL_API: ${{ vars.CRAWL_API }}
+          CRAWL_TOKEN: ${{ secrets.CRAWL_TOKEN }}
+          IG_USER_ID: ${{ secrets.IG_USER_ID }}
+          IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+          MAX_CALLS: ${{ inputs.max_calls || '150' }}
+        run: python crawler/fetch.py

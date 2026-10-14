@@ -1,0 +1,29 @@
+{
+  "name": "hello-insta",
+  "main": "src/worker.js",
+  "compatibility_date": "2026-09-01",
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    // Worker を通すのは API だけ。画面(静的ファイル)は Worker を通さず配信する
+    "run_worker_first": ["/api/*"]
+  },
+  // karin-archive.com のサブドメインで公開する(デプロイ時に DNS も作られる)
+  "routes": [
+    { "pattern": "insta.karin-archive.com", "custom_domain": true }
+  ],
+  // 1分あたりの同一IPからの公開API呼び出し上限(Workers のレート制限バインディング)
+  "unsafe": {
+    "bindings": [
+      { "name": "RL", "type": "ratelimit", "namespace_id": "1002", "simple": { "limit": 120, "period": 60 } }
+    ]
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "hello-insta",
+      // ダッシュボード → ストレージとデータベース → D1 → hello-insta
+      "database_id": "REPLACE_WITH_D1_ID"
+    }
+  ]
+}

@@ -1,0 +1,37 @@
+name: Migrate from karin-archive
+
+# 一度だけ使う: karin-archive 時代の投稿(D1 karin-hello)をこのサイトの D1 へ移す。
+# 1回目は drop_old を外して実行し、サイトで投稿が見えるのを確かめてから、
+# drop_old を付けてもう一度実行すると旧テーブルを消す(移行は上書きなので2回流しても問題ない)。
+on:
+  workflow_dispatch:
+    inputs:
+      drop_old:
+        description: 移行後に karin-hello の旧テーブルを消す
+        type: boolean
+        default: false
+
+concurrency:
+  group: fetch
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Migrate
+        env:
+          CRAWL_API: ${{ vars.CRAWL_API }}
+          CRAWL_TOKEN: ${{ secrets.CRAWL_TOKEN }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: python crawler/migrate.py ${{ inputs.drop_old && '--drop-old' || '' }}
