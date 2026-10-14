@@ -26,11 +26,18 @@ LEGACY_STATE = Path(__file__).resolve().parent / "legacy_state.json"
 
 
 def old_query(sql: str) -> list[dict]:
-    out = subprocess.run(
+    r = subprocess.run(
         ["npx", "--yes", "wrangler@4", "d1", "execute", OLD_DB, "--remote", "--json", "--command", sql],
-        check=True, capture_output=True, text=True, encoding="utf-8",
-    ).stdout
-    return json.loads(out)[0]["results"]
+        capture_output=True, text=True, encoding="utf-8",
+    )
+    if r.returncode != 0:
+        # wrangler はエラーを stdout の JSON に入れることもあるので両方出す
+        raise RuntimeError(f"wrangler 失敗: {sql}\n{r.stdout[-2000:]}\n{r.stderr[-2000:]}")
+    return json.loads(r.stdout)[0]["results"]
+
+
+def old_tables() -> set[str]:
+    return {r["name"] for r in old_query("SELECT name FROM sqlite_master WHERE name IN ('insta_post', 'insta_fts')")}
 
 
 def main() -> int:
@@ -39,6 +46,10 @@ def main() -> int:
         if not os.environ.get(k):
             print(f"{k} が未設定です(CRAWL_API は Variables、CRAWL_TOKEN は Secrets に登録)", file=sys.stderr)
             return 1
+
+    if "insta_post" not in old_tables():
+        print("karin-hello に旧テーブル(insta_post)がありません。移行と削除は済んでいます")
+        return 0
 
     old_count = old_query("SELECT COUNT(*) AS n FROM insta_post")[0]["n"]
     print(f"旧DBの投稿: {old_count}件")
