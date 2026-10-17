@@ -5,15 +5,18 @@
   "use strict";
 
   // ---------- ブックマークレット(instagram.com で動く。外の変数は使えない。__SITE__ はこのサイトの URL に置き換える) ----------
+  // 中のコメントは行まるごとにすること(行末に付けない)。リンクにするときにコメント行を除いて1行につなぐため
   function grab() {
     var SITE = "__SITE__";
     if (window.__helloInsta) { window.__helloInsta.show(); return; }
 
-    var items = new Map();  // shortcode → { code, account, kind, caption }
+    // shortcode → { code, account, kind, caption }
+    var items = new Map();
     // /p/CODE/ /reel/CODE/ のほか、/ユーザー名/p/CODE/ の形もある
     var LINK = /^\/(?:([A-Za-z0-9._]+)\/)?(p|reel)\/([A-Za-z0-9_-]{5,})/;
     var NOT_USER = /^(p|reel|reels|explore|stories|direct|accounts|tv)$/;
-    var profile = null;  // 最後に開いていたプロフィール(投稿を開くと URL が /p/ に変わるので覚えておく)
+    // 最後に開いていたプロフィール(投稿を開くと URL が /p/ に変わるので覚えておく)
+    var profile = null;
 
     // サムネイルの alt は、本文そのものか、自動で付いた説明(「Photo by …」など)。自動の方は本文として使わない
     var AUTO_ALT = /^(Photo|Video|Image)s?( shared)? by |^May be |さんによる(写真|動画|投稿)|の(画像|写真)のようです|^(写真|動画)(の説明|はありません)/;
@@ -156,8 +159,14 @@
     scan();
   }
 
-  document.getElementById("bm").href = "javascript:(" +
-    encodeURIComponent(grab.toString().replace("__SITE__", location.origin)) + ")()";
+  // スマホの Chrome はアドレスバーから実行すると改行を消して1行にするので、// のコメントがあると後ろが全部コメントになる。
+  // コメント行を除き、1行につないでからリンクにする(文の終わりはすべて ; で書いてある)
+  var oneLine = grab.toString().split("\n")
+    .map(function (l) { return l.trim(); })
+    .filter(function (l) { return l && !/^(\/\/|\/\*)/.test(l); })
+    .join(" ")
+    .replace("__SITE__", location.origin);
+  document.getElementById("bm").href = "javascript:(" + encodeURIComponent(oneLine) + ")()";
 
   // ---------- 合言葉(欄に入れるか ?t= で開いたら、このブラウザに覚えておく。「送る」で開くときは ?t= が付かないため) ----------
   var KEY = "crawlToken";
