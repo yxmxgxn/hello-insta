@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="only light">
+<meta name="robots" content="noindex, nofollow">
+<title>貼り付け（自分用）</title>
+<link rel="stylesheet" href="/style.css">
+<style>
+  .paste textarea { width: 100%; min-height: 160px; font: .8rem/1.4 monospace; }
+  .paste .bm { display: inline-block; padding: 6px 12px; border: 1px dashed var(--accent); border-radius: 6px; color: var(--accent); text-decoration: none; }
+  .paste ol, .paste ul { padding-left: 1.4em; }
+  .paste .msg { white-space: pre-wrap; }
+  .paste table { border-collapse: collapse; font-size: .88rem; }
+  .paste td { border-bottom: 1px solid var(--line); padding: 4px 8px; }
+</style>
+</head>
+<body>
+<header class="site-head">
+  <h1><a href="/">ハロプロ Instagram 検索</a></h1>
+  <p class="lead">貼り付け（自分用）: 公式APIで取れない個人アカウントの投稿を、ブラウザで取って入れる</p>
+</header>
+
+<main class="paste">
+  <h2>使い方</h2>
+  <ol>
+    <li>このリンクをブックマークバーへドラッグ: <a class="bm" id="bm" href="#">IG取得</a></li>
+    <li>Graph API とは<strong>別の</strong>アカウントでログインしたブラウザで、取りたい人のプロフィール（instagram.com/ユーザー名/）を開いて押す</li>
+    <li>件数か、どの日付まで遡るかを入れる。終わったら出てくる「コピー」を押す</li>
+    <li>下に貼って「登録」</li>
+  </ol>
+
+  <h2>貼り付け</h2>
+  <textarea id="data" placeholder="ブックマークレットでコピーしたものを貼る"></textarea>
+  <p id="preview" class="msg"></p>
+  <p><button type="button" id="send" disabled>登録</button></p>
+  <p id="result" class="msg"></p>
+
+  <h2>対象（個人アカウント）</h2>
+  <table><tbody id="targets"><tr><td>読み込み中…</td></tr></tbody></table>
+</main>
+<script src="/paste.js"></script>
+</body>
+</html>

@@ -11,6 +11,7 @@
  *   POST /api/crawl/accounts   SNSスプシ由来の対象アカウントを丸ごと差し替え(外れた人は active=0)
  *   POST /api/crawl/posts      1ページ分の投稿と、そのアカウントの進み具合をまとめて書く
  *   POST /api/crawl/error      取得エラーを記録
+ *   POST /api/crawl/paste      貼り付けページから、個人アカウントの投稿を書く(public/paste.html)
  *
  * 定期実行: 毎日 JST 20:00 に、収録件数・前回からの増加数・新着投稿を Discord へ送る(DISCORD_WEBHOOK)。
  *
@@ -207,35 +208,56 @@ async function crawlAccounts(request, env) {
   return json({ ok: true, count: accounts.length });
 }
 
+// permalink の /p/ /reel/ の後ろ。同じ投稿でも形が揺れるので、投稿どうしを比べるときはここだけを見る
+function shortcode(permalink) {
+  const m = String(permalink || "").match(/\/(?:p|reel|tv)\/([^/?#]+)/);
+  return m ? m[1] : "";
+}
+
+// 貼り付けで入った投稿の id。公式APIのメディアIDとは別物で、shortcode から作る
+const WEB_ID = "web:";
+
+// 投稿1件を書く文を stmts に足す。{ id, caption, timestamp, permalink, media_type, like_count, comments_count }
+function upsertPost(env, stmts, username, p) {
+  const ts = toJst(p.timestamp);
+  if (!p.id || !ts) return false;
+  const id = String(p.id);
+  const caption = p.caption || "";
+  // 絵文字(サロゲートペア)を途中で割らないよう、文字単位(Array.from)で切る
+  const excerpt = Array.from(caption.split(/\s+/).filter(Boolean).join(" ")).slice(0, EXCERPT_LEN).join("");
+  // 公式APIで入る投稿が先に貼り付けで入っていたら(個人→プロに切り替えた人)、そちらを置き換える。
+  // added_at はそちらの値を引き継ぐ(毎日の報告で新着に出し直さないため)
+  const webId = id.startsWith(WEB_ID) ? null : WEB_ID + shortcode(p.permalink);
+  // 取り直しでは added_at を変えない(初めて入った日時を残す)
+  stmts.push(env.DB
+    .prepare(
+      "INSERT INTO post(id, account, ts, permalink, media_type, excerpt, added_at, like_count, comments_count) " +
+      "VALUES(?, ?, ?, ?, ?, ?, coalesce((SELECT added_at FROM post WHERE id = ?), ?), ?, ?) " +
+      "ON CONFLICT(id) DO UPDATE SET account = excluded.account, ts = excluded.ts, permalink = excluded.permalink, " +
+      "media_type = excluded.media_type, excerpt = excluded.excerpt, " +
+      // いいね数を非表示にされたら値が来ないので、前に取れた数を残す
+      "like_count = coalesce(excluded.like_count, like_count), " +
+      "comments_count = coalesce(excluded.comments_count, comments_count)")
+    .bind(id, username, ts, String(p.permalink || ""), p.media_type || null, excerpt, webId, nowJst(),
+      Number.isFinite(p.like_count) ? p.like_count : null,
+      Number.isFinite(p.comments_count) ? p.comments_count : null));
+  if (webId) {
+    stmts.push(env.DB.prepare("DELETE FROM post WHERE id = ?").bind(webId));
+    stmts.push(env.DB.prepare("DELETE FROM post_fts WHERE id = ?").bind(webId));
+  }
+  stmts.push(env.DB.prepare("DELETE FROM post_fts WHERE id = ?").bind(id));
+  const grams = bigrams(normalize(caption)).join(" ");
+  if (grams) stmts.push(env.DB.prepare("INSERT INTO post_fts(id, bigram) VALUES(?, ?)").bind(id, grams));
+  return true;
+}
+
 // { username, posts: [{ id, caption, timestamp, permalink, media_type }], state: { after, done } | null }
 // 投稿と進み具合を1つの batch(=トランザクション)で書く。途中で落ちても、進み具合だけ進むことはない
 async function crawlPosts(request, env) {
   const { username, posts, state } = await request.json();
   if (!username || !Array.isArray(posts)) return json({ error: "bad_request" }, 400);
   const stmts = [];
-  for (const p of posts) {
-    const ts = toJst(p.timestamp);
-    if (!p.id || !ts) continue;
-    const caption = p.caption || "";
-    // 絵文字(サロゲートペア)を途中で割らないよう、文字単位(Array.from)で切る
-    const excerpt = Array.from(caption.split(/\s+/).filter(Boolean).join(" ")).slice(0, EXCERPT_LEN).join("");
-    // 取り直しでは added_at を変えない(初めて入った日時を残す)
-    stmts.push(env.DB
-      .prepare(
-        "INSERT INTO post(id, account, ts, permalink, media_type, excerpt, added_at, like_count, comments_count) " +
-        "VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?) " +
-        "ON CONFLICT(id) DO UPDATE SET account = excluded.account, ts = excluded.ts, permalink = excluded.permalink, " +
-        "media_type = excluded.media_type, excerpt = excluded.excerpt, " +
-        // いいね数を非表示にされたら値が来ないので、前に取れた数を残す
-        "like_count = coalesce(excluded.like_count, like_count), " +
-        "comments_count = coalesce(excluded.comments_count, comments_count)")
-      .bind(String(p.id), username, ts, String(p.permalink || ""), p.media_type || null, excerpt, nowJst(),
-        Number.isFinite(p.like_count) ? p.like_count : null,
-        Number.isFinite(p.comments_count) ? p.comments_count : null));
-    stmts.push(env.DB.prepare("DELETE FROM post_fts WHERE id = ?").bind(String(p.id)));
-    const grams = bigrams(normalize(caption)).join(" ");
-    if (grams) stmts.push(env.DB.prepare("INSERT INTO post_fts(id, bigram) VALUES(?, ?)").bind(String(p.id), grams));
-  }
+  for (const p of posts) upsertPost(env, stmts, username, p);
   if (state) {
     stmts.push(env.DB
       .prepare(
@@ -265,6 +287,54 @@ async function crawlError(request, env) {
     .bind(username, String(error || "").slice(0, 500), nowJst())
     .run();
   return json({ ok: true });
+}
+
+// { username, posts: [{ code, caption, taken_at, media_type, like_count, comments_count }] }
+// 貼り付けページ(public/paste.html)から。ブックマークレットがログイン中のブラウザで取った個人アカウントの投稿。
+// 公式APIで取れない(個人アカウント)と分かっている人だけ受け付け、公式APIで入っている投稿は shortcode で見て飛ばす
+const PASTE_MAX = 100;  // 1回に受け付ける件数(貼り付けページが分けて送る)
+const MEDIA_TYPE = { 1: "IMAGE", 2: "VIDEO", 8: "CAROUSEL_ALBUM" };
+
+async function crawlPaste(request, env) {
+  const { username, posts } = await request.json();
+  if (!username || !Array.isArray(posts) || posts.length > PASTE_MAX) return json({ error: "bad_request" }, 400);
+  const [{ results: acc }] = await env.DB.batch([
+    env.DB.prepare(
+      "SELECT a.username, s.last_error AS error FROM account a " +
+      "LEFT JOIN fetch_state s ON s.username = a.username WHERE lower(a.username) = lower(?)").bind(String(username)),
+  ]);
+  if (!acc.length) return json({ error: "unknown_account", message: `@${username} は対象アカウントにいません` }, 400);
+  if (!/個人アカウント/.test(acc[0].error || "")) {
+    return json({ error: "not_personal", message: `@${acc[0].username} は公式APIで取れるアカウントなので、貼り付けは受け付けません` }, 400);
+  }
+  const user = acc[0].username;
+  const { results: existing } = await env.DB
+    .prepare("SELECT id, permalink FROM post WHERE account = ?").bind(user).all();
+  const official = new Set(existing.filter((r) => !r.id.startsWith(WEB_ID)).map((r) => shortcode(r.permalink)));
+  const have = new Set(existing.map((r) => r.id));
+
+  const stmts = [];
+  let added = 0, updated = 0, skipped = 0;
+  for (const p of posts) {
+    const code = String(p.code || "");
+    if (!/^[A-Za-z0-9_-]+$/.test(code) || !Number.isFinite(p.taken_at) || official.has(code)) { skipped++; continue; }
+    const id = WEB_ID + code;
+    const ok = upsertPost(env, stmts, user, {
+      id,
+      caption: String(p.caption || ""),
+      timestamp: new Date(p.taken_at * 1000).toISOString(),
+      // サイトでは /p/ にそろえて出すので、最初から /p/ で持つ
+      permalink: `https://www.instagram.com/p/${code}/`,
+      media_type: MEDIA_TYPE[p.media_type] || null,
+      like_count: p.like_count,
+      comments_count: p.comments_count,
+    });
+    if (!ok) skipped++;
+    else if (have.has(id)) updated++;
+    else added++;
+  }
+  if (stmts.length) await env.DB.batch(stmts);
+  return json({ ok: true, username: user, added, updated, skipped });
 }
 
 /* ============================ 自分用のランキング ============================ */
@@ -475,6 +545,7 @@ export default {
         if (route === "POST accounts") return await crawlAccounts(request, env);
         if (route === "POST posts") return await crawlPosts(request, env);
         if (route === "POST error") return await crawlError(request, env);
+        if (route === "POST paste") return await crawlPaste(request, env);
         return new Response("Not found", { status: 404 });
       } catch (e) {
         // 例外のままだと Cloudflare の汎用エラー(1101)になって原因が分からないので中身を返す
