@@ -22,9 +22,11 @@ https://insta.karin-archive.com/
 - **毎日の報告**（Worker の cron）: JST 20:00 に収録件数・前回からの増加数・新着を Discord へ（Worker のシークレット `DISCORD_WEBHOOK`）
 - 対象アカウントは karin-archive の SNS一覧スプシ（accounts シート）の所属で決まる。条件は `crawler/fetch.py` の `load_targets()`
 - 取れるのはビジネス／クリエイターアカウントだけ。個人アカウントは Fetch の警告に出る
-- **貼り付け**（`public/paste.html`）: 個人アカウントの分は手で入れる。`/paste?t=<CRAWL_TOKEN>` を開き、
-  ブックマークレットを、Graph API とは別のアカウントでログインしたブラウザの instagram.com のプロフィールで押す →
-  コピー → 貼り付けて登録。受け付けるのは Fetch で「個人アカウント」になっている人だけ。
+- **貼り付け**（`public/paste.html`）: 個人アカウントの分は手で入れる。`/paste?t=<CRAWL_TOKEN>` を一度開き（合言葉はブラウザに覚えさせる）、
+  ブックマークレットを Graph API とは別のアカウントでログインしたブラウザの instagram.com で押す。
+  画面に出た投稿（プロフィールの一覧のリンクとサムネイルの alt、開いた投稿の本文）を拾うだけで、Instagram へは問い合わせない。
+  スクロールしてためたら「送る」（開いた貼り付けページへ postMessage で渡す）か「コピー」して貼り付けページで登録。
+  日時は shortcode から出す（メディアIDの上位ビットが投稿時刻）。受け付けるのは Fetch で「個人アカウント」になっている人だけ。
   id は `web:<shortcode>`。公式APIで入っている投稿は shortcode で見て飛ばし、あとでプロに切り替えた人は公式APIの分に置き換わる
 
 ## 設定
