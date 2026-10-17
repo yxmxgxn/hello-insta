@@ -14,6 +14,7 @@ https://insta.karin-archive.com/
 | `schema.sql` | D1 `hello-insta` のテーブル。デプロイのたびに流す |
 | `crawler/fetch.py` | Graph API の Business Discovery で取得し、クローラ用API経由で D1 に書く |
 | `public/paste.*` | 個人アカウント用の貼り付けページ（自分用）とブックマークレット |
+| `x-followers/` | X のフォロー・フォロワーをスプシに控えるブックマークレット（自分用。サイトとは別物） |
 
 ## 動き方
 
