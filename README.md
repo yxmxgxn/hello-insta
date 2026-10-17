@@ -14,6 +14,7 @@ https://insta.karin-archive.com/
 | `schema.sql` | D1 `hello-insta` のテーブル。デプロイのたびに流す |
 | `crawler/fetch.py` | Graph API の Business Discovery で取得し、クローラ用API経由で D1 に書く |
 | `public/paste.*` | 個人アカウント用の貼り付けページ（自分用）とブックマークレット |
+| `tools/new_crawl_token.py` | CRAWL_TOKEN を忘れたときに作り直す |
 
 ## 動き方
 
@@ -42,6 +43,12 @@ GitHub の Secrets:
 | `IG_ACCESS_TOKEN` | Graph API の長期アクセストークン（約60日で切れる） |
 
 GitHub の Variables: `CRAWL_API` = `https://insta.karin-archive.com`
+
+## 合言葉（CRAWL_TOKEN）を忘れたとき
+
+Secret はあとから読めないので作り直す。`python tools/new_crawl_token.py --repo yxmxgxn/hello-insta` で
+Secret の差し替えと Deploy まで行い（`gh` が要る）、出てきた `/paste?t=...` を一度開けばブラウザが覚え直す。
+`--repo` を省くと合言葉と URL を出すだけ。合言葉はファイルに書かないので Git には入らない
 
 ## アクセストークンの更新（約60日ごと）
 
