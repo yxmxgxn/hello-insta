@@ -31,14 +31,28 @@
 
     var out = [];
     var stopped = "";
+    // JSON が返らない(ログイン画面などの HTML が来た)ときは、何が来たか分かるように止める
+    async function getJson(path) {
+      var res = await fetch(path, { headers: { "x-ig-app-id": APP_ID, "x-requested-with": "XMLHttpRequest" }, credentials: "include" });
+      var text = await res.text();
+      if (!res.ok) throw new Error("HTTP " + res.status + "（" + path.split("?")[0] + "）");
+      try {
+        return JSON.parse(text);
+      } catch (e) {
+        throw new Error("JSON でないものが返りました（" + path.split("?")[0] + "）: " + text.slice(0, 60));
+      }
+    }
+
     (async function () {
+      say("@" + user + " のユーザーIDを確認中…");
+      var prof = await getJson("/api/v1/users/web_profile_info/?username=" + encodeURIComponent(user));
+      var uid = prof && prof.data && prof.data.user && prof.data.user.id;
+      if (!uid) throw new Error("ユーザーIDが取れません（非公開か、ユーザー名が違う）");
       var maxId = "";
       for (var page = 1; out.length < max; page++) {
         say("@" + user + " を取得中… " + out.length + "件（" + page + "ページ目）");
-        var res = await fetch("/api/v1/feed/user/" + encodeURIComponent(user) + "/username/?count=12" +
-          (maxId ? "&max_id=" + encodeURIComponent(maxId) : ""), { headers: { "x-ig-app-id": APP_ID }, credentials: "include" });
-        if (!res.ok) { stopped = "HTTP " + res.status + " で止まりました"; break; }
-        var d = await res.json();
+        await sleep(page === 1 ? 1000 : WAIT[0] + Math.random() * (WAIT[1] - WAIT[0]));
+        var d = await getJson("/api/v1/feed/user/" + uid + "/?count=12" + (maxId ? "&max_id=" + encodeURIComponent(maxId) : ""));
         var done = false;
         for (var i = 0; i < (d.items || []).length; i++) {
           var it = d.items[i];
