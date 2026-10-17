@@ -289,8 +289,26 @@ async function crawlError(request, env) {
   return json({ ok: true });
 }
 
-// { username, posts: [{ code, caption, taken_at, media_type, like_count, comments_count }] }
-// 貼り付けページ(public/paste.html)から。ブックマークレットがログイン中のブラウザで取った個人アカウントの投稿。
+// shortcode → 投稿日時(UNIX 秒)。shortcode はメディアIDを64進にしたもので、
+// メディアIDの上位(23ビットより上)が Instagram 独自の起点からのミリ秒
+const SHORTCODE_ABC = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+const IG_EPOCH_MS = 1314220021721n;
+
+function takenFromCode(code) {
+  let n = 0n;
+  for (const c of String(code).slice(0, 11)) {
+    const v = SHORTCODE_ABC.indexOf(c);
+    if (v < 0) return null;
+    n = n * 64n + BigInt(v);
+  }
+  const ms = Number((n >> 23n) + IG_EPOCH_MS);
+  // 起点(2011年)より前や未来になるのは、形の違う shortcode
+  return ms > 1314220021721 && ms < Date.now() + 86400e3 ? Math.floor(ms / 1000) : null;
+}
+
+// { username, posts: [{ code, caption, kind }] }
+// 貼り付けページ(public/paste.html)から。ブックマークレットが画面から拾った個人アカウントの投稿。
+// 日時は shortcode から出す。本文は拾えなかったら null(入っている投稿の本文は消さない)。
 // 公式APIで取れない(個人アカウント)と分かっている人だけ受け付け、公式APIで入っている投稿は shortcode で見て飛ばす
 const PASTE_MAX = 100;  // 1回に受け付ける件数(貼り付けページが分けて送る)
 const MEDIA_TYPE = { 1: "IMAGE", 2: "VIDEO", 8: "CAROUSEL_ALBUM" };
@@ -317,15 +335,18 @@ async function crawlPaste(request, env) {
   let added = 0, updated = 0, skipped = 0;
   for (const p of posts) {
     const code = String(p.code || "");
-    if (!/^[A-Za-z0-9_-]+$/.test(code) || !Number.isFinite(p.taken_at) || official.has(code)) { skipped++; continue; }
+    const taken = Number.isFinite(p.taken_at) ? p.taken_at : takenFromCode(code);
+    if (!/^[A-Za-z0-9_-]+$/.test(code) || !taken || official.has(code)) { skipped++; continue; }
     const id = WEB_ID + code;
+    // 本文が拾えなかった投稿は、もう入っていれば触らない(入っている本文を空で上書きしない)
+    if (p.caption == null && have.has(id)) { skipped++; continue; }
     const ok = upsertPost(env, stmts, user, {
       id,
       caption: String(p.caption || ""),
-      timestamp: new Date(p.taken_at * 1000).toISOString(),
+      timestamp: new Date(taken * 1000).toISOString(),
       // サイトでは /p/ にそろえて出すので、最初から /p/ で持つ
       permalink: `https://www.instagram.com/p/${code}/`,
-      media_type: MEDIA_TYPE[p.media_type] || null,
+      media_type: MEDIA_TYPE[p.media_type] || (p.kind === "reel" ? "VIDEO" : null),
       like_count: p.like_count,
       comments_count: p.comments_count,
     });

@@ -1,165 +1,257 @@
-// 貼り付けページ(自分用)。/paste?t=<CRAWL_TOKEN> で開く。
-// ブックマークレット(grab)は instagram.com の上で動き、ログイン中のブラウザから Web版と同じ通り道で投稿を取る。
-// instagram.com からこのサイトへは直接送れない(Instagram の CSP)ので、コピーして貼る。
+// 貼り付けページ(自分用)。/paste?t=<CRAWL_TOKEN> で開く(合言葉はこのブラウザに覚えさせる)。
+// ブックマークレット(grab)は instagram.com の上で動き、画面に出ている投稿を拾うだけ。Instagram へ自分から問い合わせない。
+// 「送る」でこのページを開いて postMessage で受け取る。渡らないときのためにコピーもしておき、欄に貼っても入れられる。
 (function () {
   "use strict";
 
-  // ---------- ブックマークレット(instagram.com で動く。外の変数は使えない) ----------
+  // ---------- ブックマークレット(instagram.com で動く。外の変数は使えない。__SITE__ はこのサイトの URL に置き換える) ----------
   function grab() {
-    var APP_ID = "936619743392459";  // Web版の Instagram が自分で付けているもの
-    var WAIT = [3000, 6000];         // ページの間をあける(ミリ秒)。人が見ている速さに寄せる
-    var user = location.pathname.split("/").filter(Boolean)[0];
-    if (!/(^|\.)instagram\.com$/.test(location.hostname) || !user || /^(p|reel|reels|explore|stories|direct|accounts)$/.test(user)) {
-      alert("Instagram のプロフィール（instagram.com/ユーザー名/）を開いてから押してください");
-      return;
-    }
-    var ans = prompt("@" + user + " の投稿をどこまで取りますか？\n件数（例: 100）か、日付（例: 2024-01-01 ならその日まで遡る）", "100");
-    if (ans == null) return;
-    ans = ans.trim();
-    var until = /^\d{4}-\d{2}-\d{2}$/.test(ans) ? new Date(ans + "T00:00:00+09:00").getTime() / 1000 : null;
-    var max = until ? Infinity : (parseInt(ans, 10) || 100);
+    var SITE = "__SITE__";
+    if (window.__helloInsta) { window.__helloInsta.show(); return; }
 
-    // 進み具合と結果の表示(Instagram の画面の上に重ねる。innerHTML は使わない)
-    var box = document.createElement("div");
-    box.style.cssText = "position:fixed;z-index:2147483647;top:16px;right:16px;width:360px;max-width:calc(100vw - 32px);" +
-      "background:#fff;color:#1f1f1f;border:2px solid #8C6BB8;border-radius:8px;padding:12px;font:14px/1.5 sans-serif;box-shadow:0 4px 16px rgba(0,0,0,.2)";
-    var msg = document.createElement("div");
-    box.appendChild(msg);
-    document.body.appendChild(box);
-    var say = function (t) { msg.textContent = t; };
-    var sleep = function (ms) { return new Promise(function (r) { setTimeout(r, ms); }); };
+    var items = new Map();  // shortcode → { code, account, kind, caption }
+    // /p/CODE/ /reel/CODE/ のほか、/ユーザー名/p/CODE/ の形もある
+    var LINK = /^\/(?:([A-Za-z0-9._]+)\/)?(p|reel)\/([A-Za-z0-9_-]{5,})/;
+    var NOT_USER = /^(p|reel|reels|explore|stories|direct|accounts|tv)$/;
+    var profile = null;  // 最後に開いていたプロフィール(投稿を開くと URL が /p/ に変わるので覚えておく)
 
-    var out = [];
-    var stopped = "";
-    // JSON が返らない(ログイン画面などの HTML が来た)ときは、何が来たか分かるように止める
-    async function getJson(path) {
-      var res = await fetch(path, { headers: { "x-ig-app-id": APP_ID, "x-requested-with": "XMLHttpRequest" }, credentials: "include" });
-      var text = await res.text();
-      if (!res.ok) throw new Error("HTTP " + res.status + "（" + path.split("?")[0] + "）");
-      try {
-        return JSON.parse(text);
-      } catch (e) {
-        throw new Error("JSON でないものが返りました（" + path.split("?")[0] + "）: " + text.slice(0, 60));
-      }
+    // サムネイルの alt は、本文そのものか、自動で付いた説明(「Photo by …」など)。自動の方は本文として使わない
+    var AUTO_ALT = /^(Photo|Video|Image)s?( shared)? by |^May be |さんによる(写真|動画|投稿)|の(画像|写真)のようです|^(写真|動画)(の説明|はありません)/;
+    function captionFromAlt(alt) {
+      if (!alt || AUTO_ALT.test(alt)) return null;
+      return alt.trim() || null;
     }
 
-    (async function () {
-      say("@" + user + " のユーザーIDを確認中…");
-      var prof = await getJson("/api/v1/users/web_profile_info/?username=" + encodeURIComponent(user));
-      var uid = prof && prof.data && prof.data.user && prof.data.user.id;
-      if (!uid) throw new Error("ユーザーIDが取れません（非公開か、ユーザー名が違う）");
-      var maxId = "";
-      for (var page = 1; out.length < max; page++) {
-        say("@" + user + " を取得中… " + out.length + "件（" + page + "ページ目）");
-        await sleep(page === 1 ? 1000 : WAIT[0] + Math.random() * (WAIT[1] - WAIT[0]));
-        var d = await getJson("/api/v1/feed/user/" + uid + "/?count=12" + (maxId ? "&max_id=" + encodeURIComponent(maxId) : ""));
-        var done = false;
-        for (var i = 0; i < (d.items || []).length; i++) {
-          var it = d.items[i];
-          // 固定された投稿は古くても先頭に来るので、日付で止める判断には使わない
-          var pinned = (it.timeline_pinned_user_ids || []).length > 0;
-          if (until && !pinned && it.taken_at < until) { done = true; break; }
-          if (until && pinned && it.taken_at < until) continue;
-          out.push({
-            code: it.code,
-            caption: it.caption ? it.caption.text : "",
-            taken_at: it.taken_at,
-            media_type: it.media_type,
-            like_count: it.like_and_view_counts_disabled ? null : it.like_count,
-            comments_count: it.comment_count,
-          });
-          if (out.length >= max) break;
+    function put(code, account, kind, caption) {
+      if (!code || !account) return;
+      account = account.toLowerCase();
+      var old = items.get(code);
+      // 本文は、取れているものを null で消さない。両方あれば長い方(途中で切れた表示より全文)
+      if (old && old.caption != null && (caption == null || old.caption.length >= caption.length)) caption = old.caption;
+      items.set(code, { code: code, account: account, kind: (old && old.kind === "reel") ? "reel" : kind, caption: caption });
+    }
+
+    function text(el) { return el ? (el.innerText || el.textContent || "").trim() : null; }
+
+    function scan() {
+      var first = location.pathname.split("/").filter(Boolean)[0];
+      if (first && !NOT_USER.test(first)) profile = first;
+      // プロフィールの一覧(投稿タブ・リールタブ)。リンクとサムネイル
+      document.querySelectorAll('a[href*="/p/"], a[href*="/reel/"]').forEach(function (a) {
+        var m = (a.getAttribute("href") || "").match(LINK);
+        if (!m) return;
+        var img = a.querySelector("img[alt]");
+        put(m[3], m[1] || profile, m[2], captionFromAlt(img && img.getAttribute("alt")));
+      });
+      // 投稿を1つ開いた画面(ポップアップか /p/ のページ)。本文は h1 にある
+      var here = location.pathname.match(LINK);
+      if (here) {
+        var root = document.querySelector('div[role="dialog"] article') || document.querySelector("main article") || document;
+        var h1 = root.querySelector("h1");
+        var owner = here[1];
+        if (!owner) {
+          var a = root.querySelector('header a[href^="/"]');
+          owner = a && (a.getAttribute("href").match(/^\/([A-Za-z0-9._]+)\/?$/) || [])[1];
         }
-        if (done || !d.more_available || !d.next_max_id) break;
-        maxId = d.next_max_id;
-        await sleep(WAIT[0] + Math.random() * (WAIT[1] - WAIT[0]));
+        put(here[3], owner || profile, here[2], h1 ? text(h1) : null);
       }
-    })().catch(function (e) { stopped = "エラーで止まりました: " + e; }).then(function () {
-      var text = JSON.stringify({ v: 1, username: user, posts: out });
-      say("@" + user + " " + out.length + "件" + (stopped ? "（" + stopped + "。ここまでの分）" : "") + "\n「コピー」を押して、貼り付けページに貼ってください");
-      msg.style.whiteSpace = "pre-wrap";
-      var btn = document.createElement("button");
-      btn.textContent = "コピー";
-      btn.style.cssText = "margin:8px 8px 0 0;padding:4px 12px";
-      btn.onclick = function () {
-        navigator.clipboard.writeText(text).then(function () { btn.textContent = "コピーしました"; },
-          function () { ta.style.display = "block"; ta.select(); btn.textContent = "下を手でコピー"; });
-      };
-      var close = document.createElement("button");
-      close.textContent = "閉じる";
-      close.style.cssText = "margin-top:8px;padding:4px 12px";
-      close.onclick = function () { box.remove(); };
-      var ta = document.createElement("textarea");
-      ta.value = text;
-      ta.readOnly = true;
-      ta.style.cssText = "display:none;width:100%;height:80px;margin-top:8px;font:11px monospace";
-      box.appendChild(btn);
-      box.appendChild(close);
-      box.appendChild(ta);
+      render();
+    }
+
+    /* ---------- 画面右下のパネル(innerHTML は使わない) ---------- */
+
+    var panel = document.createElement("div");
+    panel.style.cssText =
+      "position:fixed;right:16px;bottom:16px;z-index:2147483647;width:260px;padding:12px;" +
+      "background:#fff;color:#1f1f1f;border:2px solid #8C6BB8;border-radius:12px;" +
+      "font:13px/1.6 sans-serif;box-shadow:0 4px 16px rgba(0,0,0,.25)";
+    function el(tag, css, txt) {
+      var e = document.createElement(tag);
+      if (css) e.style.cssText = css;
+      if (txt) e.textContent = txt;
+      return e;
+    }
+    var title = el("div", "font-weight:700;margin-bottom:4px", "hello-insta 収集中");
+    var count = el("div");
+    var note = el("div", "color:#6b6b6b;font-size:12px;margin:4px 0;white-space:pre-wrap");
+    var row = el("div", "display:flex;flex-wrap:wrap;gap:6px;margin-top:6px");
+    function button(label, main) {
+      var b = el("button", "font:inherit;padding:4px 10px;border:1px solid #8C6BB8;border-radius:6px;cursor:pointer;" +
+        (main ? "background:#8C6BB8;color:#fff" : "background:#fff;color:#8C6BB8"), label);
+      row.appendChild(b);
+      return b;
+    }
+    var bSend = button("送る", true), bScroll = button("自動スクロール"), bCopy = button("コピー"), bClose = button("閉じる");
+    [title, count, note, row].forEach(function (e) { panel.appendChild(e); });
+    document.body.appendChild(panel);
+
+    function msg(s) { note.textContent = s; }
+
+    function render() {
+      var n = 0, c = 0, who = {};
+      items.forEach(function (p) { n++; if (p.caption != null) c++; who[p.account] = 1; });
+      count.textContent = n + " 件（本文あり " + c + "）・" + Object.keys(who).length + " アカウント";
+    }
+
+    function list() { return Array.from(items.values()); }
+
+    // 送る: 貼り付けページを開き、準備ができたと言ってきたら渡す(返事の送り主 e.source に渡す)。
+    // 渡せなかったときのために、開く前にクリップボードにも写しておく
+    window.addEventListener("message", function (e) {
+      if (e.origin !== SITE || !e.data || !e.source) return;
+      if (e.data.type === "hello-insta-ready") e.source.postMessage({ type: "hello-insta-posts", posts: list() }, SITE);
+      if (e.data.type === "hello-insta-got") msg(e.data.n + " 件を渡しました。開いたページで「登録」を押してください");
     });
+
+    function copy() {
+      return navigator.clipboard.writeText(JSON.stringify({ v: 2, posts: list() }))
+        .then(function () { return true; }, function () { return false; });
+    }
+
+    bSend.onclick = function () {
+      if (!items.size) { msg("まだ何も拾えていません"); return; }
+      copy();
+      var win = window.open(SITE + "/paste", "hello-insta-paste");
+      msg(win === null
+        ? "ポップアップが止められました。コピーはしたので、貼り付けページを開いて欄に貼ってください"
+        : "貼り付けページを開いています…（渡らないときは、コピー済みなので欄に貼ってください）");
+    };
+
+    bCopy.onclick = function () {
+      copy().then(function (ok) { msg(ok ? "コピーしました。貼り付けページの欄に貼ってください" : "コピーできませんでした"); });
+    };
+
+    // 自動スクロール: 人が眺めるくらいの間隔(3〜5秒、毎回ばらつかせる)で一番下へ。伸びなくなったら終わる
+    var scrollTimer = null, still = 0, lastH = 0;
+    function stopScroll(s) {
+      clearTimeout(scrollTimer); scrollTimer = null;
+      bScroll.textContent = "自動スクロール";
+      if (s) msg(s);
+    }
+    function step() {
+      window.scrollTo(0, document.documentElement.scrollHeight);
+      var h = document.documentElement.scrollHeight;
+      still = h === lastH ? still + 1 : 0;
+      lastH = h;
+      if (still >= 3) { stopScroll("一番下まで来ました。「送る」を押してください"); return; }
+      scrollTimer = setTimeout(step, 3000 + Math.random() * 2000);
+    }
+    bScroll.onclick = function () {
+      if (scrollTimer) { stopScroll("止めました"); return; }
+      still = 0; lastH = 0;
+      bScroll.textContent = "止める";
+      msg("ゆっくり一番下まで送っています…");
+      step();
+    };
+
+    var timer = setInterval(scan, 800);
+    bClose.onclick = function () {
+      stopScroll();
+      clearInterval(timer);
+      panel.remove();
+      delete window.__helloInsta;
+    };
+
+    window.__helloInsta = { show: function () { panel.style.display = ""; scan(); } };
+    scan();
   }
 
-  document.getElementById("bm").href = "javascript:(" + encodeURIComponent(grab.toString()) + ")()";
+  document.getElementById("bm").href = "javascript:(" +
+    encodeURIComponent(grab.toString().replace("__SITE__", location.origin)) + ")()";
+
+  // ---------- 合言葉(?t= で開いたらこのブラウザに覚えておく。「送る」で開くときは ?t= が付かないため) ----------
+  var token = new URLSearchParams(location.search).get("t") || "";
+  try {
+    if (token) localStorage.setItem("crawlToken", token);
+    else token = localStorage.getItem("crawlToken") || "";
+  } catch (e) { /* 保存できないブラウザでは ?t= を毎回付ける */ }
 
   // ---------- 貼り付け ----------
-  var token = new URLSearchParams(location.search).get("t") || "";
   var data = document.getElementById("data");
   var preview = document.getElementById("preview");
   var send = document.getElementById("send");
   var result = document.getElementById("result");
   var CHUNK = 100;  // Worker 側の上限(PASTE_MAX)と同じ
-  var parsed = null;
+  var groups = null;  // アカウント → 投稿の配列
 
-  function jst(sec) {
-    return new Date(sec * 1000 + 9 * 3600e3).toISOString().slice(0, 16).replace("T", " ");
+  function take(d) {
+    groups = null;
+    result.textContent = "";
+    if (!d || !Array.isArray(d.posts)) throw new Error("形が違います");
+    var g = {};
+    d.posts.forEach(function (p) {
+      var who = p.account || d.username;
+      if (!who || !p.code) return;
+      (g[who] = g[who] || []).push(p);
+    });
+    var names = Object.keys(g);
+    if (!names.length) throw new Error("投稿がありません");
+    groups = g;
+    preview.textContent = names.map(function (n) {
+      var c = g[n].filter(function (p) { return p.caption != null; }).length;
+      return "@" + n + " " + g[n].length + "件（本文あり " + c + "）";
+    }).join("\n");
+    send.disabled = false;
   }
 
   data.addEventListener("input", function () {
-    parsed = null;
-    result.textContent = "";
     var v = data.value.trim();
-    if (!v) { preview.textContent = ""; send.disabled = true; return; }
+    if (!v) { preview.textContent = ""; send.disabled = true; groups = null; return; }
     try {
-      var d = JSON.parse(v);
-      if (!d.username || !Array.isArray(d.posts)) throw new Error("形が違います");
-      parsed = d;
-      var ts = d.posts.map(function (p) { return p.taken_at; }).filter(Number.isFinite).sort(function (a, b) { return a - b; });
-      preview.textContent = "@" + d.username + " " + d.posts.length + "件" +
-        (ts.length ? "（" + jst(ts[0]) + " 〜 " + jst(ts[ts.length - 1]) + "）" : "");
-      send.disabled = !d.posts.length;
+      take(JSON.parse(v));
     } catch (e) {
       preview.textContent = "読めません: " + e.message;
       send.disabled = true;
     }
   });
 
-  send.addEventListener("click", async function () {
-    if (!parsed) return;
-    if (!token) { result.textContent = "URL に ?t=<CRAWL_TOKEN> を付けて開いてください"; return; }
-    send.disabled = true;
-    var sum = { added: 0, updated: 0, skipped: 0 };
+  // ブックマークレットの「送る」で開かれたとき: 準備ができたと伝え、投稿を受け取る
+  window.addEventListener("message", function (e) {
+    if (!/^https:\/\/(www\.)?instagram\.com$/.test(e.origin) || !e.data || e.data.type !== "hello-insta-posts") return;
     try {
-      for (var i = 0; i < parsed.posts.length; i += CHUNK) {
-        result.textContent = "登録中… " + i + " / " + parsed.posts.length;
-        var res = await fetch("/api/crawl/paste", {
-          method: "POST",
-          headers: { "content-type": "application/json", authorization: "Bearer " + token },
-          body: JSON.stringify({ username: parsed.username, posts: parsed.posts.slice(i, i + CHUNK) }),
-        });
-        var r = await res.json().catch(function () { return {}; });
-        if (!res.ok) throw new Error(r.message || r.error || "HTTP " + res.status);
-        sum.added += r.added; sum.updated += r.updated; sum.skipped += r.skipped;
-      }
-      result.textContent = "登録しました: 新規 " + sum.added + "件 / 更新 " + sum.updated + "件 / 飛ばした " + sum.skipped + "件" +
-        (sum.skipped ? "\n（飛ばしたのは、公式APIで入っている投稿か、日時の無いもの）" : "");
-      data.value = "";
-      parsed = null;
-      preview.textContent = "";
-      loadTargets();
-    } catch (e) {
-      result.textContent = "失敗しました: " + e.message;
-      send.disabled = false;
+      take({ posts: e.data.posts });
+      data.value = JSON.stringify({ v: 2, posts: e.data.posts });
+      if (e.source) e.source.postMessage({ type: "hello-insta-got", n: e.data.posts.length }, e.origin);
+    } catch (err) {
+      preview.textContent = "受け取れませんでした: " + err.message;
     }
+  });
+  if (window.opener) {
+    try { window.opener.postMessage({ type: "hello-insta-ready" }, "https://www.instagram.com"); } catch (e) { /* 開き元と切れている */ }
+  }
+
+  send.addEventListener("click", async function () {
+    if (!groups) return;
+    if (!token) { result.textContent = "一度 URL に ?t=<CRAWL_TOKEN> を付けて開いてください"; return; }
+    send.disabled = true;
+    var lines = [];
+    var failed = false;
+    for (var who in groups) {
+      var sum = { added: 0, updated: 0, skipped: 0 };
+      var list = groups[who];
+      try {
+        for (var i = 0; i < list.length; i += CHUNK) {
+          result.textContent = "登録中… @" + who + " " + i + " / " + list.length;
+          var res = await fetch("/api/crawl/paste", {
+            method: "POST",
+            headers: { "content-type": "application/json", authorization: "Bearer " + token },
+            body: JSON.stringify({ username: who, posts: list.slice(i, i + CHUNK) }),
+          });
+          var r = await res.json().catch(function () { return {}; });
+          if (!res.ok) throw new Error(r.message || r.error || "HTTP " + res.status);
+          sum.added += r.added; sum.updated += r.updated; sum.skipped += r.skipped;
+        }
+        lines.push("@" + who + ": 新規 " + sum.added + "件 / 更新 " + sum.updated + "件 / 飛ばした " + sum.skipped + "件");
+      } catch (e) {
+        failed = true;
+        lines.push("@" + who + ": 失敗 " + e.message);
+      }
+    }
+    result.textContent = lines.join("\n") +
+      "\n（飛ばしたのは、公式APIで入っている投稿と、入っている投稿で本文が拾えなかったもの）";
+    if (!failed) { data.value = ""; groups = null; preview.textContent = ""; }
+    else send.disabled = false;
+    loadTargets();
   });
 
   // ---------- 対象の一覧(公開APIの accounts から、個人アカウントの人だけ) ----------
