@@ -1,4 +1,4 @@
-// 貼り付けページ(自分用)。/paste?t=<CRAWL_TOKEN> で開く(合言葉はこのブラウザに覚えさせる)。
+// 貼り付けページ(自分用)。合言葉(CRAWL_TOKEN)は欄に入れるか /paste?t= で開いて、このブラウザに覚えさせる(Git には置かない)。
 // ブックマークレット(grab)は instagram.com の上で動き、画面に出ている投稿を拾うだけ。Instagram へ自分から問い合わせない。
 // 「送る」でこのページを開いて postMessage で受け取る。渡らないときのためにコピーもしておき、欄に貼っても入れられる。
 (function () {
@@ -159,12 +159,31 @@
   document.getElementById("bm").href = "javascript:(" +
     encodeURIComponent(grab.toString().replace("__SITE__", location.origin)) + ")()";
 
-  // ---------- 合言葉(?t= で開いたらこのブラウザに覚えておく。「送る」で開くときは ?t= が付かないため) ----------
-  var token = new URLSearchParams(location.search).get("t") || "";
-  try {
-    if (token) localStorage.setItem("crawlToken", token);
-    else token = localStorage.getItem("crawlToken") || "";
-  } catch (e) { /* 保存できないブラウザでは ?t= を毎回付ける */ }
+  // ---------- 合言葉(欄に入れるか ?t= で開いたら、このブラウザに覚えておく。「送る」で開くときは ?t= が付かないため) ----------
+  var KEY = "crawlToken";
+  var token = "";
+  var tokenInput = document.getElementById("token");
+  var tokenState = document.getElementById("tokenState");
+  function remember(t) {
+    token = t;
+    try {
+      if (t) localStorage.setItem(KEY, t);
+      else localStorage.removeItem(KEY);
+    } catch (e) { /* 保存できないブラウザでは、このページを開いているあいだだけ使う */ }
+    tokenInput.value = "";
+    tokenState.textContent = t ? "覚えています（…" + t.slice(-4) + "）" : "まだ入っていません。登録には合言葉が要ります";
+  }
+  try { token = localStorage.getItem(KEY) || ""; } catch (e) { /* 読めないときは空のまま */ }
+  var fromUrl = new URLSearchParams(location.search).get("t");
+  if (fromUrl) {
+    // URL に合言葉を残さない(履歴やブックマークに残るので)
+    history.replaceState(null, "", location.pathname);
+    remember(fromUrl);
+  } else {
+    remember(token);
+  }
+  document.getElementById("saveToken").addEventListener("click", function () { remember(tokenInput.value.trim()); });
+  document.getElementById("clearToken").addEventListener("click", function () { remember(""); });
 
   // ---------- 貼り付け ----------
   var data = document.getElementById("data");
@@ -222,7 +241,7 @@
 
   send.addEventListener("click", async function () {
     if (!groups) return;
-    if (!token) { result.textContent = "一度 URL に ?t=<CRAWL_TOKEN> を付けて開いてください"; return; }
+    if (!token) { result.textContent = "上の「合言葉」の欄に CRAWL_TOKEN を入れて、覚えさせてください"; return; }
     send.disabled = true;
     var lines = [];
     var failed = false;
