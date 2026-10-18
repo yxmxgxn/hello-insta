@@ -293,6 +293,12 @@
     loadTargets();
   });
 
+  // '2026-10-16 21:03' → 今年なら '10/16 21:03'、それ以外は '2025/10/16 21:03'
+  function lastLabel(ts) {
+    var s = ts.replace(/-/g, "/");
+    return ts.slice(0, 4) === String(new Date().getFullYear()) ? s.slice(5) : s;
+  }
+
   // ---------- 対象の一覧(公開APIの accounts から、個人アカウントの人だけ) ----------
   function loadTargets() {
     // サイト側(Worker)のキャッシュは URL ごとなので、毎回違う URL にして最新の件数を取る
@@ -314,7 +320,10 @@
         link.appendChild(aa);
         var n = document.createElement("td");
         n.textContent = a.posts + "件";
-        tr.appendChild(name); tr.appendChild(link); tr.appendChild(n);
+        // 入っている一番新しい投稿の日時。Instagram でここまで遡って送れば抜けは出ない
+        var last = document.createElement("td");
+        last.textContent = a.last ? "最新 " + lastLabel(a.last) : "まだ無し";
+        tr.appendChild(name); tr.appendChild(link); tr.appendChild(n); tr.appendChild(last);
         tbody.appendChild(tr);
       });
     }).catch(function () {
