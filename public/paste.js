@@ -8,6 +8,9 @@
   // 中のコメントは行まるごとにすること(行末に付けない)。リンクにするときにコメント行を除いて1行につなぐため
   function grab() {
     var SITE = "__SITE__";
+    // 拾ってよい人(対象の個人アカウント)。貼り付けページがリンクを作るときに埋め込む。ほかの人の投稿は画面にあっても数えもしない
+    var ALLOW = {};
+    "__ALLOW__".split(",").forEach(function (u) { if (u) ALLOW[u] = true; });
     if (window.__helloInsta) { window.__helloInsta.show(); return; }
 
     // shortcode → { code, account, kind, caption }
@@ -28,6 +31,7 @@
     function put(code, account, kind, caption) {
       if (!code || !account) return;
       account = account.toLowerCase();
+      if (!ALLOW[account]) return;
       var old = items.get(code);
       // 本文は、取れているものを null で消さない。両方あれば長い方(途中で切れた表示より全文)
       if (old && old.caption != null && (caption == null || old.caption.length >= caption.length)) caption = old.caption;
@@ -107,6 +111,7 @@
       var n = 0, c = 0, who = {};
       items.forEach(function (p) { n++; if (p.caption != null) c++; who[p.account] = 1; });
       count.textContent = n + " 件（本文あり " + c + "）・" + Object.keys(who).length + " アカウント";
+      if (profile && !ALLOW[profile.toLowerCase()]) msg("対象外のアカウントです。何も拾いません");
     }
 
     function list() { return Array.from(items.values()); }
@@ -173,13 +178,20 @@
   }
 
   // スマホの Chrome はアドレスバーから実行すると改行を消して1行にするので、// のコメントがあると後ろが全部コメントになる。
-  // コメント行を除き、1行につないでからリンクにする(文の終わりはすべて ; で書いてある)
-  var oneLine = grab.toString().split("\n")
-    .map(function (l) { return l.trim(); })
-    .filter(function (l) { return l && !/^(\/\/|\/\*)/.test(l); })
-    .join(" ")
-    .replace("__SITE__", location.origin);
-  document.getElementById("bm").href = "javascript:(" + encodeURIComponent(oneLine) + ")()";
+  // コメント行を除き、1行につないでからリンクにする(文の終わりはすべて ; で書いてある)。
+  // 対象の個人アカウントの一覧を埋め込むので、一覧を読み込んでから作る(対象が変わったらドラッグし直す)
+  var bm = document.getElementById("bm");
+  bm.onclick = function (e) { e.preventDefault(); };
+  function buildLink(usernames) {
+    var oneLine = grab.toString().split("\n")
+      .map(function (l) { return l.trim(); })
+      .filter(function (l) { return l && !/^(\/\/|\/\*)/.test(l); })
+      .join(" ")
+      .replace("__SITE__", location.origin)
+      .replace("__ALLOW__", usernames.join(","));
+    bm.href = "javascript:(" + encodeURIComponent(oneLine) + ")()";
+    bm.title = "対象 " + usernames.length + " 人: " + usernames.join(", ");
+  }
 
   // ---------- 合言葉(欄に入れるか ?t= で開いたら、このブラウザに覚えておく。「送る」で開くときは ?t= が付かないため) ----------
   var KEY = "crawlToken";
@@ -331,6 +343,7 @@
       var list = (d.accounts || []).filter(function (a) { return a.active && /個人アカウント/.test(a.error || ""); });
       targets = {};
       list.forEach(function (a) { targets[a.username.toLowerCase()] = true; });
+      buildLink(Object.keys(targets));
       // 対象の読み込みより先に投稿が渡ってきていたら、絞り直す
       if (groups && lastData) take(lastData);
       if (!list.length) { tbody.innerHTML = "<tr><td>いません</td></tr>"; return; }
