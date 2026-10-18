@@ -13,7 +13,7 @@ https://insta.karin-archive.com/
 | `public/` | 画面（静的ファイル。Worker を通さず配信） |
 | `schema.sql` | D1 `hello-insta` のテーブル。デプロイのたびに流す |
 | `crawler/fetch.py` | Graph API の Business Discovery で取得し、クローラ用API経由で D1 に書く |
-| `public/paste.*` | 個人アカウント用の貼り付けページ（自分用）とブックマークレット |
+| `public/import.*` | 個人アカウント用の取り込みページ（自分用）とブックマークレット |
 
 ## 動き方
 
@@ -22,7 +22,7 @@ https://insta.karin-archive.com/
 - **毎日の報告**（Worker の cron）: JST 20:00 に収録件数・前回からの増加数・新着を Discord へ（Worker のシークレット `DISCORD_WEBHOOK`）
 - 対象アカウントは karin-archive の SNS一覧スプシ（accounts シート）の所属で決まる。条件は `crawler/fetch.py` の `load_targets()`
 - 取れるのはビジネス／クリエイターアカウントだけ。個人アカウントは Fetch の警告に出る
-- **貼り付け**（`public/paste.html`）: 個人アカウントの分は手で入れる。`/paste` を開き、合言葉（`CRAWL_TOKEN`）を欄に入れてブラウザに覚えさせ（Git には置かない）、
+- **取り込み**（`public/import.html`）: 個人アカウントの分は手で入れる。`/import` を開き、合言葉（`CRAWL_TOKEN`）を欄に入れてブラウザに覚えさせ（Git には置かない）、
   ブックマークレットを Graph API とは別のアカウントでログインしたブラウザの instagram.com で押す。
   画面に出た投稿（プロフィールの一覧のリンクとサムネイルの alt、開いた投稿の本文）を拾うだけで、Instagram へは問い合わせない。
   スクロールしてためたら「送る」（開いた貼り付けページへ postMessage で渡す）か「コピー」して貼り付けページで登録。
