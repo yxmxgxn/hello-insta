@@ -13,7 +13,7 @@ https://insta.karin-archive.com/
 | `public/` | 画面（静的ファイル。Worker を通さず配信） |
 | `schema.sql` | D1 `hello-insta` のテーブル。デプロイのたびに流す |
 | `crawler/fetch.py` | Graph API の Business Discovery で取得し、クローラ用API経由で D1 に書く |
-| `public/paste.*` | 個人アカウント用の貼り付けページ（自分用）とブックマークレット |
+| `public/import.*` | 個人アカウント用の貼り付けページ（自分用）とブックマークレット |
 | `tools/new_crawl_token.py` | CRAWL_TOKEN を忘れたときに作り直す |
 
 ## 動き方
@@ -23,7 +23,7 @@ https://insta.karin-archive.com/
 - **毎日の報告**（Worker の cron）: JST 20:00 に収録件数・前回からの増加数・新着を Discord へ（Worker のシークレット `DISCORD_WEBHOOK`）
 - 対象アカウントは karin-archive の SNS一覧スプシ（accounts シート）の所属で決まる。条件は `crawler/fetch.py` の `load_targets()`
 - 取れるのはビジネス／クリエイターアカウントだけ。個人アカウントは Fetch の警告に出る
-- **貼り付け**（`public/paste.html`）: 個人アカウントの分は手で入れる。`/paste?t=<CRAWL_TOKEN>` を一度開き（合言葉はブラウザに覚えさせる）、
+- **貼り付け**（`public/import.html`）: 個人アカウントの分は手で入れる。`/import?t=<CRAWL_TOKEN>` を一度開き（合言葉はブラウザに覚えさせる）、
   ブックマークレットを Graph API とは別のアカウントでログインしたブラウザの instagram.com で押す。
   画面に出た投稿（プロフィールの一覧のリンクとサムネイルの alt、開いた投稿の本文）を拾うだけで、Instagram へは問い合わせない。
   スクロールしてためたら「送る」（開いた貼り付けページへ postMessage で渡す）か「コピー」して貼り付けページで登録。
@@ -47,7 +47,7 @@ GitHub の Variables: `CRAWL_API` = `https://insta.karin-archive.com`
 ## 合言葉（CRAWL_TOKEN）を忘れたとき
 
 Secret はあとから読めないので作り直す。`python tools/new_crawl_token.py --repo yxmxgxn/hello-insta` で
-Secret の差し替えと Deploy まで行い（`gh` が要る）、出てきた `/paste?t=...` を一度開けばブラウザが覚え直す。
+Secret の差し替えと Deploy まで行い（`gh` が要る）、出てきた `/import?t=...` を一度開けばブラウザが覚え直す。
 `--repo` を省くと合言葉と URL を出すだけ。合言葉はファイルに書かないので Git には入らない
 
 ## アクセストークンの更新（約60日ごと）

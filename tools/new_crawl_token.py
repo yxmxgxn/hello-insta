@@ -9,7 +9,7 @@ GitHub の Secret はあとから読めないので、忘れたら作り直す�
 
   python tools/new_crawl_token.py --repo yxmxgxn/hello-insta --site https://insta.karin-archive.com
       gh で Secret の CRAWL_TOKEN を差し替え、Deploy を流して Worker の Secret にも入れる。
-      終わったら出てくる URL を一度開けば、ブラウザが合言葉を覚える(public/paste.js の localStorage)
+      終わったら出てくる URL を一度開けば、ブラウザが合言葉を覚える(public/import.js の localStorage)
 
 同じ形のリポジトリ(hello-tiktok など)にも --repo と --site を替えて使える。
 """
@@ -42,7 +42,7 @@ def main() -> None:
         print(token)
         print("デプロイが終わったら、次の URL を一度開いてブラウザに覚えさせてください:", file=sys.stderr)
 
-    print(f"{args.site.rstrip('/')}/paste?t={token}")
+    print(f"{args.site.rstrip('/')}/import?t={token}")
 
 
 if __name__ == "__main__":

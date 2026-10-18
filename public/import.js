@@ -1,4 +1,4 @@
-// 貼り付けページ(自分用)。/paste?t=<CRAWL_TOKEN> で開く(合言葉はこのブラウザに覚えさせる)。
+// 貼り付けページ(自分用)。/import?t=<CRAWL_TOKEN> で開く(合言葉はこのブラウザに覚えさせる)。
 // ブックマークレット(grab)は instagram.com の上で動き、画面に出ている投稿を拾うだけ。Instagram へ自分から問い合わせない。
 // 「送る」でこのページを開いて postMessage で受け取る。渡らないときのためにコピーもしておき、欄に貼っても入れられる。
 (function () {
@@ -111,7 +111,7 @@
     bSend.onclick = function () {
       if (!items.size) { msg("まだ何も拾えていません"); return; }
       copy();
-      var win = window.open(SITE + "/paste", "hello-insta-paste");
+      var win = window.open(SITE + "/import", "hello-insta-import");
       msg(win === null
         ? "ポップアップが止められました。コピーはしたので、貼り付けページを開いて欄に貼ってください"
         : "貼り付けページを開いています…（渡らないときは、コピー済みなので欄に貼ってください）");
