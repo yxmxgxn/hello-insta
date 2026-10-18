@@ -173,7 +173,8 @@ async function handleAccounts(env) {
   const [accounts, latest] = await env.DB.batch([
     env.DB.prepare(
       "SELECT a.username, a.name, a.section, a.active, s.last_error AS error, " +
-      "(SELECT COUNT(*) FROM post WHERE account = a.username) AS posts " +
+      "(SELECT COUNT(*) FROM post WHERE account = a.username) AS posts, " +
+      "(SELECT MAX(ts) FROM post WHERE account = a.username) AS last " +
       "FROM account a LEFT JOIN fetch_state s ON s.username = a.username ORDER BY a.active DESC, a.sort"),
     env.DB.prepare("SELECT MAX(ts) AS ts FROM post"),
   ]);
