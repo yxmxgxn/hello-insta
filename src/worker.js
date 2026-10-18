@@ -3,6 +3,7 @@
  *
  * 公開API
  *   GET /api/posts?a=&from=&to=&q=&before=   投稿を新しい順に100件ずつ。a はユーザー名のカンマ区切り
+ *                  &sort=popular&o=         a が1人のときだけ、いいねの多い順(数字は返さない)。o は何件目から
  *   GET /api/calendar?ym=YYYY-MM&a=&q=        その月の日ごとの投稿数(a / q の条件込み)
  *   GET /api/accounts                         絞り込み用のアカウント一覧
  *
@@ -122,16 +123,29 @@ function filters(p) {
   return { where, args };
 }
 
+// sort=popular は、メンバーを1人に絞ったときだけ受け付ける(メンバー同士の比べ合いに使わせないため)。
+// いいね数の多い順に並べるだけで、数字は返さない。いいね数の無い投稿(非表示・貼り付けで入れた分)は後ろに日付順。
+// 続きは o(何件目から)で取る
+const MAX_OFFSET = 5000;
+
 async function handlePosts(url, env) {
   const p = url.searchParams;
   const { where, args } = filters(p);
-  const before = p.get("before") || "";
-  if (before) { where.push("ts < ?"); args.push(before.slice(0, 16)); }
+  const one = (p.get("a") || "").split(",").filter(Boolean).length === 1;
+  const popular = p.get("sort") === "popular" && one;
+  let order = " ORDER BY ts DESC LIMIT ?";
+  const tail = [PAGE];
+  if (popular) {
+    order = " ORDER BY like_count IS NULL, like_count DESC, ts DESC LIMIT ? OFFSET ?";
+    tail.push(Math.min(Math.max(parseInt(p.get("o"), 10) || 0, 0), MAX_OFFSET));
+  } else {
+    const before = p.get("before") || "";
+    if (before) { where.push("ts < ?"); args.push(before.slice(0, 16)); }
+  }
   const sql =
     "SELECT id, account, ts, permalink, media_type, excerpt FROM post" +
-    (where.length ? " WHERE " + where.join(" AND ") : "") +
-    " ORDER BY ts DESC LIMIT ?";
-  const { results } = await env.DB.prepare(sql).bind(...args, PAGE).all();
+    (where.length ? " WHERE " + where.join(" AND ") : "") + order;
+  const { results } = await env.DB.prepare(sql).bind(...args, ...tail).all();
   return json({ posts: results, more: results.length === PAGE }, 200, "public, max-age=300");
 }
 

@@ -9,10 +9,22 @@
   var pad = function (n) { return (n < 10 ? "0" : "") + n; };
   var options = function () { return Array.prototype.slice.call($("acc").options); };
 
+  function selected() {
+    return options().filter(function (o) { return o.selected; }).map(function (o) { return o.value; });
+  }
+
+  // 人気順はメンバーを1人に絞ったときだけ(全員や複数人での比べ合いには使わせない)
+  function syncSort() {
+    var one = selected().length === 1;
+    $("sort").disabled = !one;
+    if (!one) $("sort").value = "";
+  }
+
   function params() {
     var p = new URLSearchParams();
-    var sel = options().filter(function (o) { return o.selected; }).map(function (o) { return o.value; });
+    var sel = selected();
     if (sel.length) p.set("a", sel.join(","));
+    if (sel.length === 1 && $("sort").value === "popular") p.set("sort", "popular");
     if ($("from").value) p.set("from", $("from").value);
     if ($("to").value) p.set("to", $("to").value);
     if ($("q").value.trim()) p.set("q", $("q").value.trim());
@@ -132,7 +144,9 @@
     var my = ++listNo;
     var p = params();
     var q = p.get("q") || "";
-    if (more && lastTs) p.set("before", lastTs);
+    var popular = p.get("sort") === "popular";
+    if (more && popular) p.set("o", $("list").children.length);
+    else if (more && lastTs) p.set("before", lastTs);
     if (!more) {
       $("list").innerHTML = "";
       lastTs = "";
@@ -152,6 +166,7 @@
         if (d.posts.length) lastTs = d.posts[d.posts.length - 1].ts;
         var n = $("list").children.length;
         $("status").textContent = n ? n + "件表示中" : "該当する投稿はありません";
+        $("more").textContent = popular ? "続きを表示" : "さらに古い投稿";
         $("more").hidden = !d.more;
       })
       .catch(function () {
@@ -161,6 +176,7 @@
 
   function only(account) {
     options().forEach(function (o) { o.selected = o.value === account; });
+    syncSort();
     load(false);
     $("f").scrollIntoView({ behavior: "smooth" });
   }
@@ -234,12 +250,14 @@
   /* ---------- 起動 ---------- */
 
   $("f").addEventListener("submit", function (e) { e.preventDefault(); load(false); });
-  $("acc").addEventListener("change", function () { load(false); });
+  $("acc").addEventListener("change", function () { syncSort(); load(false); });
+  $("sort").addEventListener("change", function () { load(false); });
   $("from").addEventListener("change", function () { load(false); });
   $("to").addEventListener("change", function () { load(false); });
   $("more").addEventListener("click", function () { load(true); });
   $("reset").addEventListener("click", function () {
     options().forEach(function (o) { o.selected = false; });
+    syncSort();
     $("from").value = $("to").value = $("q").value = "";
     thisMonth();
     load(false);
@@ -262,6 +280,8 @@
       $("from").value = q.get("from") || "";
       $("to").value = q.get("to") || "";
       $("q").value = q.get("q") || "";
+      syncSort();
+      if (!$("sort").disabled && q.get("sort") === "popular") $("sort").value = "popular";
       thisMonth();
       load(false);
     });

@@ -37,9 +37,13 @@
     <div class="row">
       <label>いつから <input type="date" id="from"></label>
       <label>いつまで <input type="date" id="to"></label>
+      <label>並び <select id="sort" disabled title="メンバーを1人だけ選ぶと人気順にできます">
+        <option value="">新しい順</option>
+        <option value="popular">人気順</option>
+      </select></label>
       <button type="button" class="ghost" id="reset">リセット</button>
     </div>
-    <p class="hint">メンバー未選択なら全員。Ctrl（Macは⌘）を押しながらクリックで複数選べます。一覧のメンバー名を押すと、その人だけに絞り込めます。空白で区切ると「全部含む」投稿を探します。</p>
+    <p class="hint">メンバー未選択なら全員。Ctrl（Macは⌘）を押しながらクリックで複数選べます。一覧のメンバー名を押すと、その人だけに絞り込めます。メンバーを1人だけ選ぶと「人気順」（いいねの多い順。公式APIで取れている人のみ、数時間おきの集計）に並べ替えられます。空白で区切ると「全部含む」投稿を探します。</p>
     <p class="hint" data-nosnippet>選択欄の一番下の「取得不可」は、個人アカウントのため取れない人です。Instagramの公式APIで読めるのはビジネス／クリエイターアカウントだけで、切り替われば自動で取得が始まります。</p>
   </form>
 
