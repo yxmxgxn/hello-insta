@@ -272,6 +272,8 @@
             body: JSON.stringify({ username: who, posts: list.slice(i, i + CHUNK) }),
           });
           var r = await res.json().catch(function () { return {}; });
+          // 合言葉が違うと、Worker は存在しないふりをして 404 を返す
+          if (res.status === 404) throw new Error("合言葉が違います（覚えさせた CRAWL_TOKEN が、サイトのものと合っていません）");
           if (!res.ok) throw new Error(r.message || r.error || "HTTP " + res.status);
           sum.added += r.added; sum.updated += r.updated; sum.skipped += r.skipped;
         }
