@@ -360,10 +360,22 @@
         link.appendChild(aa);
         var n = document.createElement("td");
         n.textContent = a.posts + "件";
-        // 入っている一番新しい投稿の日時。Instagram でここまで遡って送れば抜けは出ない
+        // 入っている一番新しい投稿の日時(押すとその投稿を開く)。Instagram でここまで遡って送れば抜けは出ない
         var last = document.createElement("td");
-        last.textContent = a.last ? "最新 " + lastLabel(a.last) : "まだ無し";
-        tr.appendChild(name); tr.appendChild(link); tr.appendChild(n); tr.appendChild(last);
+        if (a.last && a.last_url) {
+          var la = document.createElement("a");
+          la.href = a.last_url.replace("/reel/", "/p/");
+          la.target = "_blank";
+          la.rel = "noopener noreferrer";
+          la.textContent = "最新 " + lastLabel(a.last);
+          last.appendChild(la);
+        } else {
+          last.textContent = "まだ無し";
+        }
+        // 最後に取り込んだ日時(このDBに入った日時)
+        var added = document.createElement("td");
+        added.textContent = a.last_added ? "取り込み " + lastLabel(a.last_added) : "";
+        tr.appendChild(name); tr.appendChild(link); tr.appendChild(n); tr.appendChild(last); tr.appendChild(added);
         tbody.appendChild(tr);
       });
     }).catch(function () {
