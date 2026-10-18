@@ -174,7 +174,9 @@ async function handleAccounts(env) {
     env.DB.prepare(
       "SELECT a.username, a.name, a.section, a.active, s.last_error AS error, " +
       "(SELECT COUNT(*) FROM post WHERE account = a.username) AS posts, " +
-      "(SELECT MAX(ts) FROM post WHERE account = a.username) AS last " +
+      "(SELECT MAX(ts) FROM post WHERE account = a.username) AS last, " +
+      "(SELECT permalink FROM post WHERE account = a.username ORDER BY ts DESC LIMIT 1) AS last_url, " +
+      "(SELECT MAX(added_at) FROM post WHERE account = a.username) AS last_added " +
       "FROM account a LEFT JOIN fetch_state s ON s.username = a.username ORDER BY a.active DESC, a.sort"),
     env.DB.prepare("SELECT MAX(ts) AS ts FROM post"),
   ]);
