@@ -295,7 +295,8 @@
 
   // ---------- 対象の一覧(公開APIの accounts から、個人アカウントの人だけ) ----------
   function loadTargets() {
-    fetch("/api/accounts", { cache: "no-store" }).then(function (r) { return r.json(); }).then(function (d) {
+    // サイト側(Worker)のキャッシュは URL ごとなので、毎回違う URL にして最新の件数を取る
+    fetch("/api/accounts?fresh=" + Date.now(), { cache: "no-store" }).then(function (r) { return r.json(); }).then(function (d) {
       var tbody = document.getElementById("targets");
       tbody.textContent = "";
       var list = (d.accounts || []).filter(function (a) { return a.active && /個人アカウント/.test(a.error || ""); });
