@@ -215,12 +215,18 @@
     var names = Object.keys(g);
     if (!names.length) throw new Error("投稿がありません");
     groups = g;
-    preview.textContent = names.map(function (n) {
+    preview.textContent = "未登録（「登録」を押すまで入りません）\n" + names.map(function (n) {
       var c = g[n].filter(function (p) { return p.caption != null; }).length;
       return "@" + n + " " + g[n].length + "件（本文あり " + c + "）";
     }).join("\n");
     send.disabled = false;
   }
+
+  // 開いたときは必ず空から(ブラウザが前の中身を戻すと、送り忘れと見分けがつかないため)
+  data.value = "";
+  window.addEventListener("pageshow", function (e) {
+    if (e.persisted && !groups) { data.value = ""; preview.textContent = ""; send.disabled = true; }
+  });
 
   data.addEventListener("input", function () {
     var v = data.value.trim();
@@ -277,8 +283,11 @@
     }
     result.textContent = lines.join("\n") +
       "\n（飛ばしたのは、公式APIで入っている投稿と、入っている投稿で本文が拾えなかったもの）";
-    if (!failed) { data.value = ""; groups = null; preview.textContent = ""; }
-    else send.disabled = false;
+    // 失敗があっても欄は空にする(続けて次のアカウントを貼れるように。失敗した分は上の結果に出るので、貼り直せばよい)
+    data.value = "";
+    groups = null;
+    preview.textContent = "";
+    if (failed) result.textContent += "\n失敗した分は、もう一度コピーして貼り直してください";
     loadTargets();
   });
 
