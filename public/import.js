@@ -1,4 +1,4 @@
-// 貼り付けページ(自分用)。合言葉(CRAWL_TOKEN)は欄に入れるか /paste?t= で開いて、このブラウザに覚えさせる(Git には置かない)。
+// 取り込みページ(自分用、/import)。合言葉(CRAWL_TOKEN)は欄に入れるか /import?t= で開いて、このブラウザに覚えさせる(Git には置かない)。
 // ブックマークレット(grab)は instagram.com の上で動き、画面に出ている投稿を拾うだけ。Instagram へ自分から問い合わせない。
 // 「送る」でこのページを開いて postMessage で受け取る。渡らないときのためにコピーもしておき、欄に貼っても入れられる。
 (function () {
@@ -132,7 +132,7 @@
     bSend.onclick = function () {
       if (!items.size) { msg("まだ何も拾えていません"); return; }
       copy();
-      var win = window.open(SITE + "/paste", "hello-insta-paste");
+      var win = window.open(SITE + "/import", "hello-insta-import");
       msg(win === null
         ? "ポップアップが止められました。コピーはしたので、貼り付けページを開いて欄に貼ってください"
         : "貼り付けページを開いています…（渡らないときは、コピー済みなので欄に貼ってください）");

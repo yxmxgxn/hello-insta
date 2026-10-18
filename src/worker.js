@@ -12,7 +12,7 @@
  *   POST /api/crawl/accounts   SNSスプシ由来の対象アカウントを丸ごと差し替え(外れた人は active=0)
  *   POST /api/crawl/posts      1ページ分の投稿と、そのアカウントの進み具合をまとめて書く
  *   POST /api/crawl/error      取得エラーを記録
- *   POST /api/crawl/paste      貼り付けページから、個人アカウントの投稿を書く(public/paste.html)
+ *   POST /api/crawl/paste      取り込みページから、個人アカウントの投稿を書く(public/import.html)
  *
  * 定期実行: 毎日 JST 20:00 に、収録件数・前回からの増加数・新着投稿を Discord へ送る(DISCORD_WEBHOOK)。
  *
@@ -322,7 +322,7 @@ function takenFromCode(code) {
 }
 
 // { username, posts: [{ code, caption, kind }] }
-// 貼り付けページ(public/paste.html)から。ブックマークレットが画面から拾った個人アカウントの投稿。
+// 取り込みページ(public/import.html)から。ブックマークレットが画面から拾った個人アカウントの投稿。
 // 日時は shortcode から出す。本文は拾えなかったら null(入っている投稿の本文は消さない)。
 // 公式APIで取れない(個人アカウント)と分かっている人だけ受け付け、公式APIで入っている投稿は shortcode で見て飛ばす
 const PASTE_MAX = 100;  // 1回に受け付ける件数(貼り付けページが分けて送る)
@@ -590,6 +590,8 @@ export default {
     }
 
     if (p.startsWith("/api/")) return new Response("Not found", { status: 404 });
+    // 取り込みページは /paste から /import に名前を変えた(TikTok とそろえる)。古いブックマークやブックマークレットの「送る」用
+    if (p === "/paste" || p === "/paste.html") return Response.redirect(new URL("/import" + url.search, url).toString(), 301);
     return env.ASSETS.fetch(request);
   },
 };
