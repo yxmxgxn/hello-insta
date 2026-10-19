@@ -8,7 +8,7 @@
   // 中のコメントは行まるごとにすること(行末に付けない)。リンクにするときにコメント行を除いて1行につなぐため
   function grab() {
     var SITE = "__SITE__";
-    // 拾ってよい人(対象の個人アカウント)。貼り付けページがリンクを作るときに埋め込む。ほかの人の投稿は画面にあっても数えもしない
+    // 拾ってよい人(対象アカウント全員。公式APIで取れる人も遡りの先回りに入れてよい)。取り込みページがリンクを作るときに埋め込む。ほかの人の投稿は画面にあっても数えもしない
     var ALLOW = {};
     "__ALLOW__".split(",").forEach(function (u) { if (u) ALLOW[u] = true; });
     if (window.__helloInsta) { window.__helloInsta.show(); return; }
@@ -179,7 +179,7 @@
 
   // スマホの Chrome はアドレスバーから実行すると改行を消して1行にするので、// のコメントがあると後ろが全部コメントになる。
   // コメント行を除き、1行につないでからリンクにする(文の終わりはすべて ; で書いてある)。
-  // 対象の個人アカウントの一覧を埋め込むので、一覧を読み込んでから作る(対象が変わったらドラッグし直す)
+  // 対象アカウントの一覧を埋め込むので、一覧を読み込んでから作る(対象が変わったらドラッグし直す)
   var bm = document.getElementById("bm");
   bm.onclick = function (e) { e.preventDefault(); };
   function buildLink(usernames) {
@@ -226,10 +226,10 @@
   var result = document.getElementById("result");
   var CHUNK = 100;  // Worker 側の上限(PASTE_MAX)と同じ
   var groups = null;  // アカウント → 投稿の配列
-  var targets = null; // 受け付ける個人アカウント(小文字)。読み込むまでは null で、そのあいだは絞らない
+  var targets = null; // 受け付ける対象アカウント(小文字)。読み込むまでは null で、そのあいだは絞らない
   var lastData = null;
 
-  // ホームのフィードで拾うと、ファンなど対象外の人の投稿も混ざるので、対象の個人アカウントの分だけ送る
+  // ホームのフィードで拾うと、ファンなど対象外の人の投稿も混ざるので、対象アカウントの分だけ送る
   function take(d) {
     groups = null;
     result.textContent = "";
@@ -243,9 +243,9 @@
       (g[who] = g[who] || []).push(p);
     });
     var names = Object.keys(g);
-    var note = outside ? "\n対象外（公式APIで取れる人・ファンなど）" + outside + "件は送りません" : "";
+    var note = outside ? "\n対象外（ファンなど）" + outside + "件は送りません" : "";
     if (!names.length) {
-      preview.textContent = "対象の個人アカウントの投稿がありません" + note;
+      preview.textContent = "対象アカウントの投稿がありません" + note;
       send.disabled = true;
       return;
     }
@@ -340,10 +340,11 @@
     fetch("/api/accounts?fresh=" + Date.now(), { cache: "no-store" }).then(function (r) { return r.json(); }).then(function (d) {
       var tbody = document.getElementById("targets");
       tbody.textContent = "";
-      var list = (d.accounts || []).filter(function (a) { return a.active && /個人アカウント/.test(a.error || ""); });
+      // 拾う・受け付けるのは対象アカウント全員。表に出すのは公式APIで取れない個人アカウントの人だけ
       targets = {};
-      list.forEach(function (a) { targets[a.username.toLowerCase()] = true; });
+      (d.accounts || []).forEach(function (a) { if (a.active) targets[a.username.toLowerCase()] = true; });
       buildLink(Object.keys(targets));
+      var list = (d.accounts || []).filter(function (a) { return a.active && /個人アカウント/.test(a.error || ""); });
       // 対象の読み込みより先に投稿が渡ってきていたら、絞り直す
       if (groups && lastData) take(lastData);
       if (!list.length) { tbody.innerHTML = "<tr><td>いません</td></tr>"; return; }
