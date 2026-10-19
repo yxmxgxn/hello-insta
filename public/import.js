@@ -267,27 +267,21 @@
   }
 
   var classifyNo = 0;
-  async function classify(g, show) {
+  // 1人1回、全員分を同時に聞く(数えるだけなので件数の上限は大きい)
+  function classify(g, show) {
     var my = ++classifyNo;
     var counts = {};
-    try {
-      for (var who in g) {
-        var k = { fresh: 0, official: 0, imported: 0, invalid: 0 };
-        for (var i = 0; i < g[who].length; i += CHUNK) {
-          var res = await fetch("/api/crawl/paste", {
-            method: "POST",
-            headers: { "content-type": "application/json", authorization: "Bearer " + token },
-            body: JSON.stringify({ username: who, posts: g[who].slice(i, i + CHUNK), dry: true }),
-          });
-          if (!res.ok) return;
-          var r = await res.json();
-          k.fresh += r.fresh; k.official += r.official; k.imported += r.imported; k.invalid += r.invalid;
-        }
-        counts[who] = k;
-        if (my !== classifyNo) return;
+    Object.keys(g).forEach(function (who) {
+      fetch("/api/crawl/paste", {
+        method: "POST",
+        headers: { "content-type": "application/json", authorization: "Bearer " + token },
+        body: JSON.stringify({ username: who, posts: g[who], dry: true }),
+      }).then(function (res) { return res.ok ? res.json() : null; }).then(function (r) {
+        if (!r || my !== classifyNo) return;
+        counts[who] = r;
         show(counts);
-      }
-    } catch (e) { /* 数えられなくても登録はできる */ }
+      }).catch(function () { /* 数えられなくても登録はできる */ });
+    });
   }
 
   // 開いたときは必ず空から(ブラウザが前の中身を戻すと、送り忘れと見分けがつかないため)
@@ -298,9 +292,12 @@
 
   data.addEventListener("input", function () {
     var v = data.value.trim();
-    if (!v) { preview.textContent = ""; send.disabled = true; groups = null; return; }
+    // 欄は読み取ったあと空にするので、空になっても読み取った分(未登録)は消さない
+    if (!v) return;
     try {
       take(JSON.parse(v));
+      // 中身は読み取って下の「未登録」に移したので、欄は空にする(大きな文字を表示し続けると重い)
+      data.value = "";
     } catch (e) {
       preview.textContent = "読めません: " + e.message;
       send.disabled = true;
@@ -311,8 +308,8 @@
   window.addEventListener("message", function (e) {
     if (!/^https:\/\/(www\.)?instagram\.com$/.test(e.origin) || !e.data || e.data.type !== "hello-insta-posts") return;
     try {
+      // 欄には入れずに、そのまま読み取る(大きな文字を表示すると重い)
       take({ posts: e.data.posts });
-      data.value = JSON.stringify({ v: 2, posts: e.data.posts });
       if (e.source) e.source.postMessage({ type: "hello-insta-got", n: e.data.posts.length }, e.origin);
     } catch (err) {
       preview.textContent = "受け取れませんでした: " + err.message;
@@ -326,11 +323,17 @@
     if (!groups) return;
     if (!token) { result.textContent = "上の「合言葉」の欄に CRAWL_TOKEN を入れて、覚えさせてください"; return; }
     send.disabled = true;
+    // 押したらすぐ空にする(送る分は手元に持っておく)。失敗した分は結果に出るので、貼り直せばよい
+    var sending = groups;
+    data.value = "";
+    groups = null;
+    classifyNo++;  // まだ数えている途中の確認があれば、空にした表示を上書きさせない
+    preview.textContent = "";
     var lines = [];
     var failed = false;
-    for (var who in groups) {
+    for (var who in sending) {
       var sum = { added: 0, updated: 0, skipped: 0 };
-      var list = groups[who];
+      var list = sending[who];
       try {
         for (var i = 0; i < list.length; i += CHUNK) {
           result.textContent = "登録中… @" + who + " " + i + " / " + list.length;
@@ -353,11 +356,6 @@
     }
     result.textContent = lines.join("\n") +
       "\n（飛ばしたのは、公式APIで入っている投稿と、入っている投稿で本文が拾えなかったもの）";
-    // 失敗があっても欄は空にする(続けて次のアカウントを貼れるように。失敗した分は上の結果に出るので、貼り直せばよい)
-    data.value = "";
-    groups = null;
-    classifyNo++;  // まだ数えている途中の確認があれば、空にした表示を上書きさせない
-    preview.textContent = "";
     if (failed) result.textContent += "\n失敗した分は、もう一度コピーして貼り直してください";
     loadTargets();
   });
