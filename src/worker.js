@@ -329,13 +329,15 @@ function takenFromCode(code) {
 // 日時は shortcode から出す。本文は拾えなかったら null(入っている投稿の本文は消さない)。
 // 対象アカウントの人なら受け付ける(公式APIで取れる人も、遡りの先回りとして手で入れてよい)。
 // 公式APIで入っている投稿は shortcode で見て飛ばし、手で入れた分はあとで公式APIが追いついたら置き換わる(upsertPost)
-const PASTE_MAX = 100;  // 1回に受け付ける件数(貼り付けページが分けて送る)
+const PASTE_MAX = 100;
+const DRY_MAX = 5000;  // 1回に受け付ける件数(貼り付けページが分けて送る)
 const MEDIA_TYPE = { 1: "IMAGE", 2: "VIDEO", 8: "CAROUSEL_ALBUM" };
 
 // dry: true なら書き込まず、新規・公式で入っている・取り込み済みに振り分けた件数だけ返す(取り込みページの確認用)
 async function crawlPaste(request, env) {
   const { username, posts, dry } = await request.json();
-  if (!username || !Array.isArray(posts) || posts.length > PASTE_MAX) return json({ error: "bad_request" }, 400);
+  // 書き込みは1回 PASTE_MAX 件まで。数えるだけ(dry)なら1人分をまとめて受ける
+  if (!username || !Array.isArray(posts) || posts.length > (dry ? DRY_MAX : PASTE_MAX)) return json({ error: "bad_request" }, 400);
   const [{ results: acc }] = await env.DB.batch([
     env.DB.prepare(
       "SELECT username FROM account WHERE lower(username) = lower(?)").bind(String(username)),
