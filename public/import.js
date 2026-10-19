@@ -250,11 +250,44 @@
       return;
     }
     groups = g;
-    preview.textContent = "未登録（「登録」を押すまで入りません）\n" + names.map(function (n) {
-      var c = g[n].filter(function (p) { return p.caption != null; }).length;
-      return "@" + n + " " + g[n].length + "件（本文あり " + c + "）";
-    }).join("\n") + note;
+    var head = "未登録（「登録」を押すまで入りません）\n";
+    function show(counts) {
+      preview.textContent = head + names.map(function (n) {
+        var c = g[n].filter(function (p) { return p.caption != null; }).length;
+        var line = "@" + n + " " + g[n].length + "件（本文あり " + c + "）";
+        var k = counts && counts[n];
+        if (k) line += " → 新規 " + k.fresh + " / 公式で入っている " + k.official + " / 取り込み済み " + k.imported + (k.invalid ? " / 読めない " + k.invalid : "");
+        return line;
+      }).join("\n") + note;
+    }
+    show(null);
     send.disabled = false;
+    // 登録したらどうなるかを、書き込まずにサイトに数えてもらう
+    if (token) classify(g, show);
+  }
+
+  var classifyNo = 0;
+  async function classify(g, show) {
+    var my = ++classifyNo;
+    var counts = {};
+    try {
+      for (var who in g) {
+        var k = { fresh: 0, official: 0, imported: 0, invalid: 0 };
+        for (var i = 0; i < g[who].length; i += CHUNK) {
+          var res = await fetch("/api/crawl/paste", {
+            method: "POST",
+            headers: { "content-type": "application/json", authorization: "Bearer " + token },
+            body: JSON.stringify({ username: who, posts: g[who].slice(i, i + CHUNK), dry: true }),
+          });
+          if (!res.ok) return;
+          var r = await res.json();
+          k.fresh += r.fresh; k.official += r.official; k.imported += r.imported; k.invalid += r.invalid;
+        }
+        counts[who] = k;
+        if (my !== classifyNo) return;
+        show(counts);
+      }
+    } catch (e) { /* 数えられなくても登録はできる */ }
   }
 
   // 開いたときは必ず空から(ブラウザが前の中身を戻すと、送り忘れと見分けがつかないため)
@@ -323,6 +356,7 @@
     // 失敗があっても欄は空にする(続けて次のアカウントを貼れるように。失敗した分は上の結果に出るので、貼り直せばよい)
     data.value = "";
     groups = null;
+    classifyNo++;  // まだ数えている途中の確認があれば、空にした表示を上書きさせない
     preview.textContent = "";
     if (failed) result.textContent += "\n失敗した分は、もう一度コピーして貼り直してください";
     loadTargets();
@@ -338,15 +372,22 @@
   function loadTargets() {
     // サイト側(Worker)のキャッシュは URL ごとなので、毎回違う URL にして最新の件数を取る
     fetch("/api/accounts?fresh=" + Date.now(), { cache: "no-store" }).then(function (r) { return r.json(); }).then(function (d) {
-      var tbody = document.getElementById("targets");
-      tbody.textContent = "";
-      // 拾う・受け付けるのは対象アカウント全員。表に出すのは公式APIで取れない個人アカウントの人だけ
+      // 拾う・受け付けるのは対象アカウント全員。表は個人アカウントの人と公式APIで取れる人に分けて出す
       targets = {};
       (d.accounts || []).forEach(function (a) { if (a.active) targets[a.username.toLowerCase()] = true; });
       buildLink(Object.keys(targets));
-      var list = (d.accounts || []).filter(function (a) { return a.active && /個人アカウント/.test(a.error || ""); });
+      var active = (d.accounts || []).filter(function (a) { return a.active; });
+      fillTable(document.getElementById("targets"), active.filter(function (a) { return /個人アカウント/.test(a.error || ""); }));
+      fillTable(document.getElementById("officials"), active.filter(function (a) { return !/個人アカウント/.test(a.error || ""); }));
       // 対象の読み込みより先に投稿が渡ってきていたら、絞り直す
       if (groups && lastData) take(lastData);
+    }).catch(function () {
+      document.getElementById("targets").innerHTML = "<tr><td>読み込めませんでした</td></tr>";
+    });
+  }
+
+  function fillTable(tbody, list) {
+      tbody.textContent = "";
       if (!list.length) { tbody.innerHTML = "<tr><td>いません</td></tr>"; return; }
       list.forEach(function (a) {
         var tr = document.createElement("tr");
@@ -360,7 +401,9 @@
         aa.textContent = "@" + a.username;
         link.appendChild(aa);
         var n = document.createElement("td");
-        n.textContent = a.posts + "件";
+        // 合計と、そのうち公式APIで入った分・手で取り込んだ分
+        var web = a.posts_web || 0;
+        n.textContent = a.posts + "件（公式 " + (a.posts - web) + " / 取り込み " + web + "）";
         // 入っている一番新しい投稿の日時(押すとその投稿を開く)。Instagram でここまで遡って送れば抜けは出ない
         var last = document.createElement("td");
         if (a.last && a.last_url) {
@@ -379,9 +422,6 @@
         tr.appendChild(name); tr.appendChild(link); tr.appendChild(n); tr.appendChild(last); tr.appendChild(added);
         tbody.appendChild(tr);
       });
-    }).catch(function () {
-      document.getElementById("targets").innerHTML = "<tr><td>読み込めませんでした</td></tr>";
-    });
   }
   loadTargets();
 })();
