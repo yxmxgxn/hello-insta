@@ -174,6 +174,7 @@ async function handleAccounts(env) {
     env.DB.prepare(
       "SELECT a.username, a.name, a.section, a.active, s.last_error AS error, " +
       "(SELECT COUNT(*) FROM post WHERE account = a.username) AS posts, " +
+      "(SELECT COUNT(*) FROM post WHERE account = a.username AND id LIKE 'web:%') AS posts_web, " +
       "(SELECT MAX(ts) FROM post WHERE account = a.username) AS last, " +
       "(SELECT permalink FROM post WHERE account = a.username ORDER BY ts DESC LIMIT 1) AS last_url, " +
       "(SELECT MAX(added_at) FROM post WHERE account = a.username) AS last_added " +
@@ -331,8 +332,9 @@ function takenFromCode(code) {
 const PASTE_MAX = 100;  // 1回に受け付ける件数(貼り付けページが分けて送る)
 const MEDIA_TYPE = { 1: "IMAGE", 2: "VIDEO", 8: "CAROUSEL_ALBUM" };
 
+// dry: true なら書き込まず、新規・公式で入っている・取り込み済みに振り分けた件数だけ返す(取り込みページの確認用)
 async function crawlPaste(request, env) {
-  const { username, posts } = await request.json();
+  const { username, posts, dry } = await request.json();
   if (!username || !Array.isArray(posts) || posts.length > PASTE_MAX) return json({ error: "bad_request" }, 400);
   const [{ results: acc }] = await env.DB.batch([
     env.DB.prepare(
@@ -344,6 +346,18 @@ async function crawlPaste(request, env) {
     .prepare("SELECT id, permalink FROM post WHERE account = ?").bind(user).all();
   const official = new Set(existing.filter((r) => !r.id.startsWith(WEB_ID)).map((r) => shortcode(r.permalink)));
   const have = new Set(existing.map((r) => r.id));
+
+  if (dry) {
+    const n = { fresh: 0, official: 0, imported: 0, invalid: 0 };
+    for (const p of posts) {
+      const code = String(p.code || "");
+      if (!/^[A-Za-z0-9_-]+$/.test(code) || !(Number.isFinite(p.taken_at) || takenFromCode(code))) n.invalid++;
+      else if (official.has(code)) n.official++;
+      else if (have.has(WEB_ID + code)) n.imported++;
+      else n.fresh++;
+    }
+    return json({ ok: true, username: user, dry: true, ...n });
+  }
 
   const stmts = [];
   let added = 0, updated = 0, skipped = 0;
