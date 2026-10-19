@@ -326,7 +326,8 @@ function takenFromCode(code) {
 // { username, posts: [{ code, caption, kind }] }
 // 取り込みページ(public/import.html)から。ブックマークレットが画面から拾った個人アカウントの投稿。
 // 日時は shortcode から出す。本文は拾えなかったら null(入っている投稿の本文は消さない)。
-// 公式APIで取れない(個人アカウント)と分かっている人だけ受け付け、公式APIで入っている投稿は shortcode で見て飛ばす
+// 対象アカウントの人なら受け付ける(公式APIで取れる人も、遡りの先回りとして手で入れてよい)。
+// 公式APIで入っている投稿は shortcode で見て飛ばし、手で入れた分はあとで公式APIが追いついたら置き換わる(upsertPost)
 const PASTE_MAX = 100;  // 1回に受け付ける件数(貼り付けページが分けて送る)
 const MEDIA_TYPE = { 1: "IMAGE", 2: "VIDEO", 8: "CAROUSEL_ALBUM" };
 
@@ -335,13 +336,9 @@ async function crawlPaste(request, env) {
   if (!username || !Array.isArray(posts) || posts.length > PASTE_MAX) return json({ error: "bad_request" }, 400);
   const [{ results: acc }] = await env.DB.batch([
     env.DB.prepare(
-      "SELECT a.username, s.last_error AS error FROM account a " +
-      "LEFT JOIN fetch_state s ON s.username = a.username WHERE lower(a.username) = lower(?)").bind(String(username)),
+      "SELECT username FROM account WHERE lower(username) = lower(?)").bind(String(username)),
   ]);
   if (!acc.length) return json({ error: "unknown_account", message: `@${username} は対象アカウントにいません` }, 400);
-  if (!/個人アカウント/.test(acc[0].error || "")) {
-    return json({ error: "not_personal", message: `@${acc[0].username} は公式APIで取れるアカウントなので、貼り付けは受け付けません` }, 400);
-  }
   const user = acc[0].username;
   const { results: existing } = await env.DB
     .prepare("SELECT id, permalink FROM post WHERE account = ?").bind(user).all();
