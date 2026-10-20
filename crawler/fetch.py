@@ -169,11 +169,13 @@ def crawl(method: str, path: str, body: dict | None = None) -> dict:
 def fetch_page(username: str, after: str | None) -> dict:
     media = f"media.limit({PAGE_SIZE})" + (f".after({after})" if after else "")
     fields = (f"business_discovery.username({username})"
-              f"{{{media}{{id,caption,timestamp,permalink,media_type,like_count,comments_count}}}}")
+              f"{{media_count,{media}{{id,caption,timestamp,permalink,media_type,like_count,comments_count}}}}")
     q = urllib.parse.urlencode({"fields": fields, "access_token": os.environ["IG_ACCESS_TOKEN"]})
     with urllib.request.urlopen(f"{GRAPH}/{os.environ['IG_USER_ID']}?{q}", timeout=60) as res:
         data = json.loads(res.read().decode("utf-8"))
-    return data.get("business_discovery", {}).get("media", {})
+    bd = data.get("business_discovery", {})
+    # プロフィールに出ている投稿数。入っている件数と比べて、取り込みが要るか見るのに使う
+    return {**bd.get("media", {}), "media_count": bd.get("media_count")}
 
 
 def next_state(page: dict) -> dict:
@@ -266,7 +268,8 @@ def main() -> int:
             if not st or (not st["after"] and not st["done"]):
                 new_state = next_state(media)
                 state[user] = {"username": user, **new_state}
-            crawl("POST", "posts", {"username": user, "posts": media.get("data", []), "state": new_state})
+            crawl("POST", "posts", {"username": user, "posts": media.get("data", []), "state": new_state,
+                                    "media_count": media.get("media_count")})
             saved += len(media.get("data", []))
 
         # 2周目: 遡りが終わっていないアカウントを、残りの回数で続ける
@@ -280,7 +283,8 @@ def main() -> int:
                 st = {"username": user, **next_state(media)}
                 state[user] = st
                 crawl("POST", "posts", {"username": user, "posts": media.get("data", []),
-                                        "state": {"after": st["after"], "done": st["done"]}})
+                                        "state": {"after": st["after"], "done": st["done"]},
+                                        "media_count": media.get("media_count")})
                 saved += len(media.get("data", []))
     except RateLimited as e:
         # 失敗にはしない(次の回が続きから取る)。ここまでに取った分は保存済み

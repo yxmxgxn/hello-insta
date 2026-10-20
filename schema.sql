@@ -30,7 +30,9 @@ CREATE TABLE IF NOT EXISTS account (
   name     TEXT NOT NULL,
   section  TEXT NOT NULL,       -- 選択肢の見出し(グループ名 / J.P ROOM など)
   sort     INTEGER NOT NULL,
-  active   INTEGER NOT NULL DEFAULT 1
+  active   INTEGER NOT NULL DEFAULT 1,
+  ig_count    INTEGER,           -- Instagram のプロフィールに出ている投稿数(公式APIの media_count か、IG取得が拾った数)
+  ig_count_at TEXT               -- その数を取った日時(JST)
 );
 
 -- アカウントごとの取得の進み具合

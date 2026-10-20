@@ -177,7 +177,7 @@ async function handleAccounts(env) {
       "(SELECT COUNT(*) FROM post WHERE account = a.username AND id LIKE 'web:%') AS posts_web, " +
       "(SELECT MAX(ts) FROM post WHERE account = a.username) AS last, " +
       "(SELECT permalink FROM post WHERE account = a.username ORDER BY ts DESC LIMIT 1) AS last_url, " +
-      "(SELECT MAX(added_at) FROM post WHERE account = a.username) AS last_added " +
+      "(SELECT MAX(added_at) FROM post WHERE account = a.username) AS last_added, a.ig_count, a.ig_count_at " +
       "FROM account a LEFT JOIN fetch_state s ON s.username = a.username ORDER BY a.active DESC, a.sort"),
     env.DB.prepare("SELECT MAX(ts) AS ts FROM post"),
   ]);
@@ -273,10 +273,21 @@ function upsertPost(env, stmts, username, p) {
   return true;
 }
 
-// { username, posts: [{ id, caption, timestamp, permalink, media_type }], state: { after, done } | null }
+// Instagram のプロフィールに出ている投稿数を覚える(入っている件数と比べて、取り込みが要るか見るため)。
+// 投稿の書き込みとは別にし、こちらが失敗しても投稿は入るようにする
+async function setIgCount(env, username, n) {
+  if (!Number.isInteger(n) || n < 0) return;
+  try {
+    await env.DB.prepare("UPDATE account SET ig_count = ?, ig_count_at = ? WHERE username = ?").bind(n, nowJst(), username).run();
+  } catch (e) {
+    console.log("ig_count", username, e.message);
+  }
+}
+
+// { username, posts: [{ id, caption, timestamp, permalink, media_type }], state: { after, done } | null, media_count }
 // 投稿と進み具合を1つの batch(=トランザクション)で書く。途中で落ちても、進み具合だけ進むことはない
 async function crawlPosts(request, env) {
-  const { username, posts, state } = await request.json();
+  const { username, posts, state, media_count } = await request.json();
   if (!username || !Array.isArray(posts)) return json({ error: "bad_request" }, 400);
   const stmts = [];
   for (const p of posts) upsertPost(env, stmts, username, p);
@@ -295,6 +306,7 @@ async function crawlPosts(request, env) {
       .bind(username, nowJst()));
   }
   await env.DB.batch(stmts);
+  await setIgCount(env, username, media_count);
   return json({ ok: true, count: posts.length });
 }
 
@@ -339,7 +351,7 @@ const MEDIA_TYPE = { 1: "IMAGE", 2: "VIDEO", 8: "CAROUSEL_ALBUM" };
 
 // dry: true なら書き込まず、新規・公式で入っている・取り込み済みに振り分けた件数だけ返す(取り込みページの確認用)
 async function crawlPaste(request, env) {
-  const { username, posts, dry } = await request.json();
+  const { username, posts, dry, ig_count } = await request.json();
   // 書き込みは1回 PASTE_MAX 件まで。数えるだけ(dry)なら1人分をまとめて受ける
   if (!username || !Array.isArray(posts) || posts.length > (dry ? DRY_MAX : PASTE_MAX)) return json({ error: "bad_request" }, 400);
   const [{ results: acc }] = await env.DB.batch([
@@ -391,6 +403,7 @@ async function crawlPaste(request, env) {
     else added++;
   }
   if (stmts.length) await env.DB.batch(stmts);
+  await setIgCount(env, user, ig_count);
   return json({ ok: true, username: user, added, updated, same, skipped });
 }
 

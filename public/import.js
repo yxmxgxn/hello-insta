@@ -27,6 +27,26 @@
     var NOT_USER = /^(p|reel|reels|explore|stories|direct|accounts|tv)$/;
     // 最後に開いていたプロフィール(投稿を開くと URL が /p/ に変わるので覚えておく)
     var profile = null;
+    // プロフィールの上に出ている投稿数(小文字のアカウント → 件数)。入っている件数と比べて、取り込みが要るか見る
+    var counts = {}, countedPath = null;
+    function numOf(s) {
+      var n = parseFloat(s.replace(/,/g, ""));
+      if (/万$/.test(s)) n *= 10000;
+      else if (/[Kk]$/.test(s)) n *= 1000;
+      else if (/[Mm]$/.test(s)) n *= 1000000;
+      return Math.round(n);
+    }
+    // プロフィールのページ(投稿・リール・タグ付けのタブ)を開いているときだけ、上の「投稿 N件」を読む
+    function readCount() {
+      var path = location.pathname;
+      if (!profile || !ALLOW[profile.toLowerCase()] || path === countedPath) return;
+      if (!new RegExp("^/" + profile.replace(/\./g, "\\.") + "/?(reels/|tagged/)?$").test(path)) return;
+      var head = (document.querySelector("main") || document.body).innerText.slice(0, 3000);
+      var m = head.match(/投稿\s*([\d,.]+万?)\s*件/) || head.match(/([\d,.]+[KkMm]?)\s*posts?\b/);
+      if (!m) return;
+      counts[profile.toLowerCase()] = numOf(m[1]);
+      countedPath = path;
+    }
 
     // サムネイルの alt は、本文そのものか、自動で付いた説明(「Photo by …」など)。自動の方は本文として使わない
     var AUTO_ALT = /^(Photo|Video|Image)s?( shared)? by |^May be |さんによる(写真|動画|投稿)|の(画像|写真)のようです|^(写真|動画)(の説明|はありません)/;
@@ -82,6 +102,7 @@
         }
         put(here[3], owner || profile, here[2], h1 ? text(h1) : null);
       }
+      readCount();
       render();
     }
 
@@ -121,7 +142,8 @@
       var n = 0, c = 0, who = {};
       items.forEach(function (p) { n++; if (p.caption != null) c++; who[p.account] = 1; });
       var k = Object.keys(who).length;
-      count.textContent = n + "件（本文" + c + "）" + (k > 1 ? " " + k + "人" : "");
+      var ig = profile && counts[profile.toLowerCase()];
+      count.textContent = n + "件（本文" + c + "）" + (k > 1 ? " " + k + "人" : "") + (ig ? " IG " + ig : "");
       if (profile && !ALLOW[profile.toLowerCase()]) msg("対象外。何も拾いません");
       // 見出しは開いているページの人(窓を並べたときに見分けられるように)
       var me = profile && profile.toLowerCase();
@@ -137,7 +159,7 @@
     function push() {
       if (!sending) return;
       if (++sending.tries > 40) { sending = null; msg("渡せませんでした。コピー済みなので欄に貼る"); return; }
-      try { sending.win.postMessage({ type: "hello-insta-posts", id: sending.id, posts: list() }, SITE); } catch (e) { /* 読み込み中 */ }
+      try { sending.win.postMessage({ type: "hello-insta-posts", id: sending.id, posts: list(), counts: counts }, SITE); } catch (e) { /* 読み込み中 */ }
       sending.timer = setTimeout(push, 500);
     }
     function onMessage(e) {
@@ -148,7 +170,7 @@
     window.addEventListener("message", onMessage);
 
     function copy() {
-      return navigator.clipboard.writeText(JSON.stringify({ v: 2, posts: list() }))
+      return navigator.clipboard.writeText(JSON.stringify({ v: 2, posts: list(), counts: counts }))
         .then(function () { return true; }, function () { return false; });
     }
 
@@ -313,6 +335,7 @@
   var targets = null; // 受け付ける対象アカウント(小文字)。読み込むまでは null で、そのあいだは絞らない
   var lastData = null;
   var busy = false;
+  var igCounts = {};
   var lines = {};     // 未登録の表示の、アカウントごとの行(登録を押したら、この行が結果に変わる)
 
   // ホームのフィードで拾うと、ファンなど対象外の人の投稿も混ざるので、対象アカウントの分だけ送る
@@ -337,12 +360,18 @@
       return;
     }
     groups = g;
+    // プロフィールの上に出ている投稿数(IG取得が拾えたときだけ)。登録のときに一緒に送る
+    igCounts = {};
+    Object.keys(d.counts || {}).forEach(function (k) {
+      var v = d.counts[k];
+      if (Number.isInteger(v) && v >= 0) igCounts[k.toLowerCase()] = v;
+    });
     var head = "未登録（「登録」を押すまで入りません）\n";
     function show(counts) {
       lines = {};
       preview.textContent = head + names.map(function (n) {
         var c = g[n].filter(function (p) { return p.caption != null; }).length;
-        var line = "@" + n + " " + g[n].length + "件（本文あり " + c + "）";
+        var line = "@" + n + " " + g[n].length + "件（本文あり " + c + "）" + (igCounts[n] ? " IG " + igCounts[n] + "件" : "");
         var k = counts && counts[n];
         if (k) line += " → 新規 " + k.fresh + " / 公式で入っている " + k.official + " / 取り込み済み " + k.imported + (k.invalid ? " / 読めない " + k.invalid : "");
         lines[n] = line;
@@ -407,7 +436,8 @@
       if (groups && lastData) posts = lastData.posts.filter(function (p) {
         return !posts.some(function (q) { return q.code === p.code; });
       }).concat(posts);
-      take({ posts: posts });
+      var cs = Object.assign({}, groups && lastData && lastData.counts, e.data.counts);
+      take({ posts: posts, counts: cs });
       if (e.source) e.source.postMessage({ type: "hello-insta-got", id: e.data.id, n: e.data.posts.length }, e.origin);
     } catch (err) {
       preview.textContent = "受け取れませんでした: " + err.message;
@@ -423,7 +453,7 @@
     send.disabled = true;
     // 押したら「未登録」の表示を、同じ行のまま「登録中」に移す(未登録は空になる)。
     // 登録しているあいだに別の窓から送られてきた分は、また「未登録」に並ぶ
-    var sending = groups, rows = lines;
+    var sending = groups, rows = lines, igs = igCounts;
     busy = true;
     data.value = "";
     groups = null;
@@ -443,7 +473,7 @@
           var res = await fetch("/api/crawl/paste", {
             method: "POST",
             headers: { "content-type": "application/json", authorization: "Bearer " + token },
-            body: JSON.stringify({ username: who, posts: list.slice(i, i + CHUNK) }),
+            body: JSON.stringify({ username: who, posts: list.slice(i, i + CHUNK), ig_count: i === 0 ? igs[who] : undefined }),
           });
           var r = await res.json().catch(function () { return {}; });
           // 合言葉が違うと、Worker は存在しないふりをして 404 を返す
@@ -514,6 +544,17 @@
         // 合計と、そのうち公式APIで入った分・手で取り込んだ分
         var web = a.posts_web || 0;
         n.textContent = a.posts + "件（公式 " + (a.posts - web) + " / 取り込み " + web + "）";
+        // Instagram のプロフィールに出ている投稿数と比べる(追いついていれば取り込みは要らない)
+        var ig = document.createElement("td");
+        if (a.ig_count != null) {
+          var pct = a.ig_count ? Math.floor(a.posts / a.ig_count * 100) : 100;
+          ig.textContent = "IG " + a.ig_count + "件 " + (a.posts >= a.ig_count ? "✓" : pct + "%（あと " + (a.ig_count - a.posts) + "）");
+          ig.title = "Instagram の件数を取った日時: " + (a.ig_count_at || "");
+          if (a.posts < a.ig_count) ig.style.color = "var(--accent)";
+        } else {
+          ig.textContent = "IG ?";
+          ig.title = "まだ Instagram の件数を取っていません（プロフィールを IG取得 で開くと取れます）";
+        }
         // 入っている一番新しい投稿の日時(押すとその投稿を開く)。Instagram でここまで遡って送れば抜けは出ない
         var last = document.createElement("td");
         if (a.last && a.last_url) {
@@ -529,7 +570,7 @@
         // 最後に取り込んだ日時(このDBに入った日時)
         var added = document.createElement("td");
         added.textContent = a.last_added ? "取り込み " + lastLabel(a.last_added) : "";
-        tr.appendChild(name); tr.appendChild(link); tr.appendChild(n); tr.appendChild(last); tr.appendChild(added);
+        tr.appendChild(name); tr.appendChild(link); tr.appendChild(n); tr.appendChild(ig); tr.appendChild(last); tr.appendChild(added);
         tbody.appendChild(tr);
       });
   }
