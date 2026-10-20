@@ -6,7 +6,12 @@
 
   // ---------- ブックマークレット(instagram.com で動く。外の変数は使えない。__SITE__ はこのサイトの URL に置き換える) ----------
   // 中のコメントは行まるごとにすること(行末に付けない)。リンクにするときにコメント行を除いて1行につなぐため
-  function grab() {
+  function grab(W) {
+    // IG窓から渡されたときは、その窓(W)の上で動かす。ブックマークレットとして押したときは今の窓
+    W = W || globalThis;
+    var window = W, document = W.document, location = W.location, navigator = W.navigator;
+    var setInterval = W.setInterval.bind(W), clearInterval = W.clearInterval.bind(W);
+    var setTimeout = W.setTimeout.bind(W), clearTimeout = W.clearTimeout.bind(W);
     var SITE = "__SITE__";
     // 拾ってよい人(対象アカウント全員。公式APIで取れる人も遡りの先回りに入れてよい)。取り込みページがリンクを作るときに埋め込む。ほかの人の投稿は画面にあっても数えもしない
     // ユーザー名(小文字) → 表示名。パネルの見出しにも使う
@@ -178,7 +183,7 @@
       delete window.__helloInsta;
     };
 
-    window.__helloInsta = { show: function () { panel.style.display = ""; scan(); } };
+    window.__helloInsta = { show: function () { panel.style.display = ""; scan(); }, msg: msg };
     scan();
   }
 
@@ -200,13 +205,18 @@
   // names: ユーザー名(小文字) → 表示名
   function buildLink(names) {
     var users = Object.keys(names);
-    bm.href = toLink(grab, { __SITE__: location.origin, __NAMES__: JSON.stringify(names) });
+    var fill = { __SITE__: location.origin, __NAMES__: JSON.stringify(names) };
+    bm.href = toLink(grab, fill);
+    // IG窓には、同じ中身の IG取得を埋め込む
+    bmWin.href = toLink(popout, { __GRAB__: decodeURIComponent(bm.href.slice("javascript:(".length, -")()".length)) });
     bm.title = "対象 " + users.length + " 人: " + users.join(", ");
   }
 
   // ---------- 窓を並べるブックマークレット(instagram.com で動く) ----------
   // 今のページを、画面幅の COLS 分の1の細い窓で開き直す。押すたびに左から順に並び、COLS 個で一周する
+  // 開いた窓はブックマークバーが出ない(ポップアップ型)ので、IG取得も窓の中で自動で始める
   function popout() {
+    var grab = __GRAB__;
     var COLS = 4;
     var k = 0;
     try {
@@ -216,11 +226,26 @@
     var w = Math.floor(screen.availWidth / COLS);
     var left = (screen.availLeft || 0) + k * w;
     var top = screen.availTop || 0;
-    window.open(location.href, "hi_win_" + Date.now(), "popup=yes,width=" + w + ",height=" + screen.availHeight + ",left=" + left + ",top=" + top);
+    var win = window.open(location.href, "hi_win_" + Date.now(), "popup=yes,width=" + w + ",height=" + screen.availHeight + ",left=" + left + ",top=" + top);
+    if (!win) { alert("ポップアップが止められました。このサイトのポップアップを許可してください"); return; }
+    var tries = 0;
+    var t = setInterval(function () {
+      tries++;
+      if (tries > 60) { clearInterval(t); return; }
+      try {
+        if (win.closed) { clearInterval(t); return; }
+        if (win.location.href === "about:blank" || win.document.readyState !== "complete" || !win.document.body) return;
+      } catch (e) { return; }
+      clearInterval(t);
+      // 窓の中で独立して動かす(こちらの窓が別のページへ移っても止まらない)。できなければ、こちらから窓を操作する
+      try { win.eval("(" + grab.toString() + ")()"); } catch (e) {
+        grab(win);
+        try { win.__helloInsta.msg("元の窓をF5などで読み込み直すと、この窓の収集は止まります（クリックでの移動は大丈夫）"); } catch (e2) { /* 出せなくても動く */ }
+      }
+    }, 500);
   }
   var bmWin = document.getElementById("bmWin");
   bmWin.onclick = function (e) { e.preventDefault(); };
-  bmWin.href = toLink(popout);
 
   // ---------- 合言葉(欄に入れるか ?t= で開いたら、このブラウザに覚えておく。「送る」で開くときは ?t= が付かないため) ----------
   var KEY = "crawlToken";
