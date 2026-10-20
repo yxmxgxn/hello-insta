@@ -108,7 +108,7 @@
       row.appendChild(b);
       return b;
     }
-    var bSend = button("送る", true), bScroll = button("自動スクロール"), bCopy = button("コピー"), bClose = button("閉じる");
+    var bSend = button("送る", true), bScroll = button("Scroll"), bCopy = button("コピー"), bClose = button("閉じる");
     [title, count, note, row].forEach(function (e) { panel.appendChild(e); });
     document.body.appendChild(panel);
 
@@ -156,7 +156,7 @@
     var scrollTimer = null, still = 0, lastH = 0;
     function stopScroll(s) {
       clearTimeout(scrollTimer); scrollTimer = null;
-      bScroll.textContent = "自動スクロール";
+      bScroll.textContent = "Scroll";
       if (s) msg(s);
     }
     // Instagram の読み込みが遅いだけで止まらないよう粘る。伸びないときは少し戻してから下へ送り直して、続きを読み込ませる。
