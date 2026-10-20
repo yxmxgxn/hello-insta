@@ -8,7 +8,8 @@
 <title>取り込み（自分用）</title>
 <link rel="stylesheet" href="/style.css">
 <style>
-  .import textarea { width: 100%; min-height: 120px; font: .8rem/1.4 monospace; }
+  .import textarea { width: 100%; height: 2.6em; min-height: 2.6em; font: .8rem/1.4 monospace; resize: vertical; }
+  .import #result { color: var(--muted); }
   .import .bm { display: inline-block; padding: 4px 12px; border: 1px dashed var(--accent); border-radius: 6px; color: var(--accent); text-decoration: none; }
   .import .tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 12px 0; font-size: .88rem; color: var(--muted); }
   .import ol, .import ul { padding-left: 1.4em; }
@@ -57,8 +58,9 @@
   </details>
 
   <textarea id="data" autocomplete="off" placeholder="ここに貼る（IG取得の「送る」なら自動で入る）"></textarea>
-  <p id="preview" class="msg"></p>
+  <!-- 登録を押すと、未登録の行がそのまま下の「登録中」に移り、終わるとその行が結果に変わる -->
   <p><button type="button" id="send" disabled>登録</button></p>
+  <p id="preview" class="msg"></p>
   <p id="result" class="msg"></p>
 
   <details open>
