@@ -332,7 +332,7 @@
     var lines = [];
     var failed = false;
     for (var who in sending) {
-      var sum = { added: 0, updated: 0, skipped: 0 };
+      var sum = { added: 0, updated: 0, same: 0, skipped: 0 };
       var list = sending[who];
       try {
         for (var i = 0; i < list.length; i += CHUNK) {
@@ -346,16 +346,16 @@
           // 合言葉が違うと、Worker は存在しないふりをして 404 を返す
           if (res.status === 404) throw new Error("合言葉が違います（覚えさせた CRAWL_TOKEN が、サイトのものと合っていません）");
           if (!res.ok) throw new Error(r.message || r.error || "HTTP " + res.status);
-          sum.added += r.added; sum.updated += r.updated; sum.skipped += r.skipped;
+          sum.added += r.added; sum.updated += r.updated; sum.same += r.same || 0; sum.skipped += r.skipped;
         }
-        lines.push("@" + who + ": 新規 " + sum.added + "件 / 更新 " + sum.updated + "件 / 飛ばした " + sum.skipped + "件");
+        lines.push("@" + who + ": 新規 " + sum.added + "件 / 本文を更新 " + sum.updated + "件 / 取り込み済みでそのまま " + sum.same + "件 / 飛ばした " + sum.skipped + "件");
       } catch (e) {
         failed = true;
         lines.push("@" + who + ": 失敗 " + e.message);
       }
     }
     result.textContent = lines.join("\n") +
-      "\n（飛ばしたのは、公式APIで入っている投稿と、入っている投稿で本文が拾えなかったもの）";
+      "\n（飛ばしたのは、公式APIで入っている投稿と、日時が読めないもの）";
     if (failed) result.textContent += "\n失敗した分は、もう一度コピーして貼り直してください";
     loadTargets();
   });
