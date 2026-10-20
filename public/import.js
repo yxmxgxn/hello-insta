@@ -110,7 +110,7 @@
 
     var panel = document.createElement("div");
     panel.style.cssText =
-      "position:fixed;right:8px;bottom:8px;z-index:2147483647;max-width:210px;padding:5px 7px;" +
+      "position:fixed;right:8px;bottom:8px;z-index:2147483647;max-width:336px;padding:5px 7px;" +
       "background:#fff;color:#1f1f1f;border:1px solid #8C6BB8;border-radius:8px;" +
       "font:11px/1.5 sans-serif;box-shadow:0 2px 8px rgba(0,0,0,.25)";
     function el(tag, css, txt) {
@@ -127,7 +127,7 @@
     var note = el("div", "color:#6b6b6b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-height:1.5em");
     var row = el("div", "display:flex;gap:4px;margin-top:2px");
     function button(label, main) {
-      var b = el("button", "font:inherit;padding:0 6px;border:1px solid #8C6BB8;border-radius:4px;cursor:pointer;" +
+      var b = el("button", "font:inherit;padding:0 6px;white-space:nowrap;flex:none;border:1px solid #8C6BB8;border-radius:4px;cursor:pointer;" +
         (main ? "background:#8C6BB8;color:#fff" : "background:#fff;color:#8C6BB8"), label);
       row.appendChild(b);
       return b;
