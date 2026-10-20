@@ -529,48 +529,46 @@
   function fillTable(tbody, list) {
       tbody.textContent = "";
       if (!list.length) { tbody.innerHTML = "<tr><td>いません</td></tr>"; return; }
-      list.forEach(function (a) {
-        var tr = document.createElement("tr");
-        var name = document.createElement("td");
-        name.textContent = a.name;
-        var link = document.createElement("td");
+      // 1セルを2行(上が主、下が小さく)にして横幅を詰める。second は文字か要素
+      function cell(main, second) {
+        var td = document.createElement("td");
+        if (typeof main === "string") td.appendChild(document.createTextNode(main)); else td.appendChild(main);
+        var sm = document.createElement("small");
+        if (typeof second === "string") sm.textContent = second; else sm.appendChild(second);
+        td.appendChild(sm);
+        return td;
+      }
+      function link(href, label) {
         var aa = document.createElement("a");
-        aa.href = "https://www.instagram.com/" + encodeURIComponent(a.username) + "/";
+        aa.href = href;
         aa.target = "_blank";
         aa.rel = "noopener noreferrer";
-        aa.textContent = "@" + a.username;
-        link.appendChild(aa);
-        var n = document.createElement("td");
+        aa.textContent = label;
+        aa.title = label;
+        return aa;
+      }
+      list.forEach(function (a) {
+        var tr = document.createElement("tr");
+        tr.appendChild(cell(a.name, link("https://www.instagram.com/" + encodeURIComponent(a.username) + "/", "@" + a.username)));
         // 合計と、そのうち公式APIで入った分・手で取り込んだ分
         var web = a.posts_web || 0;
-        n.textContent = a.posts + "件（公式 " + (a.posts - web) + " / 取り込み " + web + "）";
+        tr.appendChild(cell(a.posts + "件", "公式" + (a.posts - web) + "・取込" + web));
         // Instagram のプロフィールに出ている投稿数と比べる(追いついていれば取り込みは要らない)
-        var ig = document.createElement("td");
+        var ig;
         if (a.ig_count != null) {
           var pct = a.ig_count ? Math.floor(a.posts / a.ig_count * 100) : 100;
-          ig.textContent = "IG " + a.ig_count + "件 " + (a.posts >= a.ig_count ? "✓" : pct + "%（あと " + (a.ig_count - a.posts) + "）");
+          var ok = a.posts >= a.ig_count;
+          ig = cell("IG " + a.ig_count + (ok ? " ✓" : " " + pct + "%"), ok ? "追いついた" : "あと " + (a.ig_count - a.posts));
           ig.title = "Instagram の件数を取った日時: " + (a.ig_count_at || "");
-          if (a.posts < a.ig_count) ig.style.color = "var(--accent)";
+          if (!ok) ig.style.color = "var(--accent)";
         } else {
-          ig.textContent = "IG ?";
+          ig = cell("IG ?", "件数まだ");
           ig.title = "まだ Instagram の件数を取っていません（プロフィールを IG取得 で開くと取れます）";
         }
-        // 入っている一番新しい投稿の日時(押すとその投稿を開く)。Instagram でここまで遡って送れば抜けは出ない
-        var last = document.createElement("td");
-        if (a.last && a.last_url) {
-          var la = document.createElement("a");
-          la.href = a.last_url.replace("/reel/", "/p/");
-          la.target = "_blank";
-          la.rel = "noopener noreferrer";
-          la.textContent = "最新 " + lastLabel(a.last);
-          last.appendChild(la);
-        } else {
-          last.textContent = "まだ無し";
-        }
-        // 最後に取り込んだ日時(このDBに入った日時)
-        var added = document.createElement("td");
-        added.textContent = a.last_added ? "取り込み " + lastLabel(a.last_added) : "";
-        tr.appendChild(name); tr.appendChild(link); tr.appendChild(n); tr.appendChild(ig); tr.appendChild(last); tr.appendChild(added);
+        tr.appendChild(ig);
+        // 上は入っている一番新しい投稿の日時(押すとその投稿を開く)、下は最後に取り込んだ日時(このDBに入った日時)
+        tr.appendChild(cell(a.last && a.last_url ? link(a.last_url.replace("/reel/", "/p/"), lastLabel(a.last)) : "まだ無し",
+          a.last_added ? "取込 " + lastLabel(a.last_added) : ""));
         tbody.appendChild(tr);
       });
   }

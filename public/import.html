@@ -17,8 +17,13 @@
   .import details { margin: 10px 0; }
   .import summary { cursor: pointer; color: var(--muted); font-size: .9rem; }
   .import details > :not(summary) { font-size: .9rem; }
-  .import table { border-collapse: collapse; font-size: .88rem; }
-  .import td { border-bottom: 1px solid var(--line); padding: 4px 8px; }
+  .import table { border-collapse: collapse; font-size: .82rem; display: block; max-width: 100%; overflow-x: auto; }
+  /* 細い窓でも数字が折り返さないように。名前と@アカウントの列だけ、長ければ … で切る */
+  .import td { border-bottom: 1px solid var(--line); padding: 3px 5px; vertical-align: top; line-height: 1.4; white-space: nowrap; }
+  .import td:first-child { max-width: 100px; overflow: hidden; text-overflow: ellipsis; }
+  .import td:first-child a { display: block; overflow: hidden; text-overflow: ellipsis; }
+  .import td small { display: block; color: var(--muted); font-size: .74rem; }
+  .import h2.sub { font-size: .95rem; margin: 20px 0 4px; color: var(--muted); font-weight: 600; }
 </style>
 </head>
 <body>
@@ -63,15 +68,12 @@
   <p id="preview" class="msg"></p>
   <p id="result" class="msg"></p>
 
-  <details open>
-    <summary>対象（個人アカウント）</summary>
-    <table><tbody id="targets"><tr><td>読み込み中…</td></tr></tbody></table>
-  </details>
+  <!-- 対象の表は常に出す。1人を2行(名前と@アカウント、件数と内訳…)にして横幅を詰める -->
+  <h2 class="sub">対象（公式APIで取れる人）</h2>
+  <table><tbody id="officials"><tr><td>読み込み中…</td></tr></tbody></table>
 
-  <details>
-    <summary>対象（公式APIで取れる人）</summary>
-    <table><tbody id="officials"><tr><td>読み込み中…</td></tr></tbody></table>
-  </details>
+  <h2 class="sub">対象（個人アカウント）</h2>
+  <table><tbody id="targets"><tr><td>読み込み中…</td></tr></tbody></table>
 </main>
 <script src="/import.js"></script>
 </body>
