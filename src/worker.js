@@ -235,14 +235,18 @@ function shortcode(permalink) {
 // 貼り付けで入った投稿の id。公式APIのメディアIDとは別物で、shortcode から作る
 const WEB_ID = "web:";
 
+// 一覧に出す本文の先頭。絵文字(サロゲートペア)を途中で割らないよう、文字単位(Array.from)で切る
+function makeExcerpt(caption) {
+  return Array.from(String(caption || "").split(/\s+/).filter(Boolean).join(" ")).slice(0, EXCERPT_LEN).join("");
+}
+
 // 投稿1件を書く文を stmts に足す。{ id, caption, timestamp, permalink, media_type, like_count, comments_count }
 function upsertPost(env, stmts, username, p) {
   const ts = toJst(p.timestamp);
   if (!p.id || !ts) return false;
   const id = String(p.id);
   const caption = p.caption || "";
-  // 絵文字(サロゲートペア)を途中で割らないよう、文字単位(Array.from)で切る
-  const excerpt = Array.from(caption.split(/\s+/).filter(Boolean).join(" ")).slice(0, EXCERPT_LEN).join("");
+  const excerpt = makeExcerpt(caption);
   // 公式APIで入る投稿が先に貼り付けで入っていたら(個人→プロに切り替えた人)、そちらを置き換える。
   // added_at はそちらの値を引き継ぐ(毎日の報告で新着に出し直さないため)
   const webId = id.startsWith(WEB_ID) ? null : WEB_ID + shortcode(p.permalink);
@@ -345,9 +349,10 @@ async function crawlPaste(request, env) {
   if (!acc.length) return json({ error: "unknown_account", message: `@${username} は対象アカウントにいません` }, 400);
   const user = acc[0].username;
   const { results: existing } = await env.DB
-    .prepare("SELECT id, permalink FROM post WHERE account = ?").bind(user).all();
+    .prepare("SELECT id, permalink, excerpt FROM post WHERE account = ?").bind(user).all();
   const official = new Set(existing.filter((r) => !r.id.startsWith(WEB_ID)).map((r) => shortcode(r.permalink)));
   const have = new Set(existing.map((r) => r.id));
+  const excerptOf = new Map(existing.map((r) => [r.id, r.excerpt || ""]));
 
   if (dry) {
     const n = { fresh: 0, official: 0, imported: 0, invalid: 0 };
@@ -362,14 +367,15 @@ async function crawlPaste(request, env) {
   }
 
   const stmts = [];
-  let added = 0, updated = 0, skipped = 0;
+  let added = 0, updated = 0, skipped = 0, same = 0;
   for (const p of posts) {
     const code = String(p.code || "");
     const taken = Number.isFinite(p.taken_at) ? p.taken_at : takenFromCode(code);
     if (!/^[A-Za-z0-9_-]+$/.test(code) || !taken || official.has(code)) { skipped++; continue; }
     const id = WEB_ID + code;
     // 本文が拾えなかった投稿は、もう入っていれば触らない(入っている本文を空で上書きしない)
-    if (p.caption == null && have.has(id)) { skipped++; continue; }
+    // 取り込み済みの投稿は、本文が前と違うとき(前は拾えなかった本文が今回拾えた、など)だけ書き直す
+    if (have.has(id) && (p.caption == null || makeExcerpt(p.caption) === excerptOf.get(id))) { same++; continue; }
     const ok = upsertPost(env, stmts, user, {
       id,
       caption: String(p.caption || ""),
@@ -385,7 +391,7 @@ async function crawlPaste(request, env) {
     else added++;
   }
   if (stmts.length) await env.DB.batch(stmts);
-  return json({ ok: true, username: user, added, updated, skipped });
+  return json({ ok: true, username: user, added, updated, same, skipped });
 }
 
 /* ============================ 自分用のランキング ============================ */
