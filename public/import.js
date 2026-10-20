@@ -89,39 +89,44 @@
 
     var panel = document.createElement("div");
     panel.style.cssText =
-      "position:fixed;right:16px;bottom:16px;z-index:2147483647;width:260px;padding:12px;" +
-      "background:#fff;color:#1f1f1f;border:2px solid #8C6BB8;border-radius:12px;" +
-      "font:13px/1.6 sans-serif;box-shadow:0 4px 16px rgba(0,0,0,.25)";
+      "position:fixed;right:8px;bottom:8px;z-index:2147483647;max-width:210px;padding:5px 7px;" +
+      "background:#fff;color:#1f1f1f;border:1px solid #8C6BB8;border-radius:8px;" +
+      "font:11px/1.5 sans-serif;box-shadow:0 2px 8px rgba(0,0,0,.25)";
     function el(tag, css, txt) {
       var e = document.createElement(tag);
       if (css) e.style.cssText = css;
       if (txt) e.textContent = txt;
       return e;
     }
-    var title = el("div", "font-weight:700;margin-bottom:4px", "hello-insta 収集中");
-    var count = el("div");
-    var note = el("div", "color:#6b6b6b;font-size:12px;margin:4px 0;white-space:pre-wrap");
-    var row = el("div", "display:flex;flex-wrap:wrap;gap:6px;margin-top:6px");
+    // 細い窓を並べても邪魔にならないよう、見出し(誰・件数)・お知らせ・ボタンの3行に収める
+    var head = el("div", "white-space:nowrap;overflow:hidden;text-overflow:ellipsis");
+    var title = el("b", "", "hello-insta");
+    var count = el("span", "margin-left:6px;color:#6b6b6b");
+    head.appendChild(title); head.appendChild(count);
+    var note = el("div", "color:#6b6b6b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-height:1.5em");
+    var row = el("div", "display:flex;gap:4px;margin-top:2px");
     function button(label, main) {
-      var b = el("button", "font:inherit;padding:4px 10px;border:1px solid #8C6BB8;border-radius:6px;cursor:pointer;" +
+      var b = el("button", "font:inherit;padding:0 6px;border:1px solid #8C6BB8;border-radius:4px;cursor:pointer;" +
         (main ? "background:#8C6BB8;color:#fff" : "background:#fff;color:#8C6BB8"), label);
       row.appendChild(b);
       return b;
     }
     var bSend = button("送る", true), bScroll = button("Scroll"), bCopy = button("コピー"), bClose = button("閉じる");
-    [title, count, note, row].forEach(function (e) { panel.appendChild(e); });
+    [head, note, row].forEach(function (e) { panel.appendChild(e); });
     document.body.appendChild(panel);
 
-    function msg(s) { note.textContent = s; }
+    function msg(s) { note.textContent = s; note.title = s; }
 
     function render() {
       var n = 0, c = 0, who = {};
       items.forEach(function (p) { n++; if (p.caption != null) c++; who[p.account] = 1; });
-      count.textContent = n + " 件（本文あり " + c + "）・" + Object.keys(who).length + " アカウント";
-      if (profile && !ALLOW[profile.toLowerCase()]) msg("対象外のアカウントです。何も拾いません");
+      var k = Object.keys(who).length;
+      count.textContent = n + "件（本文" + c + "）" + (k > 1 ? " " + k + "人" : "");
+      if (profile && !ALLOW[profile.toLowerCase()]) msg("対象外。何も拾いません");
       // 見出しは開いているページの人(窓を並べたときに見分けられるように)
       var me = profile && profile.toLowerCase();
-      title.textContent = !me ? "ホーム 収集中" : ALLOW[me] ? NAMES[me] + " @" + profile + " 収集中" : "@" + profile + "（対象外）";
+      title.textContent = !me ? "ホーム" : ALLOW[me] ? "@" + profile : "@" + profile + "（対象外）";
+      head.title = me && NAMES[me] ? NAMES[me] : "";
     }
 
     function list() { return Array.from(items.values()); }
@@ -131,7 +136,7 @@
     window.addEventListener("message", function (e) {
       if (e.origin !== SITE || !e.data || !e.source) return;
       if (e.data.type === "hello-insta-ready") e.source.postMessage({ type: "hello-insta-posts", posts: list() }, SITE);
-      if (e.data.type === "hello-insta-got") msg(e.data.n + " 件を渡しました。開いたページで「登録」を押してください");
+      if (e.data.type === "hello-insta-got") msg(e.data.n + "件渡しました。「登録」を押す");
     });
 
     function copy() {
@@ -144,12 +149,12 @@
       copy();
       var win = window.open(SITE + "/import", "hello-insta-import");
       msg(win === null
-        ? "ポップアップが止められました。コピーはしたので、貼り付けページを開いて欄に貼ってください"
-        : "貼り付けページを開いています…（渡らないときは、コピー済みなので欄に貼ってください）");
+        ? "窓が止められました。コピー済みなので欄に貼る"
+        : "取り込みページを開いています（コピー済み）");
     };
 
     bCopy.onclick = function () {
-      copy().then(function (ok) { msg(ok ? "コピーしました。貼り付けページの欄に貼ってください" : "コピーできませんでした"); });
+      copy().then(function (ok) { msg(ok ? "コピーしました。欄に貼る" : "コピーできませんでした"); });
     };
 
     // 自動スクロール: 人が眺めるくらいの間隔(3〜5秒、毎回ばらつかせる)で一番下へ。伸びなくなったら終わる
@@ -165,21 +170,21 @@
       var h = document.documentElement.scrollHeight;
       still = h === lastH ? still + 1 : 0;
       lastH = h;
-      if (still >= 10) { stopScroll("一番下まで来ました。「送る」を押してください"); return; }
+      if (still >= 10) { stopScroll("一番下です。「送る」を押す"); return; }
       if (still && still % 3 === 0) {
         window.scrollBy(0, -1200);
         setTimeout(function () { window.scrollTo(0, document.documentElement.scrollHeight); }, 800);
       } else {
         window.scrollTo(0, document.documentElement.scrollHeight);
       }
-      msg("ゆっくり一番下まで送っています… " + items.size + "件" + (still ? "（読み込み待ち " + still + "/10）" : ""));
+      msg("Scroll中" + (still ? "（読み込み待ち " + still + "/10）" : "…"));
       scrollTimer = setTimeout(step, 3000 + Math.random() * 2000);
     }
     bScroll.onclick = function () {
       if (scrollTimer) { stopScroll("止めました"); return; }
       still = 0; lastH = 0;
       bScroll.textContent = "止める";
-      msg("ゆっくり一番下まで送っています…");
+      msg("Scroll中…");
       step();
     };
 
@@ -248,7 +253,7 @@
       // 窓の中で独立して動かす(こちらの窓が別のページへ移っても止まらない)。できなければ、こちらから窓を操作する
       try { win.eval("(" + grab.toString() + ")()"); } catch (e) {
         grab(win);
-        try { win.__helloInsta.msg("元の窓をF5などで読み込み直すと、この窓の収集は止まります（クリックでの移動は大丈夫）"); } catch (e2) { /* 出せなくても動く */ }
+        try { win.__helloInsta.msg("元の窓を再読み込みすると止まります"); } catch (e2) { /* 出せなくても動く */ }
       }
     }, 500);
   }
