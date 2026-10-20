@@ -312,11 +312,14 @@
   var groups = null;  // アカウント → 投稿の配列
   var targets = null; // 受け付ける対象アカウント(小文字)。読み込むまでは null で、そのあいだは絞らない
   var lastData = null;
+  var busy = false;
+  var lines = {};     // 未登録の表示の、アカウントごとの行(登録を押したら、この行が結果に変わる)
 
   // ホームのフィードで拾うと、ファンなど対象外の人の投稿も混ざるので、対象アカウントの分だけ送る
   function take(d) {
     groups = null;
-    result.textContent = "";
+    // 登録中の表示は、登録が終わるまで残す
+    if (!busy) result.textContent = "";
     if (!d || !Array.isArray(d.posts)) throw new Error("形が違います");
     lastData = d;
     var g = {}, outside = 0;
@@ -336,11 +339,13 @@
     groups = g;
     var head = "未登録（「登録」を押すまで入りません）\n";
     function show(counts) {
+      lines = {};
       preview.textContent = head + names.map(function (n) {
         var c = g[n].filter(function (p) { return p.caption != null; }).length;
         var line = "@" + n + " " + g[n].length + "件（本文あり " + c + "）";
         var k = counts && counts[n];
         if (k) line += " → 新規 " + k.fresh + " / 公式で入っている " + k.official + " / 取り込み済み " + k.imported + (k.invalid ? " / 読めない " + k.invalid : "");
+        lines[n] = line;
         return line;
       }).join("\n") + note;
     }
@@ -413,23 +418,28 @@
   }
 
   send.addEventListener("click", async function () {
-    if (!groups) return;
+    if (!groups || busy) return;
     if (!token) { result.textContent = "上の「合言葉」の欄に CRAWL_TOKEN を入れて、覚えさせてください"; return; }
     send.disabled = true;
-    // 押したらすぐ空にする(送る分は手元に持っておく)。失敗した分は結果に出るので、貼り直せばよい
-    var sending = groups;
+    // 押したら「未登録」の表示を、同じ行のまま「登録中」に移す(未登録は空になる)。
+    // 登録しているあいだに別の窓から送られてきた分は、また「未登録」に並ぶ
+    var sending = groups, rows = lines;
+    busy = true;
     data.value = "";
     groups = null;
-    classifyNo++;  // まだ数えている途中の確認があれば、空にした表示を上書きさせない
+    classifyNo++;  // まだ数えている途中の確認があれば、移した表示を上書きさせない
     preview.textContent = "";
-    var lines = [];
-    var failed = false;
-    for (var who in sending) {
+    var who, head = "", done = {}, failed = false;
+    function draw() {
+      result.textContent = head + "\n" + Object.keys(sending).map(function (n) { return done[n] || rows[n] || "@" + n; }).join("\n");
+    }
+    for (who in sending) {
       var sum = { added: 0, updated: 0, same: 0, skipped: 0 };
       var list = sending[who];
       try {
         for (var i = 0; i < list.length; i += CHUNK) {
-          result.textContent = "登録中… @" + who + " " + i + " / " + list.length;
+          head = "登録中… @" + who + " " + i + " / " + list.length;
+          draw();
           var res = await fetch("/api/crawl/paste", {
             method: "POST",
             headers: { "content-type": "application/json", authorization: "Bearer " + token },
@@ -441,15 +451,19 @@
           if (!res.ok) throw new Error(r.message || r.error || "HTTP " + res.status);
           sum.added += r.added; sum.updated += r.updated; sum.same += r.same || 0; sum.skipped += r.skipped;
         }
-        lines.push("@" + who + ": 新規 " + sum.added + "件 / 本文を更新 " + sum.updated + "件 / 取り込み済みでそのまま " + sum.same + "件 / 飛ばした " + sum.skipped + "件");
+        done[who] = "✓ @" + who + " 新規 " + sum.added + " / 本文を更新 " + sum.updated + " / そのまま " + sum.same + " / 飛ばした " + sum.skipped;
       } catch (e) {
         failed = true;
-        lines.push("@" + who + ": 失敗 " + e.message);
+        done[who] = "✗ @" + who + " 失敗: " + e.message;
       }
     }
-    result.textContent = lines.join("\n") +
-      "\n（飛ばしたのは、公式APIで入っている投稿と、日時が読めないもの）";
-    if (failed) result.textContent += "\n失敗した分は、もう一度コピーして貼り直してください";
+    var t = new Date();
+    head = (failed ? "登録しました（失敗あり。失敗した分は送り直してください）" : "登録しました") +
+      " " + t.getHours() + ":" + String(t.getMinutes()).padStart(2, "0");
+    busy = false;
+    send.disabled = !groups;
+    draw();
+    result.textContent += "\n（飛ばしたのは、公式APIで入っている投稿と、日時が読めないもの）";
     loadTargets();
   });
 
