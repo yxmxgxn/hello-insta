@@ -9,8 +9,10 @@
   function grab() {
     var SITE = "__SITE__";
     // 拾ってよい人(対象アカウント全員。公式APIで取れる人も遡りの先回りに入れてよい)。取り込みページがリンクを作るときに埋め込む。ほかの人の投稿は画面にあっても数えもしない
+    // ユーザー名(小文字) → 表示名。パネルの見出しにも使う
+    var NAMES = __NAMES__;
     var ALLOW = {};
-    "__ALLOW__".split(",").forEach(function (u) { if (u) ALLOW[u] = true; });
+    Object.keys(NAMES).forEach(function (u) { ALLOW[u] = true; });
     if (window.__helloInsta) { window.__helloInsta.show(); return; }
 
     // shortcode → { code, account, kind, caption }
@@ -112,6 +114,9 @@
       items.forEach(function (p) { n++; if (p.caption != null) c++; who[p.account] = 1; });
       count.textContent = n + " 件（本文あり " + c + "）・" + Object.keys(who).length + " アカウント";
       if (profile && !ALLOW[profile.toLowerCase()]) msg("対象外のアカウントです。何も拾いません");
+      // 見出しは開いているページの人(窓を並べたときに見分けられるように)
+      var me = profile && profile.toLowerCase();
+      title.textContent = !me ? "ホーム 収集中" : ALLOW[me] ? NAMES[me] + " @" + profile + " 収集中" : "@" + profile + "（対象外）";
     }
 
     function list() { return Array.from(items.values()); }
@@ -180,18 +185,42 @@
   // スマホの Chrome はアドレスバーから実行すると改行を消して1行にするので、// のコメントがあると後ろが全部コメントになる。
   // コメント行を除き、1行につないでからリンクにする(文の終わりはすべて ; で書いてある)。
   // 対象アカウントの一覧を埋め込むので、一覧を読み込んでから作る(対象が変わったらドラッグし直す)
-  var bm = document.getElementById("bm");
-  bm.onclick = function (e) { e.preventDefault(); };
-  function buildLink(usernames) {
-    var oneLine = grab.toString().split("\n")
+  function toLink(fn, repl) {
+    var oneLine = fn.toString().split("\n")
       .map(function (l) { return l.trim(); })
       .filter(function (l) { return l && !/^(\/\/|\/\*)/.test(l); })
-      .join(" ")
-      .replace("__SITE__", location.origin)
-      .replace("__ALLOW__", usernames.join(","));
-    bm.href = "javascript:(" + encodeURIComponent(oneLine) + ")()";
-    bm.title = "対象 " + usernames.length + " 人: " + usernames.join(", ");
+      .join(" ");
+    Object.keys(repl || {}).forEach(function (k) {
+      oneLine = oneLine.replace(k, function () { return repl[k]; });
+    });
+    return "javascript:(" + encodeURIComponent(oneLine) + ")()";
   }
+  var bm = document.getElementById("bm");
+  bm.onclick = function (e) { e.preventDefault(); };
+  // names: ユーザー名(小文字) → 表示名
+  function buildLink(names) {
+    var users = Object.keys(names);
+    bm.href = toLink(grab, { __SITE__: location.origin, __NAMES__: JSON.stringify(names) });
+    bm.title = "対象 " + users.length + " 人: " + users.join(", ");
+  }
+
+  // ---------- 窓を並べるブックマークレット(instagram.com で動く) ----------
+  // 今のページを、画面幅の COLS 分の1の細い窓で開き直す。押すたびに左から順に並び、COLS 個で一周する
+  function popout() {
+    var COLS = 4;
+    var k = 0;
+    try {
+      k = (parseInt(localStorage.getItem("helloInstaWin"), 10) || 0) % COLS;
+      localStorage.setItem("helloInstaWin", String(k + 1));
+    } catch (e) { k = 0; }
+    var w = Math.floor(screen.availWidth / COLS);
+    var left = (screen.availLeft || 0) + k * w;
+    var top = screen.availTop || 0;
+    window.open(location.href, "hi_win_" + Date.now(), "popup=yes,width=" + w + ",height=" + screen.availHeight + ",left=" + left + ",top=" + top);
+  }
+  var bmWin = document.getElementById("bmWin");
+  bmWin.onclick = function (e) { e.preventDefault(); };
+  bmWin.href = toLink(popout);
 
   // ---------- 合言葉(欄に入れるか ?t= で開いたら、このブラウザに覚えておく。「送る」で開くときは ?t= が付かないため) ----------
   var KEY = "crawlToken";
@@ -372,8 +401,13 @@
     fetch("/api/accounts?fresh=" + Date.now(), { cache: "no-store" }).then(function (r) { return r.json(); }).then(function (d) {
       // 拾う・受け付けるのは対象アカウント全員。表は個人アカウントの人と公式APIで取れる人に分けて出す
       targets = {};
-      (d.accounts || []).forEach(function (a) { if (a.active) targets[a.username.toLowerCase()] = true; });
-      buildLink(Object.keys(targets));
+      var names = {};
+      (d.accounts || []).forEach(function (a) {
+        if (!a.active) return;
+        targets[a.username.toLowerCase()] = true;
+        names[a.username.toLowerCase()] = a.name;
+      });
+      buildLink(names);
       var active = (d.accounts || []).filter(function (a) { return a.active; });
       fillTable(document.getElementById("targets"), active.filter(function (a) { return /個人アカウント/.test(a.error || ""); }));
       fillTable(document.getElementById("officials"), active.filter(function (a) { return !/個人アカウント/.test(a.error || ""); }));
