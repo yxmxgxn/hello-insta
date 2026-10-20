@@ -131,13 +131,21 @@
 
     function list() { return Array.from(items.values()); }
 
-    // 送る: 貼り付けページを開き、準備ができたと言ってきたら渡す(返事の送り主 e.source に渡す)。
-    // 渡せなかったときのために、開く前にクリップボードにも写しておく
-    window.addEventListener("message", function (e) {
-      if (e.origin !== SITE || !e.data || !e.source) return;
-      if (e.data.type === "hello-insta-ready") e.source.postMessage({ type: "hello-insta-posts", posts: list() }, SITE);
-      if (e.data.type === "hello-insta-got") msg(e.data.n + "件渡しました。「登録」を押す");
-    });
+    // 送る: 取り込みページへ、受け取ったと返事が来るまで渡し続ける。受け取られたらこの窓のパネルは閉じる
+    // (ほかの窓のパネルはそのまま)。渡せなかったときのために、先にクリップボードにも写しておく
+    var sending = null;
+    function push() {
+      if (!sending) return;
+      if (++sending.tries > 40) { sending = null; msg("渡せませんでした。コピー済みなので欄に貼る"); return; }
+      try { sending.win.postMessage({ type: "hello-insta-posts", id: sending.id, posts: list() }, SITE); } catch (e) { /* 読み込み中 */ }
+      sending.timer = setTimeout(push, 500);
+    }
+    function onMessage(e) {
+      if (e.origin !== SITE || !e.data || !e.source || !sending) return;
+      if (e.data.type === "hello-insta-ready") { sending.win = e.source; push(); }
+      if (e.data.type === "hello-insta-got" && (e.data.id == null || e.data.id === sending.id)) { clearTimeout(sending.timer); sending = null; close(); }
+    }
+    window.addEventListener("message", onMessage);
 
     function copy() {
       return navigator.clipboard.writeText(JSON.stringify({ v: 2, posts: list() }))
@@ -147,10 +155,14 @@
     bSend.onclick = function () {
       if (!items.size) { msg("まだ何も拾えていません"); return; }
       copy();
-      var win = window.open(SITE + "/import", "hello-insta-import");
-      msg(win === null
-        ? "窓が止められました。コピー済みなので欄に貼る"
-        : "取り込みページを開いています（コピー済み）");
+      // 取り込みページがもう開いていれば読み込み直さない(まだ登録していない分が消えるので)。無ければ開く
+      var win = window.open("", "hello-insta-import");
+      if (!win) { msg("窓が止められました。コピー済みなので欄に貼る"); return; }
+      try { if (win.location.href === "about:blank") win.location.href = SITE + "/import"; } catch (e) { /* 開いている取り込みページ */ }
+      if (sending) clearTimeout(sending.timer);
+      sending = { win: win, id: String(Date.now()) + Math.random(), tries: 0 };
+      msg("取り込みページへ渡しています…");
+      push();
     };
 
     bCopy.onclick = function () {
@@ -189,12 +201,15 @@
     };
 
     var timer = setInterval(scan, 800);
-    bClose.onclick = function () {
+    function close() {
       stopScroll();
       clearInterval(timer);
+      if (sending) clearTimeout(sending.timer);
+      window.removeEventListener("message", onMessage);
       panel.remove();
       delete window.__helloInsta;
-    };
+    }
+    bClose.onclick = close;
 
     window.__helloInsta = { show: function () { panel.style.display = ""; scan(); }, msg: msg };
     scan();
@@ -374,12 +389,21 @@
   });
 
   // ブックマークレットの「送る」で開かれたとき: 準備ができたと伝え、投稿を受け取る
+  var got = {};
   window.addEventListener("message", function (e) {
     if (!/^https:\/\/(www\.)?instagram\.com$/.test(e.origin) || !e.data || e.data.type !== "hello-insta-posts") return;
     try {
-      // 欄には入れずに、そのまま読み取る(大きな文字を表示すると重い)
-      take({ posts: e.data.posts });
-      if (e.source) e.source.postMessage({ type: "hello-insta-got", n: e.data.posts.length }, e.origin);
+      // 受け取るまで何度も送ってくるので、同じ送りは1回だけ読む
+      if (e.data.id && got[e.data.id]) { if (e.source) e.source.postMessage({ type: "hello-insta-got", id: e.data.id }, e.origin); return; }
+      if (e.data.id) got[e.data.id] = true;
+      // 欄には入れずに、そのまま読み取る(大きな文字を表示すると重い)。
+      // まだ登録していない分があれば足す(窓を並べて順に送ったとき)
+      var posts = e.data.posts;
+      if (groups && lastData) posts = lastData.posts.filter(function (p) {
+        return !posts.some(function (q) { return q.code === p.code; });
+      }).concat(posts);
+      take({ posts: posts });
+      if (e.source) e.source.postMessage({ type: "hello-insta-got", id: e.data.id, n: e.data.posts.length }, e.origin);
     } catch (err) {
       preview.textContent = "受け取れませんでした: " + err.message;
     }
