@@ -5,13 +5,17 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="only light">
 <meta name="robots" content="noindex, nofollow">
-<title>貼り付け（自分用）</title>
+<title>取り込み（自分用）</title>
 <link rel="stylesheet" href="/style.css">
 <style>
-  .import textarea { width: 100%; min-height: 160px; font: .8rem/1.4 monospace; }
-  .import .bm { display: inline-block; padding: 6px 12px; border: 1px dashed var(--accent); border-radius: 6px; color: var(--accent); text-decoration: none; }
+  .import textarea { width: 100%; min-height: 120px; font: .8rem/1.4 monospace; }
+  .import .bm { display: inline-block; padding: 4px 12px; border: 1px dashed var(--accent); border-radius: 6px; color: var(--accent); text-decoration: none; }
+  .import .tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 12px 0; font-size: .88rem; color: var(--muted); }
   .import ol, .import ul { padding-left: 1.4em; }
   .import .msg { white-space: pre-wrap; }
+  .import details { margin: 10px 0; }
+  .import summary { cursor: pointer; color: var(--muted); font-size: .9rem; }
+  .import details > :not(summary) { font-size: .9rem; }
   .import table { border-collapse: collapse; font-size: .88rem; }
   .import td { border-bottom: 1px solid var(--line); padding: 4px 8px; }
 </style>
@@ -19,40 +23,53 @@
 <body>
 <header class="site-head">
   <h1><a href="/">ハロプロ Instagram 検索</a></h1>
-  <p class="lead">取り込み（自分用）: ブラウザで見た投稿を取って入れる。公式APIで取れない個人アカウントの分と、公式APIの遡りの先回り</p>
+  <p class="lead">取り込み（自分用）</p>
 </header>
 
 <main class="import">
-  <h2>合言葉</h2>
-  <p>
-    <input type="password" id="token" placeholder="CRAWL_TOKEN" autocomplete="off" style="width:100%;max-width:420px">
-    <button type="button" id="saveToken">このブラウザに覚えさせる</button>
-    <button type="button" id="clearToken" class="ghost">忘れさせる</button>
-  </p>
-  <p id="tokenState" class="msg"></p>
+  <!-- ブックマークバーへドラッグするリンクと、合言葉の状態だけ常に出す。説明は押すと開く -->
+  <div class="tools">
+    <a class="bm" id="bm" href="#" title="ブックマークバーへドラッグ">IG取得</a>
+    <a class="bm" id="bmWin" href="#" title="ブックマークバーへドラッグ">IG窓</a>
+    <span>← ブックマークバーへドラッグ</span>
+  </div>
 
-  <h2>使い方</h2>
-  <ol>
-    <li>このリンクをブックマークバーへドラッグ: <a class="bm" id="bm" href="#">IG取得</a>（対象アカウントの人の投稿だけを拾う。対象が変わったらドラッグし直す）</li>
-    <li>並べて取るときは、これもドラッグ: <a class="bm" id="bmWin" href="#">IG窓</a>（見ている Instagram のページを、画面幅の 1/4 の細い窓で開き直し、窓の中で IG取得 を自動で始める。押すたびに左から順に並ぶ。対象が変わったらドラッグし直す）</li>
-    <li>Graph API とは<strong>別の</strong>アカウントでログインしたブラウザで、取りたい人のプロフィール（instagram.com/ユーザー名/）か、ホームのフィードを開いて押す（対象外の人の投稿は、画面にあっても拾わない）</li>
-    <li>右下にパネルが出るので、スクロールして投稿をためる（本文が欲しい投稿は開くと拾える）</li>
-    <li>「送る」でこのページに渡す（渡らないときは「コピー」して下に貼る）→「登録」</li>
-    <li>新着を取るときは、下の表の「最新」の日時の投稿が見えるところまでスクロールしてから送ると、抜けが出ない</li>
-  </ol>
+  <details id="tokenBox">
+    <summary id="tokenState">合言葉</summary>
+    <p>
+      <input type="password" id="token" placeholder="CRAWL_TOKEN" autocomplete="off" style="width:100%;max-width:420px">
+      <button type="button" id="saveToken">このブラウザに覚えさせる</button>
+      <button type="button" id="clearToken" class="ghost">忘れさせる</button>
+    </p>
+  </details>
 
-  <h2>貼り付け</h2>
-  <textarea id="data" autocomplete="off" placeholder="ブックマークレットでコピーしたものを貼る（貼ると読み取って下に「未登録」として出る）"></textarea>
+  <details>
+    <summary>使い方</summary>
+    <ol>
+      <li><strong>IG取得</strong>: Graph API とは<strong>別の</strong>アカウントでログインしたブラウザで、取りたい人のプロフィールかホームのフィードを開いて押す。対象アカウントの人の投稿だけを拾う（対象外の人は画面にあっても拾わない）</li>
+      <li><strong>IG窓</strong>: 見ている Instagram のページを、画面幅の 1/4 の細い窓で開き直し、窓の中で IG取得 を自動で始める。押すたびに左から順に並ぶ。窓は画面に見えるようにしておく（隠れると止まる）</li>
+      <li>右下のパネルで「自動スクロール」か手でスクロールしてためる（本文が欲しい投稿は開くと拾える）</li>
+      <li>「送る」でこのページに渡す（渡らないときは「コピー」して下に貼る）→ 中身を確かめて「登録」</li>
+      <li>新着を取るときは、下の表の「最新」の日時の投稿が見えるところまでスクロールしてから送ると、抜けが出ない</li>
+      <li>対象アカウントが変わったら、IG取得 と IG窓 をドラッグし直す</li>
+      <li>公式APIで取れる人も取り込める（遡りの先回り）。公式APIの取得はそのまま続き、追いついたら公式の分（いいね数付き）に置き換わる</li>
+    </ol>
+  </details>
+
+  <textarea id="data" autocomplete="off" placeholder="ここに貼る（IG取得の「送る」なら自動で入る）"></textarea>
   <p id="preview" class="msg"></p>
   <p><button type="button" id="send" disabled>登録</button></p>
   <p id="result" class="msg"></p>
 
-  <h2>対象（個人アカウント）</h2>
-  <table><tbody id="targets"><tr><td>読み込み中…</td></tr></tbody></table>
+  <details open>
+    <summary>対象（個人アカウント）</summary>
+    <table><tbody id="targets"><tr><td>読み込み中…</td></tr></tbody></table>
+  </details>
 
-  <h2>対象（公式APIで取れる人）</h2>
-  <p class="msg">公式APIの取得はそのまま続く。手で取り込んだ分は、公式APIが追いついたら公式の分（いいね数付き）に置き換わる</p>
-  <table><tbody id="officials"><tr><td>読み込み中…</td></tr></tbody></table>
+  <details>
+    <summary>対象（公式APIで取れる人）</summary>
+    <table><tbody id="officials"><tr><td>読み込み中…</td></tr></tbody></table>
+  </details>
 </main>
 <script src="/import.js"></script>
 </body>

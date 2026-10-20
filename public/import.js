@@ -267,7 +267,9 @@
       else localStorage.removeItem(KEY);
     } catch (e) { /* 保存できないブラウザでは、このページを開いているあいだだけ使う */ }
     tokenInput.value = "";
-    tokenState.textContent = t ? "覚えています（…" + t.slice(-4) + "）" : "まだ入っていません。登録には合言葉が要ります";
+    tokenState.textContent = t ? "合言葉: 覚えています（…" + t.slice(-4) + "）" : "合言葉: まだ入っていません（登録に要る）";
+    // 入っていなければ開いておく
+    document.getElementById("tokenBox").open = !t;
   }
   try { token = localStorage.getItem(KEY) || ""; } catch (e) { /* 読めないときは空のまま */ }
   var fromUrl = new URLSearchParams(location.search).get("t");
