@@ -159,12 +159,20 @@
       bScroll.textContent = "自動スクロール";
       if (s) msg(s);
     }
+    // Instagram の読み込みが遅いだけで止まらないよう粘る。伸びないときは少し戻してから下へ送り直して、続きを読み込ませる。
+    // 止めるのは、約40秒(10回)伸びなかったときだけ
     function step() {
-      window.scrollTo(0, document.documentElement.scrollHeight);
       var h = document.documentElement.scrollHeight;
       still = h === lastH ? still + 1 : 0;
       lastH = h;
-      if (still >= 3) { stopScroll("一番下まで来ました。「送る」を押してください"); return; }
+      if (still >= 10) { stopScroll("一番下まで来ました。「送る」を押してください"); return; }
+      if (still && still % 3 === 0) {
+        window.scrollBy(0, -1200);
+        setTimeout(function () { window.scrollTo(0, document.documentElement.scrollHeight); }, 800);
+      } else {
+        window.scrollTo(0, document.documentElement.scrollHeight);
+      }
+      msg("ゆっくり一番下まで送っています… " + items.size + "件" + (still ? "（読み込み待ち " + still + "/10）" : ""));
       scrollTimer = setTimeout(step, 3000 + Math.random() * 2000);
     }
     bScroll.onclick = function () {
