@@ -282,12 +282,19 @@
       k = (parseInt(localStorage.getItem("helloInstaWin"), 10) || 0) % (COLS * ROWS);
       localStorage.setItem("helloInstaWin", String(k + 1));
     } catch (e) { k = 0; }
-    // 1920×(1080−タスクバー) なら 480×約260。open の幅と高さは中身の大きさなので、開いたあと外枠込みで合わせ直す
+    // 1920×(1080−タスクバー) なら 480×約260。open の幅と高さは中身の大きさなので、開いたあと外枠で合わせ直す
     var w = Math.floor(screen.availWidth / COLS), h = Math.floor(screen.availHeight / ROWS);
     var left = (screen.availLeft || 0) + (k % COLS) * w;
     var top = (screen.availTop || 0) + Math.floor(k / COLS) * h;
     var win = window.open(location.href, "hi_win_" + Date.now(), "popup=yes,width=" + w + ",height=" + h + ",left=" + left + ",top=" + top);
-    function fit() { try { win.resizeTo(w, h); win.moveTo(left, top); } catch (e) { /* 合わせられなくても動く */ } }
+    // Windows の窓は左右と下に見えない枠(影)があり、その分だけ隙間ができる。枠の幅を測って、はみ出させて並べる
+    function fit() {
+      try {
+        var b = Math.max(0, Math.round((win.outerWidth - win.innerWidth) / 2));
+        win.resizeTo(w + 2 * b, h + b);
+        win.moveTo(left - b, top);
+      } catch (e) { /* 合わせられなくても動く */ }
+    }
     if (!win) { alert("ポップアップが止められました。このサイトのポップアップを許可してください"); return; }
     fit();
     var tries = 0;
