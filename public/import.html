@@ -23,6 +23,11 @@
   .import td:first-child { max-width: 100px; overflow: hidden; text-overflow: ellipsis; }
   .import td:first-child a { display: block; overflow: hidden; text-overflow: ellipsis; }
   .import td small { display: block; color: var(--muted); font-size: .74rem; }
+  /* 開いてすぐ、貼る欄・登録・取り込む人の行まで見えるよう上の余白を詰める */
+  .site-head { padding-top: 6px; padding-bottom: 2px; }
+  .import .go { display: flex; gap: 6px; align-items: flex-start; margin: 4px 0; }
+  .import .go textarea { flex: 1; }
+  .import #preview, .import #result { margin: 4px 0; }
   .import h2.sub { font-size: .95rem; margin: 20px 0 4px; color: var(--muted); font-weight: 600; }
 </style>
 </head>
@@ -33,9 +38,11 @@
 
 <main class="import">
   <!-- 開いたらすぐ登録できるよう、貼る欄と登録を一番上に置く -->
-  <textarea id="data" autocomplete="off" placeholder="ここに貼る（IG取得の「送る」なら自動で入る）"></textarea>
   <!-- 登録を押すと、未登録の行がそのまま下の「登録中」に移り、終わるとその行が結果に変わる -->
-  <p><button type="button" id="send" disabled>登録</button></p>
+  <div class="go">
+    <textarea id="data" autocomplete="off" placeholder="ここに貼る（IG取得の「送る」なら自動で入る）"></textarea>
+    <button type="button" id="send" disabled>登録</button>
+  </div>
   <p id="preview" class="msg"></p>
   <p id="result" class="msg"></p>
 

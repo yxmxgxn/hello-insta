@@ -132,7 +132,11 @@
       row.appendChild(b);
       return b;
     }
-    var bSend = button("送る", true), bScroll = button("Scroll"), bCopy = button("コピー"), bClose = button("閉じる");
+    var bSend = button("送る", true), bScroll = button("Scroll"), bCopy = button("コピー"), bClose = button("×");
+    bClose.title = "閉じる";
+    // 件数を3で割った行数と余り。グリッドは3列なので、余り1なら一番下の行が左に1枚だけで終わり
+    var by3 = el("span", "margin-left:auto;color:#6b6b6b;white-space:nowrap");
+    row.appendChild(by3);
     [head, note, row].forEach(function (e) { panel.appendChild(e); });
     document.body.appendChild(panel);
 
@@ -144,6 +148,9 @@
       var k = Object.keys(who).length;
       var ig = profile && counts[profile.toLowerCase()];
       count.textContent = n + "件（本文" + c + "）" + (k > 1 ? " " + k + "人" : "") + (ig ? " IG " + ig : "");
+      var t = ig || n;
+      by3.textContent = t ? Math.floor(t / 3) + "行+" + t % 3 : "";
+      by3.title = (ig ? "IG の件数 " : "集めた件数 ") + t + " ÷ 3";
       if (profile && !ALLOW[profile.toLowerCase()]) msg("対象外。何も拾いません");
       // 見出しは開いているページの人(窓を並べたときに見分けられるように)
       var me = profile && profile.toLowerCase();
