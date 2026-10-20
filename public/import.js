@@ -198,28 +198,28 @@
       copy().then(function (ok) { msg(ok ? "コピーしました。欄に貼る" : "コピーできませんでした"); });
     };
 
-    // 自動スクロール: 人が眺めるくらいの間隔(3〜5秒、毎回ばらつかせる)で一番下へ。伸びなくなったら終わる
+    // 自動スクロール: 止められないよう、人が眺めるくらいゆっくり(5〜8秒、毎回ばらつかせる)一番下へ。伸びなくなったら終わる
     var scrollTimer = null, still = 0, lastH = 0;
     function stopScroll(s) {
       clearTimeout(scrollTimer); scrollTimer = null;
       bScroll.textContent = "Scroll";
       if (s) msg(s);
     }
-    // Instagram の読み込みが遅いだけで止まらないよう粘る。伸びないときは少し戻してから下へ送り直して、続きを読み込ませる。
-    // 止めるのは、約40秒(10回)伸びなかったときだけ
+    // 伸びないときは少し戻してから下へ送り直して、続きを読み込ませる。
+    // 読み込めないときはどの窓でも読み込めないので、粘りすぎず5回(約30秒)伸びなかったら止める
     function step() {
       var h = document.documentElement.scrollHeight;
       still = h === lastH ? still + 1 : 0;
       lastH = h;
-      if (still >= 10) { stopScroll("一番下です。「送る」を押す"); return; }
-      if (still && still % 3 === 0) {
+      if (still >= 5) { stopScroll("一番下です。「送る」を押す"); return; }
+      if (still && still % 2 === 0) {
         window.scrollBy(0, -1200);
         setTimeout(function () { window.scrollTo(0, document.documentElement.scrollHeight); }, 800);
       } else {
         window.scrollTo(0, document.documentElement.scrollHeight);
       }
-      msg("Scroll中" + (still ? "（読み込み待ち " + still + "/10）" : "…"));
-      scrollTimer = setTimeout(step, 3000 + Math.random() * 2000);
+      msg("Scroll中" + (still ? "（読み込み待ち " + still + "/5）" : "…"));
+      scrollTimer = setTimeout(step, 5000 + Math.random() * 3000);
     }
     bScroll.onclick = function () {
       if (scrollTimer) { stopScroll("止めました"); return; }
