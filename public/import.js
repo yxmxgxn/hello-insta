@@ -242,6 +242,8 @@
 
     window.__helloInsta = { show: function () { panel.style.display = ""; scan(); }, msg: msg };
     scan();
+    // 対象の人のプロフィールで押したら、Scroll を押した状態で始める(ホームや対象外のページでは始めない)
+    if (profile && ALLOW[profile.toLowerCase()] && !LINK.test(location.pathname)) bScroll.onclick();
   }
 
   // スマホの Chrome はアドレスバーから実行すると改行を消して1行にするので、// のコメントがあると後ろが全部コメントになる。
