@@ -11,7 +11,7 @@
   .import textarea { width: 100%; height: 2.6em; min-height: 2.6em; font: .8rem/1.4 monospace; resize: vertical; }
   .import #result { color: var(--muted); }
   .import .bm { display: inline-block; padding: 4px 12px; border: 1px dashed var(--accent); border-radius: 6px; color: var(--accent); text-decoration: none; }
-  .import .tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 12px 0; font-size: .88rem; color: var(--muted); }
+  .import .tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 24px 0 12px; font-size: .88rem; color: var(--muted); }
   .import ol, .import ul { padding-left: 1.4em; }
   .import .msg { white-space: pre-wrap; }
   .import details { margin: 10px 0; }
@@ -28,12 +28,25 @@
 </head>
 <body>
 <header class="site-head">
-  <h1><a href="/">ハロプロ Instagram 検索</a></h1>
-  <p class="lead">取り込み（自分用）</p>
+  <p class="lead"><a href="/">ハロプロ Instagram 検索</a> / 取り込み（自分用）</p>
 </header>
 
 <main class="import">
-  <!-- ブックマークバーへドラッグするリンクと、合言葉の状態だけ常に出す。説明は押すと開く -->
+  <!-- 開いたらすぐ登録できるよう、貼る欄と登録を一番上に置く -->
+  <textarea id="data" autocomplete="off" placeholder="ここに貼る（IG取得の「送る」なら自動で入る）"></textarea>
+  <!-- 登録を押すと、未登録の行がそのまま下の「登録中」に移り、終わるとその行が結果に変わる -->
+  <p><button type="button" id="send" disabled>登録</button></p>
+  <p id="preview" class="msg"></p>
+  <p id="result" class="msg"></p>
+
+  <!-- 対象の表は常に出す。1人を2行(名前と@アカウント、件数と内訳…)にして横幅を詰める -->
+  <h2 class="sub">対象（公式APIで取れる人）</h2>
+  <table><tbody id="officials"><tr><td>読み込み中…</td></tr></tbody></table>
+
+  <h2 class="sub">対象（個人アカウント）</h2>
+  <table><tbody id="targets"><tr><td>読み込み中…</td></tr></tbody></table>
+
+  <!-- ブックマークレット・合言葉・使い方は、たまにしか触らないので下に置く -->
   <div class="tools">
     <a class="bm" id="bm" href="#" title="ブックマークバーへドラッグ">IG取得</a>
     <a class="bm" id="bmWin" href="#" title="ブックマークバーへドラッグ">IG窓</a>
@@ -55,25 +68,13 @@
       <li><strong>IG取得</strong>: Graph API とは<strong>別の</strong>アカウントでログインしたブラウザで、取りたい人のプロフィールかホームのフィードを開いて押す。対象アカウントの人の投稿だけを拾う（対象外の人は画面にあっても拾わない）</li>
       <li><strong>IG窓</strong>: 見ている Instagram のページを、画面幅の 1/4 の細い窓で開き直し、窓の中で IG取得 を自動で始める。押すたびに左から順に並ぶ。窓は画面に見えるようにしておく（隠れると止まる）</li>
       <li>右下のパネルで「Scroll」（自動スクロール）か手でスクロールしてためる（本文が欲しい投稿は開くと拾える）</li>
-      <li>「送る」でこのページに渡す（渡らないときは「コピー」して下に貼る）→ 中身を確かめて「登録」</li>
-      <li>新着を取るときは、下の表の「最新」の日時の投稿が見えるところまでスクロールしてから送ると、抜けが出ない</li>
+      <li>「送る」でこのページに渡す（渡らないときは「コピー」して上の欄に貼る）→ 中身を確かめて「登録」</li>
+      <li>新着を取るときは、上の表の最新の日時の投稿が見えるところまでスクロールしてから送ると、抜けが出ない</li>
       <li>対象アカウントが変わったら、IG取得 と IG窓 をドラッグし直す</li>
       <li>公式APIで取れる人も取り込める（遡りの先回り）。公式APIの取得はそのまま続き、追いついたら公式の分（いいね数付き）に置き換わる</li>
     </ol>
   </details>
 
-  <textarea id="data" autocomplete="off" placeholder="ここに貼る（IG取得の「送る」なら自動で入る）"></textarea>
-  <!-- 登録を押すと、未登録の行がそのまま下の「登録中」に移り、終わるとその行が結果に変わる -->
-  <p><button type="button" id="send" disabled>登録</button></p>
-  <p id="preview" class="msg"></p>
-  <p id="result" class="msg"></p>
-
-  <!-- 対象の表は常に出す。1人を2行(名前と@アカウント、件数と内訳…)にして横幅を詰める -->
-  <h2 class="sub">対象（公式APIで取れる人）</h2>
-  <table><tbody id="officials"><tr><td>読み込み中…</td></tr></tbody></table>
-
-  <h2 class="sub">対象（個人アカウント）</h2>
-  <table><tbody id="targets"><tr><td>読み込み中…</td></tr></tbody></table>
 </main>
 <script src="/import.js"></script>
 </body>

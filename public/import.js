@@ -449,7 +449,7 @@
 
   send.addEventListener("click", async function () {
     if (!groups || busy) return;
-    if (!token) { result.textContent = "上の「合言葉」の欄に CRAWL_TOKEN を入れて、覚えさせてください"; return; }
+    if (!token) { result.textContent = "下の「合言葉」を開いて CRAWL_TOKEN を入れ、覚えさせてください"; return; }
     send.disabled = true;
     // 押したら「未登録」の表示を、同じ行のまま「登録中」に移す(未登録は空になる)。
     // 登録しているあいだに別の窓から送られてきた分は、また「未登録」に並ぶ
