@@ -12,7 +12,8 @@ Worker のクローラ用API(/api/crawl/*)経由で D1 に書き込む。
 Business Discovery はビジネス/クリエイターアカウントしか引けず、1回で最大50件、
 過去分は after カーソルで遡る。API上限(1時間200回)に収まるよう1回の実行の呼び出し数を
 MAX_CALLS に抑え、遡りきれなかった分は D1 の fetch_state に残して次の実行で続ける。
-  - 1周目: 全アカウントの最新ページ(INSERT OR REPLACE なので重複は無害)
+  - 1周目: 新着を見る番の人(前に見てから20時間以上たった人)の最新ページ。1人1日1回で、
+           見ていない時間が長い人から(INSERT OR REPLACE なので重複は無害)
   - 2周目: 遡りが終わっていないアカウントを、残りの回数の範囲で続ける
 投稿と進み具合は Worker 側で1つの batch で書くので、片方だけ進むことはない。
 
@@ -36,6 +37,8 @@ import urllib.request
 
 GRAPH = "https://graph.facebook.com/v23.0"
 PAGE_SIZE = 50
+# 新着を見る間隔。毎日ほぼ同じ回に回ってくるよう、24時間より少し短くする
+LATEST_EVERY = 20 * 3600
 
 # karin-archive の SNS一覧スプシ(accounts シート)。
 # 列: 0=member番号 1=名前 2=platform 3=ID 4=MEMBER(位置で読む。ヘッダーに重複があるため)
@@ -235,10 +238,12 @@ def main() -> int:
         if st["done"] and st["after"]:
             st["done"] = 0
 
-    # 個人アカウントと分かっている人は API を使っても取れないので飛ばし、その分を遡りに回す
-    # (その人たちは取り込みページで入れる)。プロに切り替えたら拾えるよう、1日1回(UTC 0時台の回)だけは試す
-    if time.gmtime().tm_hour >= 2:
-        targets = [t for t in targets if state.get(t["username"], {}).get("last_error") != PERSONAL]
+    # 新着を見るのは1人1日1回(前に見てから LATEST_EVERY 以上たった人だけ)。見ていない時間が長い人から順に回り、
+    # 回数制限で途中で止まっても次の回が続きの人から見る。個人アカウントの人もここで1日1回だけ試す
+    # (プロに切り替えたら拾うため)。それ以外の回数は過去分の遡りに回す
+    due_before = time.strftime("%Y-%m-%d %H:%M", time.gmtime(time.time() + 9 * 3600 - LATEST_EVERY))
+    due = sorted((t for t in targets if (state.get(t["username"], {}).get("latest_at") or "") < due_before),
+                 key=lambda t: state.get(t["username"], {}).get("latest_at") or "")
 
     calls = 0
     saved = 0
@@ -255,7 +260,7 @@ def main() -> int:
             if msg.startswith("回数制限"):
                 raise RateLimited(msg) from None
             failed.append(f"{user}{'(遡り)' if after else ''}: {msg}")
-            crawl("POST", "error", {"username": user, "error": msg})
+            crawl("POST", "error", {"username": user, "error": msg, "latest": not after})
             if is_token_error(msg):
                 raise
             return None
@@ -263,8 +268,8 @@ def main() -> int:
             time.sleep(0.5)
 
     try:
-        # 1周目: 全アカウントの最新ページ。遡りの起点(カーソル)が無い人はここで決まる
-        for t in targets:
+        # 1周目: 新着を見る番の人の最新ページ。遡りの起点(カーソル)が無い人はここで決まる
+        for t in due:
             if calls >= max_calls:
                 break
             user = t["username"]
@@ -277,13 +282,15 @@ def main() -> int:
                 new_state = next_state(media)
                 state[user] = {"username": user, **new_state}
             crawl("POST", "posts", {"username": user, "posts": media.get("data", []), "state": new_state,
-                                    "media_count": media.get("media_count")})
+                                    "media_count": media.get("media_count"), "latest": True})
             saved += len(media.get("data", []))
 
-        # 2周目: 遡りが終わっていないアカウントを、残りの回数で続ける
+        # 2周目: 遡りが終わっていないアカウントを、残りの回数で続ける(個人アカウントの人は取れないので飛ばす)
         for t in targets:
             user = t["username"]
             st = state.get(user)
+            if st and st.get("last_error") == PERSONAL:
+                continue
             while st and not st["done"] and st["after"] and calls < max_calls:
                 media = get(user, st["after"])
                 if media is None:
@@ -304,7 +311,7 @@ def main() -> int:
         return 1
 
     pending = sum(1 for t in targets if not state.get(t["username"], {}).get("done"))
-    print(f"対象 {len(targets)} / API {calls}回 / 保存 {saved}件 / 遡り未完了 {pending}アカウント")
+    print(f"対象 {len(targets)} / 新着を見る番 {len(due)} / API {calls}回 / 保存 {saved}件 / 遡り未完了 {pending}アカウント")
     if failed:
         warn("取得できなかったアカウント:\n" + "\n".join(failed))
     return 0
