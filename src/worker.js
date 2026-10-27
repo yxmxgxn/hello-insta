@@ -203,7 +203,7 @@ function authorized(request, env) {
 async function crawlState(env) {
   const { results } = await env.DB
     .prepare(
-      "SELECT s.username, s.after, s.done, " +
+      "SELECT s.username, s.after, s.done, s.last_error, " +
       "(SELECT COUNT(*) FROM post WHERE account = s.username) AS posts FROM fetch_state s")
     .all();
   return json({ state: results });
