@@ -203,7 +203,7 @@ function authorized(request, env) {
 async function crawlState(env) {
   const { results } = await env.DB
     .prepare(
-      "SELECT s.username, s.after, s.done, s.last_error, " +
+      "SELECT s.username, s.after, s.done, s.last_error, s.latest_at, " +
       "(SELECT COUNT(*) FROM post WHERE account = s.username) AS posts FROM fetch_state s")
     .all();
   return json({ state: results });
@@ -284,10 +284,11 @@ async function setIgCount(env, username, n) {
   }
 }
 
-// { username, posts: [{ id, caption, timestamp, permalink, media_type }], state: { after, done } | null, media_count }
+// { username, posts: [{ id, caption, timestamp, permalink, media_type }], state: { after, done } | null, media_count, latest }
+// latest: 新着を見た(最新ページ)なら true。fetch_state.latest_at に覚え、1人1日1回にするのに使う
 // 投稿と進み具合を1つの batch(=トランザクション)で書く。途中で落ちても、進み具合だけ進むことはない
 async function crawlPosts(request, env) {
-  const { username, posts, state, media_count } = await request.json();
+  const { username, posts, state, media_count, latest } = await request.json();
   if (!username || !Array.isArray(posts)) return json({ error: "bad_request" }, 400);
   const stmts = [];
   for (const p of posts) upsertPost(env, stmts, username, p);
@@ -305,20 +306,24 @@ async function crawlPosts(request, env) {
         "ON CONFLICT(username) DO UPDATE SET last_error = NULL, checked_at = excluded.checked_at")
       .bind(username, nowJst()));
   }
+  if (latest) stmts.push(env.DB.prepare("UPDATE fetch_state SET latest_at = ? WHERE username = ?").bind(nowJst(), username));
   await env.DB.batch(stmts);
   await setIgCount(env, username, media_count);
   return json({ ok: true, count: posts.length });
 }
 
-// { username, error }
+// { username, error, latest }
 async function crawlError(request, env) {
-  const { username, error } = await request.json();
+  const { username, error, latest } = await request.json();
   if (!username) return json({ error: "bad_request" }, 400);
+  const now = nowJst();
+  // 新着を見に行って失敗したとき(個人アカウントなど)も、その日は見たことにする
   await env.DB
     .prepare(
-      "INSERT INTO fetch_state(username, last_error, checked_at) VALUES(?, ?, ?) " +
-      "ON CONFLICT(username) DO UPDATE SET last_error = excluded.last_error, checked_at = excluded.checked_at")
-    .bind(username, String(error || "").slice(0, 500), nowJst())
+      "INSERT INTO fetch_state(username, last_error, checked_at, latest_at) VALUES(?, ?, ?, ?) " +
+      "ON CONFLICT(username) DO UPDATE SET last_error = excluded.last_error, checked_at = excluded.checked_at, " +
+      "latest_at = coalesce(excluded.latest_at, latest_at)")
+    .bind(username, String(error || "").slice(0, 500), now, latest ? now : null)
     .run();
   return json({ ok: true });
 }

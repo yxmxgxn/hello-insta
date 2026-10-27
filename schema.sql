@@ -41,7 +41,8 @@ CREATE TABLE IF NOT EXISTS fetch_state (
   after      TEXT,              -- 次に遡るときのカーソル
   done       INTEGER NOT NULL DEFAULT 0,  -- 1=過去分を遡りきった
   last_error TEXT,              -- 直近の取得エラー(取れたら NULL に戻す)
-  checked_at TEXT               -- 最後に取りに行った日時(JST)
+  checked_at TEXT,              -- 最後に取りに行った日時(JST)
+  latest_at  TEXT               -- 最後に新着(最新ページ)を見た日時(JST)。1人1日1回にするのに使う
 );
 
 -- 1回きりの覚え書き(前回の毎日の報告の時刻と件数など)
