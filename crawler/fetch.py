@@ -196,13 +196,16 @@ def err_text(e: urllib.error.HTTPError) -> str:
     except ValueError:
         return f"HTTP {e.code}"
     if err.get("error_subcode") == 2207013:
-        return "個人アカウント(取得不可)"
+        return PERSONAL
     if err.get("code") == 190:
         # subcode で理由が分かる(460=パスワード変更、463=期限切れ、467=ログアウトなどでセッション無効)
         return f"アクセストークンが無効(190/{err.get('error_subcode')} {err.get('message', '')})"
     if err.get("code") in (4, 17, 32, 613):
         return f"回数制限({err.get('code')} {err.get('message', '')})"
     return f"{err.get('code')}/{err.get('error_subcode')} {err.get('message', '')}"
+
+
+PERSONAL = "個人アカウント(取得不可)"
 
 
 def is_token_error(msg: str) -> bool:
@@ -231,6 +234,11 @@ def main() -> int:
     for st in state.values():
         if st["done"] and st["after"]:
             st["done"] = 0
+
+    # 個人アカウントと分かっている人は API を使っても取れないので飛ばし、その分を遡りに回す
+    # (その人たちは取り込みページで入れる)。プロに切り替えたら拾えるよう、1日1回(UTC 0時台の回)だけは試す
+    if time.gmtime().tm_hour >= 2:
+        targets = [t for t in targets if state.get(t["username"], {}).get("last_error") != PERSONAL]
 
     calls = 0
     saved = 0
