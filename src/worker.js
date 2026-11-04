@@ -400,9 +400,10 @@ const MEDIA_TYPE = { 1: "IMAGE", 2: "VIDEO", 8: "CAROUSEL_ALBUM" };
 // dry: true なら書き込まず、新規・公式で入っている・取り込み済みに振り分けた件数だけ返す(取り込みページの確認用)。
 // あわせて、サイトにはあるのに今回送られてきた一覧(posts と seen)に無い投稿を extra で返す
 // (公式APIはプロフィールに出ない投稿も返すので、それが何かを目で確かめるため)。
-// seen: 同じときに別の人の分として送られた shortcode(他の人が持ち主の共同投稿は、その人の分になるため)
+// seen: 同じときに別の人の分として送られた shortcode(他の人が持ち主の共同投稿は、その人の分になるため)。
+// extra はプロフィールを一番下まで見た人(want_extra)だけ。共同投稿で数件まざっただけの人は比べても意味がない
 async function crawlPaste(request, env) {
-  const { username, posts, dry, ig_count, seen } = await request.json();
+  const { username, posts, dry, ig_count, seen, want_extra } = await request.json();
   // 書き込みは1回 PASTE_MAX 件まで。数えるだけ(dry)なら1人分をまとめて受ける
   if (!username || !Array.isArray(posts) || posts.length > (dry ? DRY_MAX : PASTE_MAX)) return json({ error: "bad_request" }, 400);
   const [{ results: acc }] = await env.DB.batch([
@@ -426,6 +427,7 @@ async function crawlPaste(request, env) {
       else if (have.has(WEB_ID + code)) n.imported++;
       else n.fresh++;
     }
+    if (!want_extra) return json({ ok: true, username: user, dry: true, ...n });
     const sent = new Set(posts.map((p) => String(p.code || "")).concat(Array.isArray(seen) ? seen.map(String) : []));
     const extra = existing
       .filter((r) => !sent.has(shortcode(r.permalink)))
