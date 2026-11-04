@@ -176,13 +176,33 @@ def crawl(method: str, path: str, body: dict | None = None) -> dict:
 
 # ---------- Graph API ----------
 
+# 投稿の持ち主(username)も聞く。共同投稿は持ち主と共同投稿者の両方の一覧に出てくるので、
+# Worker 側で持ち主のアカウントに固定するのに使う。API が受け付けなかったら、その回は聞かずに続ける
+ask_owner = True
+
+
 def fetch_page(username: str, after: str | None) -> dict:
+    global ask_owner
     media = f"media.limit({PAGE_SIZE})" + (f".after({after})" if after else "")
+    owner = ",username" if ask_owner else ""
     fields = (f"business_discovery.username({username})"
-              f"{{media_count,{media}{{id,caption,timestamp,permalink,media_type,like_count,comments_count}}}}")
+              f"{{media_count,{media}{{id,caption,timestamp,permalink,media_type,like_count,comments_count{owner}}}}}")
     q = urllib.parse.urlencode({"fields": fields, "access_token": os.environ["IG_ACCESS_TOKEN"]})
-    with urllib.request.urlopen(f"{GRAPH}/{os.environ['IG_USER_ID']}?{q}", timeout=60) as res:
-        data = json.loads(res.read().decode("utf-8"))
+    try:
+        with urllib.request.urlopen(f"{GRAPH}/{os.environ['IG_USER_ID']}?{q}", timeout=60) as res:
+            data = json.loads(res.read().decode("utf-8"))
+    except urllib.error.HTTPError as e:
+        body = e.read()
+        try:
+            err = json.loads(body.decode("utf-8")).get("error", {})
+        except ValueError:
+            err = {}
+        # 項目が無いと言われた(code 100)ときだけ、持ち主を聞くのをやめてやり直す
+        if ask_owner and err.get("code") == 100 and "username" in str(err.get("message", "")):
+            ask_owner = False
+            warn(f"投稿の持ち主(username)を API が返さないので、今回は聞かずに続けます: {err.get('message')}")
+            return fetch_page(username, after)
+        raise urllib.error.HTTPError(e.url, e.code, e.msg, e.headers, io.BytesIO(body)) from None
     bd = data.get("business_discovery", {})
     # プロフィールに出ている投稿数。入っている件数と比べて、取り込みが要るか見るのに使う
     return {**bd.get("media", {}), "media_count": bd.get("media_count")}

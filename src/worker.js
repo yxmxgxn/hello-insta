@@ -333,7 +333,16 @@ async function crawlPosts(request, env) {
   const stmts = [];
   const ids = posts.filter((p) => p.id).flatMap((p) => [String(p.id), WEB_ID + shortcode(p.permalink)]);
   const known = await knownPosts(env, ids);
-  for (const p of posts) upsertPost(env, stmts, username, p, known);
+  // 共同投稿は、持ち主と共同投稿者の両方の一覧に出てくる。取りに行った人の分にすると、
+  // 最後に取った人へ行ったり来たりするので、持ち主に固定する:
+  //   持ち主(p.username)が対象アカウントならその人 → 前に入れた人(貼り付け版も含む) → 今取っている人
+  const { results: accs } = await env.DB.prepare("SELECT username FROM account").all();
+  const target = new Map(accs.map((a) => [a.username.toLowerCase(), a.username]));
+  for (const p of posts) {
+    const prev = known.get(String(p.id)) || known.get(WEB_ID + shortcode(p.permalink));
+    const owner = p.username && target.get(String(p.username).toLowerCase());
+    upsertPost(env, stmts, owner || (prev && prev.account) || username, p, known);
+  }
   if (state) {
     stmts.push(env.DB
       .prepare(
