@@ -160,11 +160,18 @@ def crawl(method: str, path: str, body: dict | None = None) -> dict:
             "user-agent": "hello-insta-crawler",
         },
     )
-    try:
-        with urllib.request.urlopen(req, timeout=120) as res:
-            return json.loads(res.read().decode("utf-8"))
-    except urllib.error.HTTPError as e:
-        raise RuntimeError(f"{method} {path}: HTTP {e.code} {e.read().decode('utf-8', 'replace')[:300]}") from None
+    # D1 が混んでいると 500(D1 DB is overloaded)が返る。書き込みは何度やっても同じ結果になる形なので、
+    # 間を空けてやり直す(取り込みページからの登録と重なったときなど)
+    for wait in (15, 30, 60, None):
+        try:
+            with urllib.request.urlopen(req, timeout=120) as res:
+                return json.loads(res.read().decode("utf-8"))
+        except urllib.error.HTTPError as e:
+            msg = f"{method} {path}: HTTP {e.code} {e.read().decode('utf-8', 'replace')[:300]}"
+            if e.code < 500 or wait is None:
+                raise RuntimeError(msg) from None
+            print(f"[retry {wait}s] {msg}")
+            time.sleep(wait)
 
 
 # ---------- Graph API ----------
