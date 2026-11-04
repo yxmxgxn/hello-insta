@@ -418,7 +418,9 @@
       fetch("/api/crawl/paste", {
         method: "POST",
         headers: { "content-type": "application/json", authorization: "Bearer " + token },
-        body: JSON.stringify({ username: who, posts: g[who], dry: true, seen: seen }),
+        // 比べるのはプロフィールを開いて送った人だけ(IG の投稿数が拾えている人)。
+        // 共同投稿で数件まざっただけの人まで比べると、その人の投稿が全部「無い」と出てしまう
+        body: JSON.stringify({ username: who, posts: g[who], dry: true, seen: seen, want_extra: !!igCounts[who] }),
       }).then(function (res) { return res.ok ? res.json() : null; }).then(function (r) {
         if (!r || my !== classifyNo) return;
         counts[who] = r;
