@@ -28,6 +28,8 @@
   .import .go { display: flex; gap: 6px; align-items: flex-start; margin: 4px 0; }
   .import .go textarea { flex: 1; }
   .import #preview, .import #result { margin: 4px 0; }
+  .import .extra ol { margin: 4px 0; padding-left: 2.5em; font-size: 0.85em; }
+  .import .extra li { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .import h2.sub { font-size: .95rem; margin: 20px 0 4px; color: var(--muted); font-weight: 600; }
 </style>
 </head>
@@ -44,6 +46,7 @@
     <button type="button" id="send" disabled>登録</button>
   </div>
   <p id="preview" class="msg"></p>
+  <div id="extra" class="extra"></div>
   <p id="result" class="msg"></p>
 
   <!-- 対象の表は常に出す。1人を2行(名前と@アカウント、件数と内訳…)にして横幅を詰める -->

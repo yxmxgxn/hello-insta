@@ -394,11 +394,15 @@ function takenFromCode(code) {
 // 公式APIで入っている投稿は shortcode で見て飛ばし、手で入れた分はあとで公式APIが追いついたら置き換わる(upsertPost)
 const PASTE_MAX = 100;
 const DRY_MAX = 5000;  // 1回に受け付ける件数(貼り付けページが分けて送る)
+const EXTRA_MAX = 300;  // サイトにあって一覧に無い投稿を、確認用に返す上限
 const MEDIA_TYPE = { 1: "IMAGE", 2: "VIDEO", 8: "CAROUSEL_ALBUM" };
 
-// dry: true なら書き込まず、新規・公式で入っている・取り込み済みに振り分けた件数だけ返す(取り込みページの確認用)
+// dry: true なら書き込まず、新規・公式で入っている・取り込み済みに振り分けた件数だけ返す(取り込みページの確認用)。
+// あわせて、サイトにはあるのに今回送られてきた一覧(posts と seen)に無い投稿を extra で返す
+// (公式APIはプロフィールに出ない投稿も返すので、それが何かを目で確かめるため)。
+// seen: 同じときに別の人の分として送られた shortcode(他の人が持ち主の共同投稿は、その人の分になるため)
 async function crawlPaste(request, env) {
-  const { username, posts, dry, ig_count } = await request.json();
+  const { username, posts, dry, ig_count, seen } = await request.json();
   // 書き込みは1回 PASTE_MAX 件まで。数えるだけ(dry)なら1人分をまとめて受ける
   if (!username || !Array.isArray(posts) || posts.length > (dry ? DRY_MAX : PASTE_MAX)) return json({ error: "bad_request" }, 400);
   const [{ results: acc }] = await env.DB.batch([
@@ -408,7 +412,7 @@ async function crawlPaste(request, env) {
   if (!acc.length) return json({ error: "unknown_account", message: `@${username} は対象アカウントにいません` }, 400);
   const user = acc[0].username;
   const { results: existing } = await env.DB
-    .prepare("SELECT id, permalink, excerpt FROM post WHERE account = ?").bind(user).all();
+    .prepare("SELECT id, ts, permalink, excerpt FROM post WHERE account = ?").bind(user).all();
   const official = new Set(existing.filter((r) => !r.id.startsWith(WEB_ID)).map((r) => shortcode(r.permalink)));
   const have = new Set(existing.map((r) => r.id));
   const excerptOf = new Map(existing.map((r) => [r.id, r.excerpt || ""]));
@@ -422,7 +426,13 @@ async function crawlPaste(request, env) {
       else if (have.has(WEB_ID + code)) n.imported++;
       else n.fresh++;
     }
-    return json({ ok: true, username: user, dry: true, ...n });
+    const sent = new Set(posts.map((p) => String(p.code || "")).concat(Array.isArray(seen) ? seen.map(String) : []));
+    const extra = existing
+      .filter((r) => !sent.has(shortcode(r.permalink)))
+      .sort((a, b) => (a.ts < b.ts ? 1 : -1))
+      .slice(0, EXTRA_MAX)
+      .map((r) => ({ ts: r.ts, url: r.permalink, excerpt: r.excerpt || "", web: r.id.startsWith(WEB_ID) }));
+    return json({ ok: true, username: user, dry: true, ...n, extra });
   }
 
   const stmts = [];
