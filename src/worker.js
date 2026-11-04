@@ -203,8 +203,8 @@ function authorized(request, env) {
 async function crawlState(env) {
   const { results } = await env.DB
     .prepare(
-      "SELECT s.username, s.after, s.done, s.last_error, s.latest_at, " +
-      "(SELECT COUNT(*) FROM post WHERE account = s.username) AS posts FROM fetch_state s")
+      // 件数は数えない(全投稿を数えるので重く、直後の書き込みで D1 が overloaded になることがあった。fetch.py も使っていない)
+      "SELECT s.username, s.after, s.done, s.last_error, s.latest_at FROM fetch_state s")
     .all();
   return json({ state: results });
 }
