@@ -348,6 +348,7 @@
   // ---------- 貼り付け ----------
   var data = document.getElementById("data");
   var preview = document.getElementById("preview");
+  var extraBox = document.getElementById("extra");
   var send = document.getElementById("send");
   var result = document.getElementById("result");
   var CHUNK = 100;  // Worker 側の上限(PASTE_MAX)と同じ
@@ -361,6 +362,7 @@
   // ホームのフィードで拾うと、ファンなど対象外の人の投稿も混ざるので、対象アカウントの分だけ送る
   function take(d) {
     groups = null;
+    extraBox.textContent = "";
     // 登録中の表示は、登録が終わるまで残す
     if (!busy) result.textContent = "";
     if (!d || !Array.isArray(d.posts)) throw new Error("形が違います");
@@ -409,16 +411,48 @@
   function classify(g, show) {
     var my = ++classifyNo;
     var counts = {};
+    // 他の人が持ち主の共同投稿はその人の分になるので、送った全員分の shortcode を「見えていた」として渡す
+    var seen = [];
+    Object.keys(g).forEach(function (who) { g[who].forEach(function (p) { seen.push(p.code); }); });
     Object.keys(g).forEach(function (who) {
       fetch("/api/crawl/paste", {
         method: "POST",
         headers: { "content-type": "application/json", authorization: "Bearer " + token },
-        body: JSON.stringify({ username: who, posts: g[who], dry: true }),
+        body: JSON.stringify({ username: who, posts: g[who], dry: true, seen: seen }),
       }).then(function (res) { return res.ok ? res.json() : null; }).then(function (r) {
         if (!r || my !== classifyNo) return;
         counts[who] = r;
         show(counts);
+        showExtra(counts);
       }).catch(function () { /* 数えられなくても登録はできる */ });
+    });
+  }
+
+  // サイトにはあるのに、今回送られてきた一覧に無い投稿。プロフィールの一番下まで送ったときだけ意味がある
+  // (公式APIはプロフィールに出ない投稿も返すので、それが何かを開いて確かめる)
+  function showExtra(counts) {
+    extraBox.textContent = "";
+    Object.keys(counts).forEach(function (who) {
+      var list = counts[who].extra || [];
+      if (!list.length) return;
+      var box = document.createElement("details");
+      var sum = document.createElement("summary");
+      sum.textContent = "@" + who + " サイトにあって今回の一覧に無い " + list.length + "件（一番下まで送ったときだけ意味があります）";
+      box.appendChild(sum);
+      var ol = document.createElement("ol");
+      list.forEach(function (p) {
+        var li = document.createElement("li");
+        var a = document.createElement("a");
+        a.href = p.url;
+        a.target = "_blank";
+        a.rel = "noopener";
+        a.textContent = p.ts;
+        li.appendChild(a);
+        li.appendChild(document.createTextNode((p.web ? " 取込 " : " 公式 ") + p.excerpt));
+        ol.appendChild(li);
+      });
+      box.appendChild(ol);
+      extraBox.appendChild(box);
     });
   }
 
@@ -479,6 +513,7 @@
     groups = null;
     classifyNo++;  // まだ数えている途中の確認があれば、移した表示を上書きさせない
     preview.textContent = "";
+    extraBox.textContent = "";
     var who, head = "", done = {}, failed = false;
     function draw() {
       result.textContent = head + "\n" + Object.keys(sending).map(function (n) { return done[n] || rows[n] || "@" + n; }).join("\n");
