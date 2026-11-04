@@ -240,34 +240,74 @@ function makeExcerpt(caption) {
   return Array.from(String(caption || "").split(/\s+/).filter(Boolean).join(" ")).slice(0, EXCERPT_LEN).join("");
 }
 
+// 本文の指紋(FNV-1a 32bit)。本文が前と同じ投稿は、重い索引(post_fts)を書き直さないのに使う
+function capHash(caption) {
+  let h = 0x811c9dc5;
+  for (const c of String(caption || "")) {
+    h ^= c.codePointAt(0);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return h.toString(16);
+}
+
+// 書こうとしている投稿(と、その貼り付け版 web:<shortcode>)のうち、もう入っているものの今の値。
+// D1 の1文の値の数の上限(100)に収まるよう分けて聞く
+async function knownPosts(env, ids) {
+  const known = new Map();
+  for (let i = 0; i < ids.length; i += 90) {
+    const part = ids.slice(i, i + 90);
+    const { results } = await env.DB
+      .prepare(`SELECT id, account, cap_hash, like_count, comments_count FROM post WHERE id IN (${part.map(() => "?").join(",")})`)
+      .bind(...part).all();
+    for (const r of results) known.set(r.id, r);
+  }
+  return known;
+}
+
 // 投稿1件を書く文を stmts に足す。{ id, caption, timestamp, permalink, media_type, like_count, comments_count }
-function upsertPost(env, stmts, username, p) {
+// known(knownPosts の結果)を渡すと、本文が前と同じ投稿は索引を書き直さず、変わった数だけ書く。
+// 渡さなければ毎回まるごと書く
+function upsertPost(env, stmts, username, p, known) {
   const ts = toJst(p.timestamp);
   if (!p.id || !ts) return false;
   const id = String(p.id);
   const caption = p.caption || "";
   const excerpt = makeExcerpt(caption);
+  const hash = capHash(caption);
+  const likes = Number.isFinite(p.like_count) ? p.like_count : null;
+  const comments = Number.isFinite(p.comments_count) ? p.comments_count : null;
   // 公式APIで入る投稿が先に貼り付けで入っていたら(個人→プロに切り替えた人)、そちらを置き換える。
   // added_at はそちらの値を引き継ぐ(毎日の報告で新着に出し直さないため)
   const webId = id.startsWith(WEB_ID) ? null : WEB_ID + shortcode(p.permalink);
+  const prev = known && known.get(id);
+  if (prev && prev.cap_hash === hash && !(webId && known.has(webId))) {
+    // 本文が前と同じ: いいね数・コメント数・持ち主が変わったときだけ、その列を書く
+    // (いいね数を非表示にされたら値が来ないので、前に取れた数を残す)
+    const nextLikes = likes ?? prev.like_count, nextComments = comments ?? prev.comments_count;
+    if (prev.account !== username || prev.like_count !== nextLikes || prev.comments_count !== nextComments) {
+      stmts.push(env.DB.prepare("UPDATE post SET account = ?, like_count = ?, comments_count = ? WHERE id = ?")
+        .bind(username, nextLikes, nextComments, id));
+    }
+    return true;
+  }
   // 取り直しでは added_at を変えない(初めて入った日時を残す)
   stmts.push(env.DB
     .prepare(
-      "INSERT INTO post(id, account, ts, permalink, media_type, excerpt, added_at, like_count, comments_count) " +
-      "VALUES(?, ?, ?, ?, ?, ?, coalesce((SELECT added_at FROM post WHERE id = ?), ?), ?, ?) " +
+      "INSERT INTO post(id, account, ts, permalink, media_type, excerpt, added_at, like_count, comments_count, cap_hash) " +
+      "VALUES(?, ?, ?, ?, ?, ?, coalesce((SELECT added_at FROM post WHERE id = ?), ?), ?, ?, ?) " +
       "ON CONFLICT(id) DO UPDATE SET account = excluded.account, ts = excluded.ts, permalink = excluded.permalink, " +
-      "media_type = excluded.media_type, excerpt = excluded.excerpt, " +
+      "media_type = excluded.media_type, excerpt = excluded.excerpt, cap_hash = excluded.cap_hash, " +
       // いいね数を非表示にされたら値が来ないので、前に取れた数を残す
       "like_count = coalesce(excluded.like_count, like_count), " +
       "comments_count = coalesce(excluded.comments_count, comments_count)")
     .bind(id, username, ts, String(p.permalink || ""), p.media_type || null, excerpt, webId, nowJst(),
-      Number.isFinite(p.like_count) ? p.like_count : null,
-      Number.isFinite(p.comments_count) ? p.comments_count : null));
-  if (webId) {
+      likes, comments, hash));
+  // known があれば、入っていない行を消しに行く文は省く
+  if (webId && (!known || known.has(webId))) {
     stmts.push(env.DB.prepare("DELETE FROM post WHERE id = ?").bind(webId));
     stmts.push(env.DB.prepare("DELETE FROM post_fts WHERE id = ?").bind(webId));
   }
-  stmts.push(env.DB.prepare("DELETE FROM post_fts WHERE id = ?").bind(id));
+  if (!known || prev) stmts.push(env.DB.prepare("DELETE FROM post_fts WHERE id = ?").bind(id));
   const grams = bigrams(normalize(caption)).join(" ");
   if (grams) stmts.push(env.DB.prepare("INSERT INTO post_fts(id, bigram) VALUES(?, ?)").bind(id, grams));
   return true;
@@ -291,7 +331,9 @@ async function crawlPosts(request, env) {
   const { username, posts, state, media_count, latest } = await request.json();
   if (!username || !Array.isArray(posts)) return json({ error: "bad_request" }, 400);
   const stmts = [];
-  for (const p of posts) upsertPost(env, stmts, username, p);
+  const ids = posts.filter((p) => p.id).flatMap((p) => [String(p.id), WEB_ID + shortcode(p.permalink)]);
+  const known = await knownPosts(env, ids);
+  for (const p of posts) upsertPost(env, stmts, username, p, known);
   if (state) {
     stmts.push(env.DB
       .prepare(
