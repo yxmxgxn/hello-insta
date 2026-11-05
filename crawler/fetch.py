@@ -12,7 +12,7 @@ Worker のクローラ用API(/api/crawl/*)経由で D1 に書き込む。
 Business Discovery はビジネス/クリエイターアカウントしか引けず、1回で最大50件、
 過去分は after カーソルで遡る。API上限(1時間200回)に収まるよう1回の実行の呼び出し数を
 MAX_CALLS に抑え、遡りきれなかった分は D1 の fetch_state に残して次の実行で続ける。
-  - 1周目: 新着を見る番の人(前に見てから20時間以上たった人)の最新ページ。1人1日1回で、
+  - 1周目: 新着を見る番の人(前に見てから LATEST_EVERY_HOURS 以上たった人)の最新ページ。1人1回ずつ、
            見ていない時間が長い人から(INSERT OR REPLACE なので重複は無害)
   - 2周目: 遡りが終わっていないアカウントを、残りの回数の範囲で続ける
 投稿と進み具合は Worker 側で1つの batch で書くので、片方だけ進むことはない。
@@ -37,8 +37,10 @@ import urllib.request
 
 GRAPH = "https://graph.facebook.com/v23.0"
 PAGE_SIZE = 50
-# 新着を見る間隔。毎日ほぼ同じ回に回ってくるよう、24時間より少し短くする
-LATEST_EVERY = 20 * 3600
+# 新着を見る間隔(時間)。GitHub の Variables の LATEST_EVERY_HOURS で変えられる。
+# 新着は全員分で1日90回ほど使うので、過去分の遡りが終わるまでは週1回(168)にして遡りに回す。
+# 遡りが終わったら 20(毎日ほぼ同じ回に回ってくるよう、24時間より少し短く)に戻す
+LATEST_EVERY = float(os.environ.get("LATEST_EVERY_HOURS") or 168) * 3600
 
 # karin-archive の SNS一覧スプシ(accounts シート)。
 # 列: 0=member番号 1=名前 2=platform 3=ID 4=MEMBER(位置で読む。ヘッダーに重複があるため)
@@ -265,8 +267,8 @@ def main() -> int:
         if st["done"] and st["after"]:
             st["done"] = 0
 
-    # 新着を見るのは1人1日1回(前に見てから LATEST_EVERY 以上たった人だけ)。見ていない時間が長い人から順に回り、
-    # 回数制限で途中で止まっても次の回が続きの人から見る。個人アカウントの人もここで1日1回だけ試す
+    # 新着を見るのは前に見てから LATEST_EVERY 以上たった人だけ。見ていない時間が長い人から順に回り、
+    # 回数制限で途中で止まっても次の回が続きの人から見る。個人アカウントの人もここでだけ試す
     # (プロに切り替えたら拾うため)。それ以外の回数は過去分の遡りに回す
     due_before = time.strftime("%Y-%m-%d %H:%M", time.gmtime(time.time() + 9 * 3600 - LATEST_EVERY))
     due = sorted((t for t in targets if (state.get(t["username"], {}).get("latest_at") or "") < due_before),

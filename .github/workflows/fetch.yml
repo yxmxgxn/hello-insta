@@ -3,8 +3,8 @@ name: Fetch
 # 1時間おきに取得する(毎時37分。混む毎時0分を避ける)。
 # GitHub の定時実行はよく間引かれ、2時間おきの設定では1日4回ほどしか動かなかった。
 # 1回で使える回数は Meta 側の回数制限(実際は15〜77回ほど)で止まるので、回数を増やして遡りを進める。
-# 新着は1人1日1回だけ見て(fetch.py の LATEST_EVERY)、残りの回数は過去分の遡りに使う。
-# 過去分の遡りが全員終わったら、1日4回('15 0,6,10,18 * * *')に戻してよい。
+# 新着は LATEST_EVERY_HOURS(リポジトリの Variables。無ければ168=週1回)おきに見て、残りの回数は過去分の遡りに使う。
+# 過去分の遡りが全員終わったら、LATEST_EVERY_HOURS を 20(毎日)にし、1日4回('15 0,6,10,18 * * *')に戻してよい。
 on:
   schedule:
     - cron: '37 * * * *'
@@ -35,4 +35,5 @@ jobs:
           IG_USER_ID: ${{ secrets.IG_USER_ID }}
           IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
           MAX_CALLS: ${{ inputs.max_calls || '150' }}
+          LATEST_EVERY_HOURS: ${{ vars.LATEST_EVERY_HOURS }}
         run: python crawler/fetch.py
