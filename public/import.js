@@ -84,11 +84,15 @@
       if (!first) profile = null;
       else if (!NOT_USER.test(first)) profile = first;
       // プロフィールの一覧(投稿タブ・リールタブ)。リンクとサムネイル
+      // 投稿タブ・リールタブなら、持ち主が対象外の人の共同投稿(リンクが /持ち主/p/…)は、開いている人の投稿として拾う
+      // (その人も連名で出ている投稿なので、サイトに無いと困る)。タグ付け・リポストのタブは他の人の投稿なのでしない
+      var grid = profile && ALLOW[profile.toLowerCase()] && /^\/[^/]+(\/reels)?\/?$/.test(location.pathname);
       document.querySelectorAll('a[href*="/p/"], a[href*="/reel/"]').forEach(function (a) {
         var m = (a.getAttribute("href") || "").match(LINK);
         if (!m) return;
         var img = a.querySelector("img[alt]");
-        put(m[3], m[1] || ownerOf(a) || profile, m[2], captionFromAlt(img && img.getAttribute("alt")));
+        var owner = m[1] && grid && !ALLOW[m[1].toLowerCase()] ? profile : m[1] || ownerOf(a) || profile;
+        put(m[3], owner, m[2], captionFromAlt(img && img.getAttribute("alt")));
       });
       // 投稿を1つ開いた画面(ポップアップか /p/ のページ)。本文は h1 にある
       var here = location.pathname.match(LINK);
