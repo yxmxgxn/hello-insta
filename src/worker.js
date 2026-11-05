@@ -15,6 +15,7 @@
  *   POST /api/crawl/paste      取り込みページから、個人アカウントの投稿を書く(public/import.html)
  *
  * 定期実行: 毎日 JST 20:00 に、収録件数・前回からの増加数・新着投稿を Discord へ送る(DISCORD_WEBHOOK)。
+ *           毎時37分に、GitHub Actions の Fetch(公式APIの取得)を起動する(GH_DISPATCH_TOKEN)。
  *
  * それ以外は静的アセット(public/)へ。
  */
@@ -620,10 +621,53 @@ async function dailyReport(env) {
   ]);
 }
 
+/* ============================ Fetch の起動 ============================ */
+
+// GitHub の定時実行は混んでいると間引かれ、1時間おきの設定でも1日4回ほどしか動かなかった。
+// Cloudflare の定時実行から workflow_dispatch で起動する。
+// GH_DISPATCH_TOKEN: このリポジトリの Actions を読み書きできる GitHub のトークン(Worker のシークレット)
+const FETCH_CRON = "37 * * * *";  // wrangler.jsonc の triggers.crons と同じ文字列にする
+const FETCH_WORKFLOW = "https://api.github.com/repos/yxmxgxn/hello-insta/actions/workflows/fetch.yml/dispatches";
+
+async function dispatchFetch(env) {
+  if (!env.GH_DISPATCH_TOKEN) return;
+  const res = await fetch(FETCH_WORKFLOW, {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${env.GH_DISPATCH_TOKEN}`,
+      accept: "application/vnd.github+json",
+      "user-agent": "hello-insta-worker",
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({ ref: "main" }),
+  });
+  if (res.ok) return;
+  const msg = `Fetch を起動できませんでした(GitHub ${res.status} ${(await res.text()).slice(0, 200)})`;
+  console.log(msg);
+  // 黙って止まらないよう Discord に知らせる。毎時鳴らないよう1日1回まで(トークンの期限切れなら作り直す)
+  if (!env.DISCORD_WEBHOOK) return;
+  const today = nowJst().slice(0, 10);
+  const last = await env.DB.prepare("SELECT v FROM meta WHERE k = 'dispatch_alert_at'").first("v");
+  if (last === today) return;
+  await fetch(env.DISCORD_WEBHOOK, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      username: "Instagram 検索",
+      content: msg + "\n401 ならトークンの期限切れなので、作り直して Worker の GH_DISPATCH_TOKEN を入れ直してください。",
+    }),
+  });
+  await env.DB.prepare("INSERT OR REPLACE INTO meta(k, v) VALUES('dispatch_alert_at', ?)").bind(today).run();
+}
+
 /* ============================ ルーティング ============================ */
 
 export default {
   async scheduled(event, env, ctx) {
+    if (event.cron === FETCH_CRON) {
+      ctx.waitUntil(dispatchFetch(env).catch((e) => console.log("Fetch の起動に失敗", String(e))));
+      return;
+    }
     ctx.waitUntil(dailyReport(env).catch((e) => console.log("毎日の報告に失敗", String(e))));
   },
 
