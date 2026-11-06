@@ -258,7 +258,7 @@ async function knownPosts(env, ids) {
   for (let i = 0; i < ids.length; i += 90) {
     const part = ids.slice(i, i + 90);
     const { results } = await env.DB
-      .prepare(`SELECT id, account, cap_hash, like_count, comments_count FROM post WHERE id IN (${part.map(() => "?").join(",")})`)
+      .prepare(`SELECT id, account, cap_hash, like_count, comments_count, product_type FROM post WHERE id IN (${part.map(() => "?").join(",")})`)
       .bind(...part).all();
     for (const r of results) known.set(r.id, r);
   }
@@ -277,32 +277,37 @@ function upsertPost(env, stmts, username, p, known) {
   const hash = capHash(caption);
   const likes = Number.isFinite(p.like_count) ? p.like_count : null;
   const comments = Number.isFinite(p.comments_count) ? p.comments_count : null;
+  // 通常の投稿(FEED)かリール(REELS)か。公式APIで聞けたときだけ来る
+  const product = p.media_product_type ? String(p.media_product_type) : null;
   // 公式APIで入る投稿が先に貼り付けで入っていたら(個人→プロに切り替えた人)、そちらを置き換える。
   // added_at はそちらの値を引き継ぐ(毎日の報告で新着に出し直さないため)
   const webId = id.startsWith(WEB_ID) ? null : WEB_ID + shortcode(p.permalink);
   const prev = known && known.get(id);
   if (prev && prev.cap_hash === hash && !(webId && known.has(webId))) {
-    // 本文が前と同じ: いいね数・コメント数・持ち主が変わったときだけ、その列を書く
+    // 本文が前と同じ: いいね数・コメント数・持ち主・種類が変わったときだけ、その列を書く
     // (いいね数を非表示にされたら値が来ないので、前に取れた数を残す)
     const nextLikes = likes ?? prev.like_count, nextComments = comments ?? prev.comments_count;
-    if (prev.account !== username || prev.like_count !== nextLikes || prev.comments_count !== nextComments) {
-      stmts.push(env.DB.prepare("UPDATE post SET account = ?, like_count = ?, comments_count = ? WHERE id = ?")
-        .bind(username, nextLikes, nextComments, id));
+    const nextProduct = product ?? prev.product_type;
+    if (prev.account !== username || prev.like_count !== nextLikes || prev.comments_count !== nextComments ||
+        prev.product_type !== nextProduct) {
+      stmts.push(env.DB.prepare("UPDATE post SET account = ?, like_count = ?, comments_count = ?, product_type = ? WHERE id = ?")
+        .bind(username, nextLikes, nextComments, nextProduct, id));
     }
     return true;
   }
   // 取り直しでは added_at を変えない(初めて入った日時を残す)
   stmts.push(env.DB
     .prepare(
-      "INSERT INTO post(id, account, ts, permalink, media_type, excerpt, added_at, like_count, comments_count, cap_hash) " +
-      "VALUES(?, ?, ?, ?, ?, ?, coalesce((SELECT added_at FROM post WHERE id = ?), ?), ?, ?, ?) " +
+      "INSERT INTO post(id, account, ts, permalink, media_type, excerpt, added_at, like_count, comments_count, cap_hash, product_type) " +
+      "VALUES(?, ?, ?, ?, ?, ?, coalesce((SELECT added_at FROM post WHERE id = ?), ?), ?, ?, ?, ?) " +
       "ON CONFLICT(id) DO UPDATE SET account = excluded.account, ts = excluded.ts, permalink = excluded.permalink, " +
       "media_type = excluded.media_type, excerpt = excluded.excerpt, cap_hash = excluded.cap_hash, " +
       // いいね数を非表示にされたら値が来ないので、前に取れた数を残す
       "like_count = coalesce(excluded.like_count, like_count), " +
-      "comments_count = coalesce(excluded.comments_count, comments_count)")
+      "comments_count = coalesce(excluded.comments_count, comments_count), " +
+      "product_type = coalesce(excluded.product_type, product_type)")
     .bind(id, username, ts, String(p.permalink || ""), p.media_type || null, excerpt, webId, nowJst(),
-      likes, comments, hash));
+      likes, comments, hash, product));
   // known があれば、入っていない行を消しに行く文は省く
   if (webId && (!known || known.has(webId))) {
     stmts.push(env.DB.prepare("DELETE FROM post WHERE id = ?").bind(webId));

@@ -178,17 +178,18 @@ def crawl(method: str, path: str, body: dict | None = None) -> dict:
 
 # ---------- Graph API ----------
 
-# 投稿の持ち主(username)も聞く。共同投稿は持ち主と共同投稿者の両方の一覧に出てくるので、
-# Worker 側で持ち主のアカウントに固定するのに使う。API が受け付けなかったら、その回は聞かずに続ける
-ask_owner = True
+# 必ず要るわけではないが聞いておく項目。API が受け付けなかったら、その回はその項目だけ聞かずに続ける
+#   username: 投稿の持ち主。共同投稿は持ち主と共同投稿者の両方の一覧に出てくるので、Worker 側で持ち主に固定する
+#   media_product_type: 通常の投稿(FEED)かリール(REELS)か。media_type(写真・動画・複数枚)とは別
+OPTIONAL = {"username": "投稿の持ち主", "media_product_type": "投稿の種類(通常の投稿・リール)"}
+asking = list(OPTIONAL)
 
 
 def fetch_page(username: str, after: str | None) -> dict:
-    global ask_owner
     media = f"media.limit({PAGE_SIZE})" + (f".after({after})" if after else "")
-    owner = ",username" if ask_owner else ""
+    extra = "".join("," + f for f in asking)
     fields = (f"business_discovery.username({username})"
-              f"{{media_count,{media}{{id,caption,timestamp,permalink,media_type,like_count,comments_count{owner}}}}}")
+              f"{{media_count,{media}{{id,caption,timestamp,permalink,media_type,like_count,comments_count{extra}}}}}")
     q = urllib.parse.urlencode({"fields": fields, "access_token": os.environ["IG_ACCESS_TOKEN"]})
     try:
         with urllib.request.urlopen(f"{GRAPH}/{os.environ['IG_USER_ID']}?{q}", timeout=60) as res:
@@ -199,10 +200,12 @@ def fetch_page(username: str, after: str | None) -> dict:
             err = json.loads(body.decode("utf-8")).get("error", {})
         except ValueError:
             err = {}
-        # 項目が無いと言われた(code 100)ときだけ、持ち主を聞くのをやめてやり直す
-        if ask_owner and err.get("code") == 100 and "username" in str(err.get("message", "")):
-            ask_owner = False
-            warn(f"投稿の持ち主(username)を API が返さないので、今回は聞かずに続けます: {err.get('message')}")
+        # 項目が無いと言われた(code 100)ときだけ、その項目を聞くのをやめてやり直す
+        bad = [f for f in asking if err.get("code") == 100 and f in str(err.get("message", ""))]
+        if bad:
+            for f in bad:
+                asking.remove(f)
+                warn(f"{OPTIONAL[f]}({f})を API が返さないので、今回は聞かずに続けます: {err.get('message')}")
             return fetch_page(username, after)
         raise urllib.error.HTTPError(e.url, e.code, e.msg, e.headers, io.BytesIO(body)) from None
     bd = data.get("business_discovery", {})
