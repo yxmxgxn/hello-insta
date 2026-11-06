@@ -79,6 +79,14 @@ button.ghost { background: transparent; color: var(--accent); padding: 4px 10px;
 }
 .type { font-size: .72rem; padding: 0 6px; border: 1px solid var(--line); border-radius: 4px; color: var(--muted); }
 .list a { display: block; margin-top: 2px; color: var(--accent); word-break: break-all; }
+.see {
+  margin-top: 4px; padding: 2px 10px; border: 1px solid var(--line); border-radius: 999px;
+  background: var(--surface); color: var(--muted); font-size: .78rem; cursor: pointer;
+}
+.see:hover { color: var(--accent); border-color: var(--accent); }
+/* 公式の埋め込みは幅 326〜540px。スマホでは画面いっぱいまで */
+.embed { margin-top: 8px; max-width: 540px; }
+.embed .instagram-media { margin: 0 !important; min-width: 0 !important; width: 100% !important; }
 mark { background: var(--mark); color: var(--mark-ink); border-radius: 2px; }
 .status { color: var(--muted); font-size: .9rem; }
 .more { display: block; margin: 8px auto 24px; }
