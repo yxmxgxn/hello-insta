@@ -71,6 +71,15 @@ jobs:
           wranglerVersion: '4'
           command: d1 execute hello-insta --remote --command "ALTER TABLE account ADD COLUMN ig_count_at TEXT"
 
+      - name: Add column post.product_type
+        continue-on-error: true
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: '4'
+          command: d1 execute hello-insta --remote --command "ALTER TABLE post ADD COLUMN product_type TEXT"
+
       - name: Add column post.cap_hash
         continue-on-error: true
         uses: cloudflare/wrangler-action@v3
