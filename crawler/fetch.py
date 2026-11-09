@@ -197,7 +197,7 @@ def fetch_page(username: str, after: str | None) -> dict:
     q = urllib.parse.urlencode({"fields": fields, "access_token": os.environ["IG_ACCESS_TOKEN"]})
     try:
         with urllib.request.urlopen(f"{GRAPH}/{os.environ['IG_USER_ID']}?{q}", timeout=60) as res:
-            data = json.loads(res.read().decode("utf-8"))
+            text = res.read().decode("utf-8", "replace")
     except urllib.error.HTTPError as e:
         body = e.read()
         try:
@@ -212,6 +212,16 @@ def fetch_page(username: str, after: str | None) -> dict:
                 warn(f"{OPTIONAL[f]}({f})を API が返さないので、今回は聞かずに続けます: {err.get('message')}")
             return fetch_page(username, after)
         raise urllib.error.HTTPError(e.url, e.code, e.msg, e.headers, io.BytesIO(body)) from None
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError as e:
+        # 正しい JSON のあとに余計な文字が付いて返ってくることがあった(Extra data)。前の部分だけ使う
+        try:
+            data, end = json.JSONDecoder().raw_decode(text)
+        except json.JSONDecodeError:
+            raise BadResponse(f"API の返事が読めない({e})") from None
+        warn(f"{username}: API の返事の後ろに余計な文字が {len(text) - end} 文字あったので、前の部分だけ使いました"
+             f"(後ろの始まり: {text[end:end + 80]!r})")
     bd = data.get("business_discovery", {})
     # プロフィールに出ている投稿数。入っている件数と比べて、取り込みが要るか見るのに使う
     return {**bd.get("media", {}), "media_count": bd.get("media_count")}
@@ -249,6 +259,10 @@ PERSONAL = "個人アカウント(取得不可)"
 
 def is_token_error(msg: str) -> bool:
     return msg.startswith("アクセストークン")
+
+
+class BadResponse(Exception):
+    """API の返事が JSON として読めなかった。その人だけ今回は飛ばし、ほかの人は続ける。"""
 
 
 class RateLimited(Exception):
@@ -290,6 +304,9 @@ def main() -> int:
         calls += 1
         try:
             return fetch_page(user, after)
+        except BadResponse as e:
+            failed.append(f"{user}{'(遡り)' if after else ''}: {e}")
+            return None
         except urllib.error.HTTPError as e:
             msg = err_text(e)
             # 回数制限は一時的なものなので、アカウントのエラーとしては記録せずにその回を終える
