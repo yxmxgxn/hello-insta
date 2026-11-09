@@ -6,7 +6,8 @@ Worker のクローラ用API(/api/crawl/*)経由で D1 に書き込む。
 対象アカウント: karin-archive の SNS一覧スプシ(accounts シート)の instagram 行のうち
   - 所属(affiliation)が現役グループの人
   - OG: 所属が J.P ROOM / UP-FRONT PROMOTION の人、M-line 会員ページ(m-line 行)を持つ人
-    (所属が retirement の人は除く)
+  - それ以外でも instagram 行がある人は全員「その他のOG」(引退した人も含む)。
+    個人アカウントの人は取れないだけ(ログに出て、週1回試す)
 シートを直せば次の実行から対象も変わる。外れた人の投稿は消さない(Worker 側で active=0)。
 
 Business Discovery はビジネス/クリエイターアカウントしか引けず、1回で最大50件、
@@ -61,7 +62,7 @@ GROUPS: dict[str, str] = {
     "ochanorma":      "OCHA NORMA",
     "rosychronicle":  "ロージークロニクル",
 }
-OG_SECTIONS = ["J.P ROOM", "M-line", "UP-FRONT PROMOTION"]
+OG_SECTIONS = ["J.P ROOM", "M-line", "UP-FRONT PROMOTION", "その他のOG"]
 
 # グループの公式アカウント(affiliation slug → ユーザー名)。各グループの見出しの一番上に「○○ 公式」で並べる
 GROUP_OFFICIAL: dict[str, str] = {
@@ -120,7 +121,7 @@ def load_targets() -> list[dict]:
         if m["aff"] in GROUPS:
             picked.append(((0, group_order.index(m["aff"]), m["num"]), m, GROUPS[m["aff"]]))
             continue
-        if m["aff"] == "retirement":
+        if not m["ig"]:
             continue
         if m["aff"] == "jproom":
             sec = "J.P ROOM"
@@ -129,7 +130,8 @@ def load_targets() -> list[dict]:
         elif m["mline"]:
             sec = "M-line"
         else:
-            continue
+            # 引退した人・ほかの事務所の人なども、Instagram があれば入れる
+            sec = "その他のOG"
         picked.append(((1, OG_SECTIONS.index(sec), m["num"]), m, sec))
     # グループ公式は、そのグループのメンバーより前(加入順の番号 -1)に置く
     for slug, user in GROUP_OFFICIAL.items():
