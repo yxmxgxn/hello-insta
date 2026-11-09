@@ -76,8 +76,10 @@ GROUP_OFFICIAL: dict[str, str] = {
 
 # スプシの判定に乗らないが対象にするアカウント: ユーザー名 → (表示名, 見出し)。一覧の一番下に並ぶ
 EXTRA_ACCOUNTS: dict[str, tuple[str, str]] = {
-    user: (user, "その他")
-    for user in ("hello_shop_official", "hp_officialfanclub", "helloproject_stream", "odybooks")
+    # スプシでは引退(retirement)扱いなどで外れるが、入れておきたいOG
+    "kanon_fukuda": ("福田花音", "その他のOG"),
+    **{user: (user, "その他")
+       for user in ("hello_shop_official", "hp_officialfanclub", "helloproject_stream", "odybooks")},
 }
 
 
