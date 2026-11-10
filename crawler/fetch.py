@@ -75,6 +75,11 @@ GROUP_OFFICIAL: dict[str, str] = {
     "rosychronicle":  "rosy_chronicle_official",
 }
 
+# スプシに instagram 行があっても対象にしないアカウント: ユーザー名 → 理由
+EXCLUDED: dict[str, str] = {
+    "kanami_ishiguri.official": "鍵アカウント(非公開)で、公式APIでも IG取得でも何も取れない",
+}
+
 # スプシの判定に乗らないが対象にするアカウント: ユーザー名 → (表示名, 見出し)。一覧の一番下に並ぶ
 EXTRA_ACCOUNTS: dict[str, tuple[str, str]] = {
     # スプシでは引退(retirement)扱いなどで外れるが、入れておきたいOG
@@ -145,7 +150,7 @@ def load_targets() -> list[dict]:
             out.setdefault(user, {"username": user, "name": name, "section": sec})
     for user, (name, sec) in EXTRA_ACCOUNTS.items():
         out.setdefault(user, {"username": user, "name": name, "section": sec})
-    targets = list(out.values())
+    targets = [t for t in out.values() if t["username"] not in EXCLUDED]
     for i, t in enumerate(targets):
         t["sort"] = i
     return targets
