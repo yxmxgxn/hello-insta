@@ -13,6 +13,7 @@
  *   POST /api/crawl/posts      1ページ分の投稿と、そのアカウントの進み具合をまとめて書く
  *   POST /api/crawl/error      取得エラーを記録
  *   POST /api/crawl/paste      取り込みページから、個人アカウントの投稿を書く(public/import.html)
+ *   POST /api/crawl/apify      Apify の Webhook から。Instagram Scraper の結果を読んで、個人アカウントの投稿を書く
  *
  * 定期実行: 毎日 JST 20:00 に、収録件数・前回からの増加数・新着投稿を Discord へ送る(DISCORD_WEBHOOK)。
  *           毎時37分に、GitHub Actions の Fetch(公式APIの取得)を起動する(GH_DISPATCH_TOKEN)。
@@ -452,6 +453,22 @@ async function crawlPaste(request, env) {
     return json({ ok: true, username: user, dry: true, ...n, extra });
   }
 
+  return json(await writeWebPosts(env, user, posts, ig_count, { official, have, excerptOf }));
+}
+
+// 画面から拾った投稿(取り込みページ・Apify)を web:<shortcode> で書く。
+// posts: [{ code, caption, taken_at, media_type, kind, product }]。known が無ければ、その人の入っている投稿を読む
+async function writeWebPosts(env, user, posts, ig_count, known) {
+  if (!known) {
+    const { results: existing } = await env.DB
+      .prepare("SELECT id, permalink, excerpt FROM post WHERE account = ?").bind(user).all();
+    known = {
+      official: new Set(existing.filter((r) => !r.id.startsWith(WEB_ID)).map((r) => shortcode(r.permalink))),
+      have: new Set(existing.map((r) => r.id)),
+      excerptOf: new Map(existing.map((r) => [r.id, r.excerpt || ""])),
+    };
+  }
+  const { official, have, excerptOf } = known;
   const stmts = [];
   let added = 0, updated = 0, skipped = 0, same = 0;
   for (const p of posts) {
@@ -471,6 +488,7 @@ async function crawlPaste(request, env) {
       media_type: MEDIA_TYPE[p.media_type] || (p.kind === "reel" ? "VIDEO" : null),
       like_count: p.like_count,
       comments_count: p.comments_count,
+      media_product_type: p.product || null,
     });
     if (!ok) skipped++;
     else if (have.has(id)) updated++;
@@ -478,7 +496,56 @@ async function crawlPaste(request, env) {
   }
   if (stmts.length) await env.DB.batch(stmts);
   await setIgCount(env, user, ig_count);
-  return json({ ok: true, username: user, added, updated, same, skipped });
+  return { ok: true, username: user, added, updated, same, skipped };
+}
+
+/* ============================ Apify(個人アカウントの新着) ============================ */
+
+// Apify の Instagram Scraper のタスクを毎日動かし、終わったら Webhook でここに知らせてもらう
+// (Authorization: Bearer <CRAWL_TOKEN> を Webhook のヘッダーに入れる)。
+// 本文は Webhook の既定の形({ resource: { defaultDatasetId } })か { datasetId }。
+// 結果は APIFY_TOKEN(Worker のシークレット)で読み、取り込みページと同じ web:<shortcode> で書く。
+// 持ち主が対象アカウントならその人、対象外の人(共同投稿)なら、取りに行ったプロフィールの人の分にする
+const APIFY_FIELDS = "shortCode,caption,timestamp,type,productType,ownerUsername,inputUrl";
+const APIFY_TYPE = { Image: 1, Video: 2, Sidecar: 8 };
+
+async function crawlApify(request, env) {
+  if (!env.APIFY_TOKEN) return json({ error: "no_token", message: "APIFY_TOKEN が Worker に入っていません" }, 500);
+  const body = await request.json().catch(() => ({}));
+  const datasetId = body.datasetId || (body.resource && body.resource.defaultDatasetId);
+  if (!/^[A-Za-z0-9]+$/.test(String(datasetId || ""))) return json({ error: "bad_request", message: "datasetId がありません" }, 400);
+  const res = await fetch(`https://api.apify.com/v2/datasets/${datasetId}/items?clean=1&format=json&fields=${APIFY_FIELDS}`, {
+    headers: { authorization: `Bearer ${env.APIFY_TOKEN}` },
+  });
+  if (!res.ok) return json({ error: "apify", message: `Apify が ${res.status} を返しました` }, 502);
+  const items = await res.json();
+
+  const { results: accs } = await env.DB.prepare("SELECT username FROM account").all();
+  const target = new Map(accs.map((a) => [a.username.toLowerCase(), a.username]));
+  const groups = new Map();
+  let outside = 0;
+  for (const it of Array.isArray(items) ? items : []) {
+    const profile = (String(it.inputUrl || "").match(/instagram\.com\/([A-Za-z0-9._]+)/) || [])[1];
+    const user = target.get(String(it.ownerUsername || "").toLowerCase()) || target.get(String(profile || "").toLowerCase());
+    const t = Date.parse(it.timestamp);
+    if (!user || !it.shortCode || !Number.isFinite(t)) { outside++; continue; }
+    const pt = String(it.productType || "");
+    if (!groups.has(user)) groups.set(user, []);
+    groups.get(user).push({
+      code: String(it.shortCode),
+      caption: it.caption == null ? null : String(it.caption),
+      taken_at: Math.floor(t / 1000),
+      media_type: APIFY_TYPE[it.type],
+      product: pt === "clips" ? "REELS" : pt === "feed" || pt === "carousel_container" ? "FEED" : pt ? pt.toUpperCase() : null,
+    });
+  }
+  const results = [];
+  for (const [user, posts] of groups) {
+    for (let i = 0; i < posts.length; i += PASTE_MAX) {
+      results.push(await writeWebPosts(env, user, posts.slice(i, i + PASTE_MAX)));
+    }
+  }
+  return json({ ok: true, items: Array.isArray(items) ? items.length : 0, outside, results });
 }
 
 /* ============================ 自分用のランキング ============================ */
@@ -733,6 +800,7 @@ export default {
         if (route === "POST posts") return await crawlPosts(request, env);
         if (route === "POST error") return await crawlError(request, env);
         if (route === "POST paste") return await crawlPaste(request, env);
+        if (route === "POST apify") return await crawlApify(request, env);
         return new Response("Not found", { status: 404 });
       } catch (e) {
         // 例外のままだと Cloudflare の汎用エラー(1101)になって原因が分からないので中身を返す
