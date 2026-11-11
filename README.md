@@ -17,8 +17,10 @@ https://insta.karin-archive.com/
 
 ## 動き方
 
+取り方の全体（公式API・Apify・IG取得・埋め込み）と鍵のありかは [docs/instagram.md](docs/instagram.md) にまとめてある。
+
 - **Deploy**（`deploy.yml`）: main への push で、スキーマ適用 → Worker デプロイ
-- **Fetch**（`fetch.yml`）: 2時間おき（JST の奇数時15分。遡りが終わったら1日4回に戻してよい）。対象アカウントを SNS一覧スプシから読み、全員の最新50件と、過去分の遡りを1回150回まで
+- **Fetch**（`fetch.yml`）: Worker の定時実行が毎時37分に起動する。新着の確認と過去分の遡り。詳しくは [docs/instagram.md](docs/instagram.md)（取り方の全体のまとめ。**宮本佳林さんは常に最新**）
 - **毎日の報告**（Worker の cron）: JST 20:00 に収録件数・前回からの増加数・新着を Discord へ（Worker のシークレット `DISCORD_WEBHOOK`）
 - 対象アカウントは karin-archive の SNS一覧スプシ（accounts シート）の所属で決まる。条件は `crawler/fetch.py` の `load_targets()`
 - 取れるのはビジネス／クリエイターアカウントだけ。個人アカウントは Fetch の警告に出る

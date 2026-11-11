@@ -43,6 +43,12 @@ PAGE_SIZE = 50
 # 遡りが終わったら 20(毎日ほぼ同じ回に回ってくるよう、24時間より少し短く)に戻す
 LATEST_EVERY = float(os.environ.get("LATEST_EVERY_HOURS") or 168) * 3600
 
+# 何があっても新着を常に最新にしておく人(サイトの編集に使う)。LATEST_EVERY にかかわらず
+# PRIORITY_EVERY ごとに見て、新着を見る番の一番先に回す(回数制限で止まる前に必ず見る)。1回1呼び出しなので軽い。
+# 宮本佳林さんは絶対。個人アカウントの miyamoto_mg は公式APIでは取れないので、ここには入れない(Apify か IG取得)
+PRIORITY = ["karin_miyamoto.official"]
+PRIORITY_EVERY = 3 * 3600
+
 # karin-archive の SNS一覧スプシ(accounts シート)。
 # 列: 0=member番号 1=名前 2=platform 3=ID 4=MEMBER(位置で読む。ヘッダーに重複があるため)
 ACCOUNTS_CSV = (
@@ -296,9 +302,15 @@ def main() -> int:
     # 新着を見るのは前に見てから LATEST_EVERY 以上たった人だけ。見ていない時間が長い人から順に回り、
     # 回数制限で途中で止まっても次の回が続きの人から見る。個人アカウントの人もここでだけ試す
     # (プロに切り替えたら拾うため)。それ以外の回数は過去分の遡りに回す
-    due_before = time.strftime("%Y-%m-%d %H:%M", time.gmtime(time.time() + 9 * 3600 - LATEST_EVERY))
-    due = sorted((t for t in targets if (state.get(t["username"], {}).get("latest_at") or "") < due_before),
-                 key=lambda t: state.get(t["username"], {}).get("latest_at") or "")
+    def before(sec: float) -> str:
+        return time.strftime("%Y-%m-%d %H:%M", time.gmtime(time.time() + 9 * 3600 - sec))
+    due_before, priority_before = before(LATEST_EVERY), before(PRIORITY_EVERY)
+    def is_due(t: dict) -> bool:
+        seen = state.get(t["username"], {}).get("latest_at") or ""
+        return seen < (priority_before if t["username"] in PRIORITY else due_before)
+    # PRIORITY の人を一番先に、あとは見ていない時間が長い人から
+    due = sorted((t for t in targets if is_due(t)),
+                 key=lambda t: (t["username"] not in PRIORITY, state.get(t["username"], {}).get("latest_at") or ""))
 
     calls = 0
     saved = 0
