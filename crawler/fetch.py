@@ -84,6 +84,7 @@ GROUP_OFFICIAL: dict[str, str] = {
 # スプシに instagram 行があっても対象にしないアカウント: ユーザー名 → 理由
 EXCLUDED: dict[str, str] = {
     "kanami_ishiguri.official": "鍵アカウント(非公開)で、公式APIでも IG取得でも何も取れない",
+    "chabu_kannagi": "猫の写真のアカウントで、本人の投稿ではない",
 }
 
 # スプシの判定に乗らないが対象にするアカウント: ユーザー名 → (表示名, 見出し)。一覧の一番下に並ぶ
