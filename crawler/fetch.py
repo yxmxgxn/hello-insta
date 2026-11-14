@@ -38,6 +38,9 @@ import urllib.request
 
 GRAPH = "https://graph.facebook.com/v23.0"
 PAGE_SIZE = 50
+# 「頼むデータが多すぎる」(code 1)と断られたら、1ページの件数をこの順に小さくして頼み直す。
+# 本文の長い投稿や複数枚の投稿が続くページで起きる(高橋愛さん・牧野真莉愛さんの遡りで止まっていた)
+SMALLER_PAGES = (25, 10, 5)
 # 新着を見る間隔(時間)。GitHub の Variables の LATEST_EVERY_HOURS で変えられる。
 # 新着は全員分で1日90回ほど使うので、過去分の遡りが終わるまでは週1回(168)にして遡りに回す。
 # 遡りが終わったら 20(毎日ほぼ同じ回に回ってくるよう、24時間より少し短く)に戻す
@@ -202,8 +205,8 @@ OPTIONAL = {"username": "投稿の持ち主", "media_product_type": "投稿の�
 asking = list(OPTIONAL)
 
 
-def fetch_page(username: str, after: str | None) -> dict:
-    media = f"media.limit({PAGE_SIZE})" + (f".after({after})" if after else "")
+def fetch_page(username: str, after: str | None, limit: int = PAGE_SIZE) -> dict:
+    media = f"media.limit({limit})" + (f".after({after})" if after else "")
     extra = "".join("," + f for f in asking)
     fields = (f"business_discovery.username({username})"
               f"{{media_count,{media}{{id,caption,timestamp,permalink,media_type,like_count,comments_count{extra}}}}}")
@@ -318,11 +321,29 @@ def main() -> int:
     saved = 0
     failed: list[str] = []
 
+    def fetch_small(user: str, after: str | None) -> dict:
+        """1ページ50件で頼み、code 1 で断られたら SMALLER_PAGES の件数で頼み直す。"""
+        nonlocal calls
+        for limit in (PAGE_SIZE, *SMALLER_PAGES):
+            try:
+                return fetch_page(user, after, limit)
+            except urllib.error.HTTPError as e:
+                body = e.read()
+                try:
+                    code = json.loads(body.decode("utf-8")).get("error", {}).get("code")
+                except ValueError:
+                    code = None
+                if code != 1 or limit == SMALLER_PAGES[-1]:
+                    raise urllib.error.HTTPError(e.url, e.code, e.msg, e.headers, io.BytesIO(body)) from None
+                calls += 1
+                time.sleep(0.5)
+        raise AssertionError("unreachable")
+
     def get(user: str, after: str | None) -> dict | None:
         nonlocal calls
         calls += 1
         try:
-            return fetch_page(user, after)
+            return fetch_small(user, after)
         except BadResponse as e:
             failed.append(f"{user}{'(遡り)' if after else ''}: {e}")
             return None
@@ -382,7 +403,9 @@ def main() -> int:
              + (failed[-1] if failed else ""))
         return 1
 
-    pending = sum(1 for t in targets if not state.get(t["username"], {}).get("done"))
+    # 個人アカウントの人は遡れないので数えない
+    pending = sum(1 for t in targets
+                  if not state.get(t["username"], {}).get("done") and state.get(t["username"], {}).get("last_error") != PERSONAL)
     print(f"対象 {len(targets)} / 新着を見る番 {len(due)} / API {calls}回 / 保存 {saved}件 / 遡り未完了 {pending}アカウント")
     if failed:
         warn("取得できなかったアカウント:\n" + "\n".join(failed))
