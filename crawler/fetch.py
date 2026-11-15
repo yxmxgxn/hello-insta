@@ -39,12 +39,15 @@ import urllib.request
 GRAPH = "https://graph.facebook.com/v23.0"
 PAGE_SIZE = 50
 # 「頼むデータが多すぎる」(code 1)と断られたら、1ページの件数をこの順に小さくして頼み直す。
-# 本文の長い投稿や複数枚の投稿が続くページで起きる(高橋愛さん・牧野真莉愛さんの遡りで止まっていた)
+# 一番小さくしても断られた遡りは打ち切る(投稿の多い人の古い方を、Meta がある深さより先は返さないことがある。
+# 高橋愛さん・牧野真莉愛さんなど。古い分は IG取得で入れる)
 SMALLER_PAGES = (25, 10, 5)
 # 新着を見る間隔(時間)。GitHub の Variables の LATEST_EVERY_HOURS で変えられる。
-# 新着は全員分で1日90回ほど使うので、過去分の遡りが終わるまでは週1回(168)にして遡りに回す。
-# 遡りが終わったら 20(毎日ほぼ同じ回に回ってくるよう、24時間より少し短く)に戻す
-LATEST_EVERY = float(os.environ.get("LATEST_EVERY_HOURS") or 168) * 3600
+# 20 = 毎日(毎日ほぼ同じ回に回ってくるよう、24時間より少し短く)。
+# 大量の遡りをやり直すときは 168(週1回)にすると、その分を遡りに回せる
+LATEST_EVERY = float(os.environ.get("LATEST_EVERY_HOURS") or 20) * 3600
+# 個人アカウントの人(公式APIでは取れない)を試す間隔。プロに切り替えたら拾うためだけなので週1回
+PERSONAL_EVERY = 168 * 3600
 
 # 何があっても新着を常に最新にしておく人(サイトの編集に使う)。LATEST_EVERY にかかわらず
 # PRIORITY_EVERY ごとに見て、新着を見る番の一番先に回す(回数制限で止まる前に必ず見る)。1回1呼び出しなので軽い。
@@ -309,10 +312,13 @@ def main() -> int:
     # (プロに切り替えたら拾うため)。それ以外の回数は過去分の遡りに回す
     def before(sec: float) -> str:
         return time.strftime("%Y-%m-%d %H:%M", time.gmtime(time.time() + 9 * 3600 - sec))
-    due_before, priority_before = before(LATEST_EVERY), before(PRIORITY_EVERY)
+    due_before, priority_before, personal_before = before(LATEST_EVERY), before(PRIORITY_EVERY), before(PERSONAL_EVERY)
     def is_due(t: dict) -> bool:
-        seen = state.get(t["username"], {}).get("latest_at") or ""
-        return seen < (priority_before if t["username"] in PRIORITY else due_before)
+        st = state.get(t["username"], {})
+        seen = st.get("latest_at") or ""
+        if t["username"] in PRIORITY:
+            return seen < priority_before
+        return seen < (personal_before if st.get("last_error") == PERSONAL else due_before)
     # PRIORITY の人を一番先に、あとは見ていない時間が長い人から
     due = sorted((t for t in targets if is_due(t)),
                  key=lambda t: (t["username"] not in PRIORITY, state.get(t["username"], {}).get("latest_at") or ""))
@@ -352,6 +358,10 @@ def main() -> int:
             # 回数制限は一時的なものなので、アカウントのエラーとしては記録せずにその回を終える
             if msg.startswith("回数制限"):
                 raise RateLimited(msg) from None
+            if after and msg.startswith("1/"):
+                # 一番小さいページでも断られた遡りは、毎回同じ場所で失敗して回数を使うだけなので打ち切る
+                msg = f"遡りを打ち切り(古い投稿を API が返さない: {msg})"
+                crawl("POST", "posts", {"username": user, "posts": [], "state": {"after": None, "done": True}})
             failed.append(f"{user}{'(遡り)' if after else ''}: {msg}")
             crawl("POST", "error", {"username": user, "error": msg, "latest": not after})
             if is_token_error(msg):
