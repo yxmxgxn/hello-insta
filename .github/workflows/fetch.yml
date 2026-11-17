@@ -37,4 +37,6 @@ jobs:
           IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
           MAX_CALLS: ${{ inputs.max_calls || '150' }}
           LATEST_EVERY_HOURS: ${{ vars.LATEST_EVERY_HOURS }}
+          ROUND_CALLS: ${{ vars.ROUND_CALLS }}
+          ROUND_EVERY_DAYS: ${{ vars.ROUND_EVERY_DAYS }}
         run: python crawler/fetch.py

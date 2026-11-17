@@ -634,4 +634,65 @@
       });
   }
   loadTargets();
+
+  // ---------- 消えたかもしれない投稿(周回で公式APIから返ってこなかったもの)。消すかどうかは管理人が決める ----------
+  function loadGone() {
+    var box = document.getElementById("goneBox");
+    var tbody = document.getElementById("gone");
+    if (!token) { box.hidden = true; return; }
+    fetch("/api/crawl/gone", { headers: { authorization: "Bearer " + token }, cache: "no-store" })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (d) {
+        if (!d || !d.posts.length) { box.hidden = true; return; }
+        box.hidden = false;
+        tbody.textContent = "";
+        d.posts.forEach(function (p) {
+          var tr = document.createElement("tr");
+          var td = document.createElement("td");
+          td.textContent = p.name + " ";
+          var a = document.createElement("a");
+          a.href = p.permalink.replace("/reel/", "/p/");
+          a.target = "_blank";
+          a.rel = "noopener noreferrer";
+          a.textContent = lastLabel(p.ts);
+          td.appendChild(a);
+          var sm = document.createElement("small");
+          sm.textContent = (p.excerpt || "（本文なし）") + (p.seen_at ? "　最後にあった " + lastLabel(p.seen_at) : "　周回でまだ一度も返っていない");
+          td.appendChild(sm);
+          tr.appendChild(td);
+          var act = document.createElement("td");
+          [["消す", "delete", ""], ["残す", "keep", "ghost"]].forEach(function (b) {
+            var btn = document.createElement("button");
+            btn.type = "button";
+            btn.textContent = b[0];
+            if (b[2]) btn.className = b[2];
+            btn.onclick = function () {
+              if (b[1] === "delete" && !confirm(p.name + " " + p.ts + " の投稿をこのサイトから消します")) return;
+              act.querySelectorAll("button").forEach(function (x) { x.disabled = true; });
+              fetch("/api/crawl/gone", {
+                method: "POST",
+                headers: { "content-type": "application/json", authorization: "Bearer " + token },
+                body: JSON.stringify({ id: p.id, action: b[1] }),
+              }).then(function (r) {
+                if (!r.ok) throw new Error("HTTP " + r.status);
+                act.textContent = b[1] === "delete" ? "消しました" : "残します";
+              }).catch(function (e) {
+                act.querySelectorAll("button").forEach(function (x) { x.disabled = false; });
+                alert("できませんでした: " + e.message);
+              });
+            };
+            act.appendChild(btn);
+          });
+          tr.appendChild(act);
+          tbody.appendChild(tr);
+        });
+        if (d.more) {
+          var tr = document.createElement("tr");
+          tr.innerHTML = "<td colspan=2>ほかにもあります（片づけると次が出ます）</td>";
+          tbody.appendChild(tr);
+        }
+      })
+      .catch(function () { box.hidden = true; });
+  }
+  loadGone();
 })();

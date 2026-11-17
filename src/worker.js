@@ -17,6 +17,8 @@
  *   POST /api/crawl/error      取得エラーを記録
  *   POST /api/crawl/paste      取り込みページから、個人アカウントの投稿を書く(public/import.html)
  *   POST /api/crawl/apify      Apify の Webhook から。Instagram Scraper の結果を読んで、個人アカウントの投稿を書く
+ *   GET  /api/crawl/gone       周回で返ってこなかった(消えたかもしれない)投稿の一覧
+ *   POST /api/crawl/gone       { id, action: "delete" | "keep" } 管理人が確かめて、消す・残す
  *
  * 定期実行: 毎日 JST 20:00 に、収録件数・前回からの増加数・新着投稿を Discord へ送る(DISCORD_WEBHOOK)。
  *           毎時37分に、GitHub Actions の Fetch(公式APIの取得)を起動する(GH_DISPATCH_TOKEN)。
@@ -224,7 +226,7 @@ async function crawlState(env) {
   const { results } = await env.DB
     .prepare(
       // 件数は数えない(全投稿を数えるので重く、直後の書き込みで D1 が overloaded になることがあった。fetch.py も使っていない)
-      "SELECT s.username, s.after, s.done, s.last_error, s.latest_at FROM fetch_state s")
+      "SELECT s.username, s.after, s.done, s.last_error, s.latest_at, s.round_after, s.round_start, s.round_at FROM fetch_state s")
     .all();
   return json({ state: results });
 }
@@ -367,11 +369,12 @@ async function setIgCount(env, username, n) {
   }
 }
 
-// { username, posts: [{ id, caption, timestamp, permalink, media_type }], state: { after, done } | null, media_count, latest }
+// { username, posts: [{ id, caption, timestamp, permalink, media_type }], state: { after, done } | null, media_count, latest, round }
 // latest: 新着を見た(最新ページ)なら true。fetch_state.latest_at に覚え、1人1日1回にするのに使う
+// round: 周回のページなら { start, after, done }。start=周回の最初のページ、after=次のカーソル、done=周回を読みきった
 // 投稿と進み具合を1つの batch(=トランザクション)で書く。途中で落ちても、進み具合だけ進むことはない
 async function crawlPosts(request, env) {
-  const { username, posts, state, media_count, latest } = await request.json();
+  const { username, posts, state, media_count, latest, round } = await request.json();
   if (!username || !Array.isArray(posts)) return json({ error: "bad_request" }, 400);
   const stmts = [];
   const ids = posts.filter((p) => p.id).flatMap((p) => [String(p.id), WEB_ID + shortcode(p.permalink)]);
@@ -401,9 +404,57 @@ async function crawlPosts(request, env) {
       .bind(username, nowJst()));
   }
   if (latest) stmts.push(env.DB.prepare("UPDATE fetch_state SET latest_at = ? WHERE username = ?").bind(nowJst(), username));
+  // 公式APIの返事に入っていた投稿は「まだある」。周回のあと、これが古いままの投稿を消えたかもとして出す
+  const now = nowJst();
+  const apiIds = posts.filter((p) => p.id).map((p) => String(p.id));
+  for (let i = 0; i < apiIds.length; i += 90) {
+    const part = apiIds.slice(i, i + 90);
+    stmts.push(env.DB.prepare(`UPDATE post SET seen_at = ? WHERE id IN (${part.map(() => "?").join(",")})`).bind(now, ...part));
+  }
+  if (round) {
+    if (round.start) stmts.push(env.DB.prepare("UPDATE fetch_state SET round_start = ? WHERE username = ?").bind(now, username));
+    stmts.push(round.done
+      ? env.DB.prepare("UPDATE fetch_state SET round_after = NULL, round_at = ? WHERE username = ?").bind(now, username)
+      : env.DB.prepare("UPDATE fetch_state SET round_after = ? WHERE username = ?").bind(String(round.after || ""), username));
+  }
   await env.DB.batch(stmts);
   await setIgCount(env, username, media_count);
   return json({ ok: true, count: posts.length });
+}
+
+// 消えたかもしれない投稿: 周回を読みきった人の、周回で返ってこなかった公式APIの投稿。
+// 周回で返ってきた一番古い投稿より古いもの(Meta がそこより先を返さない人)と、周回を始めたあとの投稿は数えない。
+// 周回の途中の人は、読みきるまで出さない。消すかどうかは管理人が決める(自動では消さない)
+const GONE_SQL =
+  "WITH r AS (SELECT s.username, s.round_start, " +
+  "  (SELECT min(q.ts) FROM post q WHERE q.account = s.username AND q.seen_at >= s.round_start) AS oldest " +
+  "  FROM fetch_state s WHERE s.round_at IS NOT NULL AND s.round_start IS NOT NULL AND s.round_at >= s.round_start) " +
+  "SELECT p.id, p.account, ifnull(a.name, p.account) AS name, p.ts, p.permalink, p.excerpt, p.seen_at, r.round_start " +
+  "FROM r JOIN post p ON p.account = r.username AND p.ts >= r.oldest AND p.ts < r.round_start " +
+  "LEFT JOIN account a ON a.username = p.account " +
+  "WHERE p.id NOT LIKE 'web:%' AND p.keep IS NULL AND (p.seen_at IS NULL OR p.seen_at < r.round_start)";
+const GONE_MAX = 500;
+
+async function crawlGone(env) {
+  const { results } = await env.DB.prepare(`${GONE_SQL} ORDER BY p.account, p.ts DESC LIMIT ${GONE_MAX + 1}`).all();
+  return json({ posts: results.slice(0, GONE_MAX), more: results.length > GONE_MAX });
+}
+
+// { id, action: "delete" | "keep" }。消えたかもしれない投稿を、管理人が確かめて消す・残す
+async function crawlGoneDecide(request, env) {
+  const { id, action } = await request.json();
+  if (!id || String(id).startsWith(WEB_ID)) return json({ error: "bad_request" }, 400);
+  if (action === "delete") {
+    await env.DB.batch([
+      env.DB.prepare("DELETE FROM post_fts WHERE id = ?").bind(String(id)),
+      env.DB.prepare("DELETE FROM post WHERE id = ?").bind(String(id)),
+    ]);
+  } else if (action === "keep") {
+    await env.DB.prepare("UPDATE post SET keep = 1 WHERE id = ?").bind(String(id)).run();
+  } else {
+    return json({ error: "bad_request" }, 400);
+  }
+  return json({ ok: true });
 }
 
 // { username, error, latest }
@@ -703,10 +754,19 @@ async function dailyReport(env) {
   });
   if (fresh.length > REPORT_LIST_MAX) lines.push(`ほか ${fresh.length - REPORT_LIST_MAX} 件は[サイト](${SITE}/)で`);
 
+  // 消えたかもしれない投稿の数(数えられなくても報告は送る)
+  let gone = 0;
+  try {
+    gone = (await env.DB.prepare(`SELECT COUNT(*) AS n FROM (${GONE_SQL})`).first()).n;
+  } catch (e) {
+    console.log("gone", e.message);
+  }
+
   const head =
     `収録 **${total.toLocaleString()}** 件` +
     (diff == null ? "" : `（前回から ${diff >= 0 ? "+" : ""}${diff.toLocaleString()}）`) +
-    `\n新着 **${fresh.length}** 件（${since.slice(5).replace("-", "/")} 〜 ${now.slice(5).replace("-", "/")}）`;
+    `\n新着 **${fresh.length}** 件（${since.slice(5).replace("-", "/")} 〜 ${now.slice(5).replace("-", "/")}）` +
+    (gone ? `\n消えたかもしれない投稿 **${gone}** 件（[取り込みページ](${SITE}/import)で確かめる）` : "");
 
   const res = await fetch(env.DISCORD_WEBHOOK, {
     method: "POST",
@@ -838,6 +898,8 @@ export default {
         if (route === "POST error") return await crawlError(request, env);
         if (route === "POST paste") return await crawlPaste(request, env);
         if (route === "POST apify") return await crawlApify(request, env);
+        if (route === "GET gone") return await crawlGone(env);
+        if (route === "POST gone") return await crawlGoneDecide(request, env);
         return new Response("Not found", { status: 404 });
       } catch (e) {
         // 例外のままだと Cloudflare の汎用エラー(1101)になって原因が分からないので中身を返す
