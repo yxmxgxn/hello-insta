@@ -5,7 +5,7 @@ name: Fetch
 # Cloudflare の Worker の定時実行から毎時 workflow_dispatch で起動する(src/worker.js の dispatchFetch)。
 # 下の schedule は、Worker のトークンが切れたときなどの控え。重なっても concurrency で順番待ちになるだけ。
 # 1回で使える回数は Meta 側の回数制限(実際は15〜77回ほど)で止まるので、回数を増やして遡りを進める。
-# 新着は LATEST_EVERY_HOURS(リポジトリの Variables。無ければ20=毎日)おきに見て、残りの回数は過去分の遡りに使う。
+# 新着は LATEST_EVERY_HOURS(リポジトリの Variables。無ければ24=毎日)おきに、1人ずつ時刻を散らして見て、残りの回数は遡りと周回に使う。
 on:
   schedule:
     - cron: '37 * * * *'
