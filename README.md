@@ -1,4 +1,4 @@
-# ハロプロ Instagram 検索
+# ハロプロ インスタ 検索
 
 https://insta.karin-archive.com/
 
