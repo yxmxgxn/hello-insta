@@ -32,14 +32,19 @@
       <button type="submit">検索</button>
     </div>
     <!-- 取得不可の人も並ぶので、検索結果の抜粋には使わせない(ページ全体は noindex にしない) -->
-    <select id="acc" multiple size="7" aria-label="メンバー（Ctrl/⌘で複数選択）" data-nosnippet></select>
+    <!-- 選んでいる人は見えない select に持つ(URL・検索の条件はここから作る) -->
+    <select id="acc" multiple hidden aria-hidden="true"></select>
+    <div id="gbtn" class="gbtn" role="group" aria-label="グループ" data-nosnippet></div>
+    <div id="gaccs" class="gaccs" role="group" aria-label="アカウント" hidden data-nosnippet></div>
+    <label class="otherbox" data-nosnippet>そのほか <select id="other"><option value="">そのほかのアカウントから選ぶ</option></select></label>
+    <div id="picked" class="picked" hidden data-nosnippet></div>
     <div class="row">
       <label>いつから <input type="date" id="from"></label>
       <label>いつまで <input type="date" id="to"></label>
       <button type="button" class="ghost" id="reset">リセット</button>
     </div>
-    <p class="hint">メンバー未選択なら全員。Ctrl（Macは⌘）を押しながらクリックで複数選べます。一覧のメンバー名を押すと、その人だけに絞り込めます。空白で区切ると「全部含む」投稿を探します。</p>
-    <p class="hint" data-nosnippet>選択欄の一番下の「取得不可」は、まだ投稿を集められていない人です。</p>
+    <p class="hint">グループを押すとアカウントが並び、押すと選べます（何人でも）。もう一度押すと外れます。「すべて」で全員に戻ります。一覧のメンバー名を押すと、その人だけに絞り込めます。空白で区切ると「全部含む」投稿を探します。</p>
+    <p class="hint" data-nosnippet>「そのほか」の一番下の「取得不可」は、まだ投稿を集められていない人です。</p>
   </form>
 
   <section class="cal" aria-label="投稿カレンダー">
