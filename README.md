@@ -2,7 +2,7 @@
 
 https://insta.karin-archive.com/
 
-ハロプロ現役メンバーとOG（J.P ROOM・M-line・UP-FRONT PROMOTION）の公式Instagramの投稿を、日付・メンバー・本文で探せるサイト。
+ハロプロ現役メンバーとOG（J.P ROOM・UP-FRONT CREATE・UP-FRONT PROMOTION ほか）の公式Instagramの投稿を、日付・メンバー・本文で探せるサイト。
 [karin-archive](https://karin-archive.com/) から独立させた別 Worker・別 D1。
 
 ## このサイトの大原則
