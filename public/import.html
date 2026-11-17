@@ -49,6 +49,13 @@
   <div id="extra" class="extra"></div>
   <p id="result" class="msg"></p>
 
+  <!-- 周回で公式APIから返ってこなかった投稿。開いて確かめ、消えていたら「消す」、あったら「残す」 -->
+  <section id="goneBox" hidden>
+    <h2 class="sub">消えたかもしれない投稿</h2>
+    <p class="msg">周回で公式APIから返ってこなかった投稿です。開いて確かめ、消えていたら「消す」、あったら「残す」（年齢制限などで API が返さない投稿もあります）。</p>
+    <table><tbody id="gone"></tbody></table>
+  </section>
+
   <!-- 対象の表は常に出す。1人を2行(名前と@アカウント、件数と内訳…)にして横幅を詰める -->
   <h2 class="sub">対象（公式APIで取れる人）</h2>
   <table><tbody id="officials"><tr><td>読み込み中…</td></tr></tbody></table>

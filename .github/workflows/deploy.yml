@@ -98,6 +98,51 @@ jobs:
           wranglerVersion: '4'
           command: d1 execute hello-insta --remote --command "ALTER TABLE fetch_state ADD COLUMN latest_at TEXT"
 
+      - name: Add column post.seen_at
+        continue-on-error: true
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: '4'
+          command: d1 execute hello-insta --remote --command "ALTER TABLE post ADD COLUMN seen_at TEXT"
+
+      - name: Add column post.keep
+        continue-on-error: true
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: '4'
+          command: d1 execute hello-insta --remote --command "ALTER TABLE post ADD COLUMN keep INTEGER"
+
+      - name: Add column fetch_state.round_after
+        continue-on-error: true
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: '4'
+          command: d1 execute hello-insta --remote --command "ALTER TABLE fetch_state ADD COLUMN round_after TEXT"
+
+      - name: Add column fetch_state.round_start
+        continue-on-error: true
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: '4'
+          command: d1 execute hello-insta --remote --command "ALTER TABLE fetch_state ADD COLUMN round_start TEXT"
+
+      - name: Add column fetch_state.round_at
+        continue-on-error: true
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: '4'
+          command: d1 execute hello-insta --remote --command "ALTER TABLE fetch_state ADD COLUMN round_at TEXT"
+
       # クローラ用APIの合言葉(CRAWL_TOKEN)とサイトの鍵(SITE_PASS)は GitHub の Secret から Worker の Secret へ流し込む
       - name: Deploy to Cloudflare Workers
         uses: cloudflare/wrangler-action@v3

@@ -16,6 +16,8 @@ MAX_CALLS に抑え、遡りきれなかった分は D1 の fetch_state に残�
   - 1周目: 新着を見る番の人(前に見てから LATEST_EVERY_HOURS 以上たった人)の最新ページ。1人1回ずつ、
            見ていない時間が長い人から(INSERT OR REPLACE なので重複は無害)
   - 2周目: 遡りが終わっていないアカウントを、残りの回数の範囲で続ける
+  - 3周目: 周回。遡りを終えた人の投稿を、新しい方から全部読み直す(ROUND_EVERY_DAYS ごと、1回 ROUND_CALLS 回まで)。
+           書き直された本文・いいね数をそろえ、返ってこなかった投稿を「消えたかも」として出す(消すのは管理人)
 投稿と進み具合は Worker 側で1つの batch で書くので、片方だけ進むことはない。
 
 環境変数:
@@ -24,6 +26,8 @@ MAX_CALLS に抑え、遡りきれなかった分は D1 の fetch_state に残�
   IG_USER_ID       自分のプロアカウントの Instagram ユーザーID(数字)
   IG_ACCESS_TOKEN  そのアカウントのアクセストークン
   MAX_CALLS        1回の実行で使う Graph API の呼び出し上限(既定 150)
+  ROUND_CALLS      1回の実行で周回に使う上限(既定 10)
+  ROUND_EVERY_DAYS 1人を周回し直す間隔(日。既定 7)
 """
 
 import csv
@@ -58,6 +62,13 @@ PERSONAL_EVERY = 168 * 3600
 # PRIORITY_EVERY ごとに見て、新着を見る番の一番先に回す(回数制限で止まる前に必ず見る)。1回1呼び出しなので軽い。
 # 宮本佳林さんは絶対。個人アカウントの miyamoto_mg は公式APIでは取れないので、ここには入れない(Apify か IG取得)
 PRIORITY = ["karin_miyamoto.official"]
+# 周回: 遡りを終えた人の投稿を、新着とも遡りとも別のカーソルで、新しい方から全部読み直す。
+# 1回の実行で使うのは ROUND_CALLS 回まで(回数制限まで使い切ると、次の回の新着、とくに宮本さんが止まるため)。
+# 毎時10回なら1日240回ほどで、10万件(約2,000回)を1週間ほどで一周する
+ROUND_CALLS = int(os.environ.get("ROUND_CALLS") or 10)
+ROUND_EVERY = float(os.environ.get("ROUND_EVERY_DAYS") or 7) * 86400
+# 宮本さんは毎日周回する(書き直しも消したのも、すぐそろえる)
+PRIORITY_ROUND_EVERY = 86400
 PRIORITY_EVERY = 3 * 3600
 
 # karin-archive の SNS一覧スプシ(accounts シート)。
@@ -389,6 +400,9 @@ def main() -> int:
     calls = 0
     saved = 0
     failed: list[str] = []
+    round_from: int | None = None  # 周回を始めたときの回数(内訳を出すため)
+    rounded: set[str] = set()
+    finished: list[str] = []
 
     def fetch_small(user: str, after: str | None) -> dict:
         """1ページ50件で全部の項目を頼み、code 1 で断られたら RETRIES の順に小さくして頼み直す。"""
@@ -409,24 +423,35 @@ def main() -> int:
                 time.sleep(0.5)
         raise AssertionError("unreachable")
 
-    def get(user: str, after: str | None) -> dict | None:
+    def get(user: str, after: str | None, kind: str = "") -> dict | None:
+        """kind: "" = 新着・遡り、"round" = 周回。周回で失敗しても、遡りの進み具合やエラーの記録は変えない"""
         nonlocal calls
         calls += 1
+        label = "(周回)" if kind == "round" else "(遡り)" if after else ""
         try:
             return fetch_small(user, after)
         except BadResponse as e:
-            failed.append(f"{user}{'(遡り)' if after else ''}: {e}")
+            failed.append(f"{user}{label}: {e}")
             return None
         except urllib.error.HTTPError as e:
             msg = err_text(e)
             # 回数制限は一時的なものなので、アカウントのエラーとしては記録せずにその回を終える
             if msg.startswith("回数制限"):
                 raise RateLimited(msg) from None
+            if kind == "round":
+                if is_token_error(msg):
+                    failed.append(f"{user}{label}: {msg}")
+                    raise
+                if msg.startswith("1/"):
+                    # 遡りと同じく、これより古い分は API が返さない。周回はここで読みきったことにする
+                    return {"data": [], "cut": True}
+                failed.append(f"{user}{label}: {msg}")
+                return None
             if after and msg.startswith("1/"):
                 # 一番小さいページでも断られた遡りは、毎回同じ場所で失敗して回数を使うだけなので打ち切る
                 msg = f"{CUT}(件数と項目を減らしても古い投稿を API が返さない: {msg})"
                 crawl("POST", "posts", {"username": user, "posts": [], "state": {"after": None, "done": True}})
-            failed.append(f"{user}{'(遡り)' if after else ''}: {msg}")
+            failed.append(f"{user}{label}: {msg}")
             crawl("POST", "error", {"username": user, "error": msg, "latest": not after})
             if is_token_error(msg):
                 raise
@@ -469,6 +494,43 @@ def main() -> int:
                                         "state": {"after": st["after"], "done": st["done"]},
                                         "media_count": media.get("media_count")})
                 saved += len(media.get("data", []))
+
+        # 3周目: 周回。遡りを終えた人を、周回の途中の人 → 前に周回してから長い人の順に。宮本さんは一番先・毎日
+        round_from = calls
+        round_before, priority_round_before = before(ROUND_EVERY), before(PRIORITY_ROUND_EVERY)
+        def round_due(t: dict) -> bool:
+            st = state.get(t["username"], {})
+            if not st.get("done") or st.get("last_error") == PERSONAL or not st.get("latest_at"):
+                return False
+            if st.get("round_after"):
+                return True
+            last = st.get("round_at") or ""
+            return last < (priority_round_before if t["username"] in PRIORITY else round_before)
+        rounds = sorted((t for t in targets if round_due(t)),
+                        key=lambda t: (t["username"] not in PRIORITY,
+                                       not state[t["username"]].get("round_after"),
+                                       state[t["username"]].get("round_at") or ""))
+        round_limit = min(max_calls, calls + ROUND_CALLS)
+        for t in rounds:
+            user = t["username"]
+            st = state[user]
+            while calls < round_limit:
+                cursor = st.get("round_after")
+                media = get(user, cursor, "round")
+                if media is None:
+                    break
+                nxt = next_state(media) if not media.get("cut") else {"after": None, "done": True}
+                crawl("POST", "posts", {"username": user, "posts": media.get("data", []),
+                                        "media_count": media.get("media_count"),
+                                        "round": {"start": not cursor, "after": nxt["after"], "done": nxt["done"]}})
+                saved += len(media.get("data", []))
+                rounded.add(user)
+                st["round_after"] = nxt["after"]
+                if nxt["done"]:
+                    finished.append(user)
+                    break
+            if calls >= round_limit:
+                break
     except RateLimited as e:
         # 失敗にはしない(次の回が続きから取る)。ここまでに取った分は保存済み
         warn(f"API の回数制限に達したので、今回はここまで(API {calls}回 / 保存 {saved}件)。続きは次の回に取ります\n{e}")
@@ -481,7 +543,11 @@ def main() -> int:
     # 個人アカウントの人は遡れないので数えない
     pending = sum(1 for t in targets
                   if not state.get(t["username"], {}).get("done") and state.get(t["username"], {}).get("last_error") != PERSONAL)
-    print(f"対象 {len(targets)} / 新着を見る番 {len(due)} / API {calls}回 / 保存 {saved}件 / 遡り未完了 {pending}アカウント")
+    round_calls = calls - round_from if round_from is not None else 0
+    print(f"対象 {len(targets)} / 新着を見る番 {len(due)} / API {calls}回(うち周回 {round_calls}回) / 保存 {saved}件 / "
+          f"遡り未完了 {pending}アカウント")
+    if rounded:
+        print(f"周回: {', '.join(sorted(rounded))}" + (f"(読みきった: {', '.join(finished)})" if finished else ""))
     if failed:
         warn("取得できなかったアカウント:\n" + "\n".join(failed))
     return 0

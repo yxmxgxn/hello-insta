@@ -15,7 +15,9 @@ CREATE TABLE IF NOT EXISTS post (
   like_count     INTEGER,       -- 最後に取ったときのいいね数(非表示の投稿は NULL)。公開画面には出さない
   comments_count INTEGER,       -- 最後に取ったときのコメント数。公開画面には出さない
   cap_hash   TEXT,              -- 本文の指紋。本文が前と同じなら索引(post_fts)を書き直さないのに使う
-  product_type TEXT             -- 公式APIの media_product_type。通常の投稿(FEED)かリール(REELS)か
+  product_type TEXT,            -- 公式APIの media_product_type。通常の投稿(FEED)かリール(REELS)か
+  seen_at    TEXT,              -- 最後に公式APIの返事に入っていた日時(JST)。周回で返ってこなかった投稿を「消えたかも」と出すのに使う
+  keep       INTEGER            -- 1=管理人が「消えていない」と確かめた(年齢制限などで API が返さない投稿)。消えたかもに出さない
 );
 CREATE INDEX IF NOT EXISTS post_ts ON post(ts);
 CREATE INDEX IF NOT EXISTS post_account_ts ON post(account, ts);
@@ -44,7 +46,11 @@ CREATE TABLE IF NOT EXISTS fetch_state (
   done       INTEGER NOT NULL DEFAULT 0,  -- 1=過去分を遡りきった
   last_error TEXT,              -- 直近の取得エラー(取れたら NULL に戻す)
   checked_at TEXT,              -- 最後に取りに行った日時(JST)
-  latest_at  TEXT               -- 最後に新着(最新ページ)を見た日時(JST)。1人1日1回にするのに使う
+  latest_at  TEXT,              -- 最後に新着(最新ページ)を見た日時(JST)。1人1日1回にするのに使う
+  -- 周回(全部の投稿を新しい方から読み直す。書き直された本文・いいね数をそろえ、消えた投稿を見つける)
+  round_after TEXT,             -- 周回の途中のカーソル(NULL=周回していない)
+  round_start TEXT,             -- 今の(最後の)周回を始めた日時(JST)
+  round_at    TEXT              -- 最後に周回を終えた日時(JST)
 );
 
 -- 1回きりの覚え書き(前回の毎日の報告の時刻と件数など)
