@@ -34,6 +34,7 @@ GitHub の Secrets:
 | `CRAWL_TOKEN` | クローラ用APIの合言葉（長いランダム文字列）。デプロイ時に Worker の Secret にも入る |
 | `IG_USER_ID` | 自分のプロアカウントの Instagram ユーザーID |
 | `IG_ACCESS_TOKEN` | Graph API の長期アクセストークン（約60日で切れる） |
+| `SITE_PASS` | サイトの鍵（Basic 認証の合言葉）。デプロイ時に Worker の Secret に入る。消すと鍵なしで公開になる |
 
 GitHub の Variables: `CRAWL_API`（サイトのURL）。任意で `LATEST_EVERY_HOURS` `ROUND_CALLS` `ROUND_EVERY_DAYS`。
 
