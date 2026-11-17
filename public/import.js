@@ -531,12 +531,20 @@
         for (var i = 0; i < list.length; i += CHUNK) {
           head = "登録中… @" + who + " " + i + " / " + list.length;
           draw();
-          var res = await fetch("/api/crawl/paste", {
-            method: "POST",
-            headers: { "content-type": "application/json", authorization: "Bearer " + token },
-            body: JSON.stringify({ username: who, posts: list.slice(i, i + CHUNK), ig_count: i === 0 ? igs[who] : undefined }),
-          });
-          var r = await res.json().catch(function () { return {}; });
+          // D1 が混んでいて断られたら(overloaded)、15・30・60秒あけてやり直す(同じ分を送り直しても結果は同じ)
+          var res, r;
+          for (var wait of [15, 30, 60, 0]) {
+            res = await fetch("/api/crawl/paste", {
+              method: "POST",
+              headers: { "content-type": "application/json", authorization: "Bearer " + token },
+              body: JSON.stringify({ username: who, posts: list.slice(i, i + CHUNK), ig_count: i === 0 ? igs[who] : undefined }),
+            });
+            r = await res.json().catch(function () { return {}; });
+            if (res.ok || !wait || !/overloaded/i.test(r.message || "")) break;
+            head = "D1 が混んでいるので " + wait + " 秒待ってやり直します… @" + who + " " + i + " / " + list.length;
+            draw();
+            await new Promise(function (ok) { setTimeout(ok, wait * 1000); });
+          }
           // 合言葉が違うと、Worker は存在しないふりをして 404 を返す
           if (res.status === 404) throw new Error("合言葉が違います（覚えさせた CRAWL_TOKEN が、サイトのものと合っていません）");
           if (!res.ok) throw new Error(r.message || r.error || "HTTP " + res.status);
