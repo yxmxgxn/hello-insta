@@ -6,6 +6,7 @@
  *                  &sort=popular&o=         a が1人のときだけ、いいねの多い順(数字は返さない)。o は何件目から
  *   GET /api/calendar?ym=YYYY-MM&a=&q=        その月の日ごとの投稿数(a / q の条件込み)
  *   GET /api/accounts                         絞り込み用のアカウント一覧
+ *   GET /api/day?d=YYYY-MM-DD                 その日の投稿を時刻の順に(/day のページ用)
  *
  * クローラ用API (Authorization: Bearer <CRAWL_TOKEN>。未設定なら存在しないことにする)
  *   GET  /api/crawl/state      アカウントごとの取得の進み具合
@@ -171,6 +172,20 @@ async function handleCalendar(url, env) {
   const days = {};
   for (const r of results) days[r.d] = r.n;
   return json({ days }, 200, "public, max-age=300");
+}
+
+// その日(日本時間)の投稿を、時刻の早い順に全部。多すぎるときは DAY_MAX 件で切って truncated を付ける
+const DAY_MAX = 1000;
+
+async function handleDay(url, env) {
+  const d = url.searchParams.get("d") || "";
+  if (!DATE_RE.test(d)) return json({ error: "d" }, 400);
+  const { results } = await env.DB
+    .prepare("SELECT account, ts, permalink, media_type, excerpt FROM post WHERE ts >= ? AND ts < ? ORDER BY ts, id LIMIT ?")
+    .bind(d, d + " 99", DAY_MAX + 1)
+    .all();
+  const truncated = results.length > DAY_MAX;
+  return json({ posts: results.slice(0, DAY_MAX), truncated }, 200, "public, max-age=300");
 }
 
 async function handleAccounts(env) {
@@ -800,6 +815,7 @@ export default {
       if (p === "/api/posts" && request.method === "GET") return await cached(request, ctx, () => handlePosts(url, env));
       if (p === "/api/calendar" && request.method === "GET") return await cached(request, ctx, () => handleCalendar(url, env));
       if (p === "/api/accounts" && request.method === "GET") return await cached(request, ctx, () => handleAccounts(env));
+      if (p === "/api/day" && request.method === "GET") return await cached(request, ctx, () => handleDay(url, env));
     } catch (e) {
       return json({ error: "failed" }, 500);
     }
