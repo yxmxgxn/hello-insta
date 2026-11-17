@@ -59,7 +59,8 @@
       if (!groups[sec]) { groups[sec] = document.createElement("optgroup"); groups[sec].label = sec; order.push(sec); }
       var o = document.createElement("option");
       o.value = a.username;
-      o.textContent = a.name + (a.posts ? "（" + a.posts + "）" : "（未取得）");
+      // 全員「名前（@アカウント）（件数）」の形にそろえる
+      o.textContent = a.name + "（@" + a.username + "）" + (a.posts ? "（" + a.posts + "）" : "（未取得）");
       if (!a.posts) o.className = "off";
       groups[sec].appendChild(o);
     });
@@ -71,7 +72,7 @@
     blocked.forEach(function (a) {
       var o = document.createElement("option");
       o.disabled = true;
-      o.textContent = a.name + "（" + reason(a.error) + "）";
+      o.textContent = a.name + "（@" + a.username + "）（" + reason(a.error) + "）";
       g.appendChild(o);
     });
     sel.appendChild(g);
