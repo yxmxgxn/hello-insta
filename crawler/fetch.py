@@ -13,8 +13,8 @@ Worker のクローラ用API(/api/crawl/*)経由で D1 に書き込む。
 Business Discovery はビジネス/クリエイターアカウントしか引けず、1回で最大50件、
 過去分は after カーソルで遡る。API上限(1時間200回)に収まるよう1回の実行の呼び出し数を
 MAX_CALLS に抑え、遡りきれなかった分は D1 の fetch_state に残して次の実行で続ける。
-  - 1周目: 新着を見る番の人(前に見てから LATEST_EVERY_HOURS 以上たった人)の最新ページ。1人1回ずつ、
-           見ていない時間が長い人から(INSERT OR REPLACE なので重複は無害)
+  - 1周目: 新着を見る番の人(LATEST_EVERY_HOURS の中に均等に散らした自分の時刻を過ぎて、まだ見ていない人)の
+           最新ページ。1人1回ずつ、見ていない時間が長い人から(INSERT OR REPLACE なので重複は無害)
   - 2周目: 遡りが終わっていないアカウントを、残りの回数の範囲で続ける
   - 3周目: 周回。遡りを終えた人の投稿を、新しい方から全部読み直す(ROUND_EVERY_DAYS ごと、1回 ROUND_CALLS 回まで)。
            書き直された本文・いいね数をそろえ、返ってこなかった投稿を「消えたかも」として出す(消すのは管理人)
@@ -36,6 +36,7 @@ import json
 import os
 import re
 import unicodedata
+import zlib
 import sys
 import time
 import urllib.error
@@ -51,10 +52,10 @@ RETRIES = ((25, "full"), (10, "full"), (10, "lite"), (5, "lite"))
 CUT = "遡りを打ち切り"
 # 遡りを優先する人(一番先に遡る)。前に件数を減らしても断られて打ち切った人は、項目を減らして最初から遡り直す
 BACKFILL_FIRST = ["maria_makino.official", "miyaaa0825"]
-# 新着を見る間隔(時間)。GitHub の Variables の LATEST_EVERY_HOURS で変えられる。
-# 20 = 毎日(毎日ほぼ同じ回に回ってくるよう、24時間より少し短く)。
-# 大量の遡りをやり直すときは 168(週1回)にすると、その分を遡りに回せる
-LATEST_EVERY = float(os.environ.get("LATEST_EVERY_HOURS") or 20) * 3600
+# 新着を見る間隔(時間)。GitHub の Variables の LATEST_EVERY_HOURS で変えられる。24 = 毎日。
+# 全員が同じ時刻に番になると回数制限に当たるので、1人ずつ「自分の時刻」を決めて間隔の中に均等に散らす
+# (135人を24時間なら、毎時6人ほど)。大量の遡りをやり直すときは 168(週1回)にすると、その分を遡りに回せる
+LATEST_EVERY = float(os.environ.get("LATEST_EVERY_HOURS") or 24) * 3600
 # 個人アカウントの人(公式APIでは取れない)を試す間隔。プロに切り替えたら拾うためだけなので週1回
 PERSONAL_EVERY = 168 * 3600
 
@@ -379,12 +380,22 @@ def main() -> int:
             st.update(done=0, after=None)
             restart.add(user)
 
-    # 新着を見るのは前に見てから LATEST_EVERY 以上たった人だけ。見ていない時間が長い人から順に回り、
-    # 回数制限で途中で止まっても次の回が続きの人から見る。個人アカウントの人もここでだけ試す
-    # (プロに切り替えたら拾うため)。それ以外の回数は過去分の遡りに回す
+    # 新着は、1人ずつ決めた「自分の時刻」(間隔の中に均等に散らしたもの)を過ぎて、まだその回の分を見ていない人だけ見る。
+    # 回数制限や起動の抜けで見そびれても、次の回で拾う(見ていない時間が長い人から)。
+    # 個人アカウントの人もここでだけ試す(プロに切り替えたら拾うため)。それ以外の回数は遡りと周回に回す
+    def jst(sec: float) -> str:
+        return time.strftime("%Y-%m-%d %H:%M", time.gmtime(sec + 9 * 3600))
     def before(sec: float) -> str:
-        return time.strftime("%Y-%m-%d %H:%M", time.gmtime(time.time() + 9 * 3600 - sec))
-    due_before, priority_before, personal_before = before(LATEST_EVERY), before(PRIORITY_EVERY), before(PERSONAL_EVERY)
+        return jst(time.time() - sec)
+    priority_before = before(PRIORITY_EVERY)
+    # 自分の時刻: ユーザー名の指紋の順に並べて、間隔を人数で等分する(人が増減すると少しずれるが、1回多いか少ないだけ)
+    order = {u: i for i, u in enumerate(sorted((t["username"] for t in targets), key=lambda u: zlib.crc32(u.encode())))}
+    def slot_before(user: str, every: float) -> str:
+        """この人の、いちばん最近に過ぎた「自分の時刻」(JST)。日本時間の0時を起点に every ごと"""
+        offset = every * order[user] / max(len(order), 1)
+        now = time.time() + 9 * 3600
+        last = (now - offset) // every * every + offset
+        return jst(last - 9 * 3600)
     def is_due(t: dict) -> bool:
         st = state.get(t["username"], {})
         seen = st.get("latest_at") or ""
@@ -392,7 +403,8 @@ def main() -> int:
             return seen < priority_before
         if t["username"] in restart:
             return True
-        return seen < (personal_before if st.get("last_error") == PERSONAL else due_before)
+        every = PERSONAL_EVERY if st.get("last_error") == PERSONAL else LATEST_EVERY
+        return seen < slot_before(t["username"], every)
     # PRIORITY の人を一番先に、あとは見ていない時間が長い人から
     due = sorted((t for t in targets if is_due(t)),
                  key=lambda t: (t["username"] not in PRIORITY, state.get(t["username"], {}).get("latest_at") or ""))

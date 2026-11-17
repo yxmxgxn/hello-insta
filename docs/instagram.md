@@ -38,8 +38,10 @@
   GitHub の定時実行は混むと間引かれ、1時間おきでも1日4回ほどしか動かなかったため。GitHub の schedule は控えとして残している。
   起動できなかったら Discord に1日1回まで知らせる
 - 1回の流れ:
-  1. 新着を見る番の人の最新50件(宮本さんは3時間ごと・一番先、ほかは `LATEST_EVERY_HOURS` ごと。既定 20 = 毎日。
-     個人アカウントの人は週1回だけ試す)
+  1. 新着を見る番の人の最新50件(宮本さんは3時間ごと・一番先、ほかは `LATEST_EVERY_HOURS` ごと。既定 24 = 毎日。
+     個人アカウントの人は週1回だけ試す)。
+     全員が同じ回に番になると回数制限に当たるので、1人ずつ「自分の時刻」を決めて間隔の中に均等に散らしている
+     (135人なら毎時6人ほど)。見そびれたら次の回で拾う
   2. 残った回数で、過去分の遡り(50件ずつ古い方へ)
   3. 周回(下)。1回 `ROUND_CALLS`(既定10)回まで
   4. Meta の回数制限(`Application request limit reached`)に当たったらその回は終わり。1回で使えるのは 1〜90回ほどでばらつく
@@ -114,7 +116,7 @@
 | `GH_DISPATCH_TOKEN` | Cloudflare の Worker シークレット | 毎時 Fetch を起動。fine-grained、このリポジトリの Actions を Read and write。約1年で切れる |
 | `APIFY_TOKEN` | Cloudflare の Worker シークレット | Apify の結果を読む(Apify → Settings → API & Integrations) |
 | `DISCORD_WEBHOOK` | Cloudflare の Worker シークレット | 毎日 20:00 の報告と、Fetch を起動できなかったときの知らせ |
-| `LATEST_EVERY_HOURS` | GitHub Variables(無ければ 20 = 毎日) | 新着を見る間隔 |
+| `LATEST_EVERY_HOURS` | GitHub Variables(無ければ 24 = 毎日) | 新着を見る間隔 |
 
 ## これからやるかもしれないこと
 
