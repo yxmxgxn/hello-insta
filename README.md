@@ -2,45 +2,26 @@
 
 https://insta.karin-archive.com/
 
-ハロプロ現役メンバーとOG（J.P ROOM・UP-FRONT CREATE・UP-FRONT PROMOTION ほか）の公式Instagramの投稿を、日付・メンバー・本文で探せるサイト。
-[karin-archive](https://karin-archive.com/) から独立させた別 Worker・別 D1。
-
-## このサイトの大原則
-
-**このサイトは宮本佳林さんのファンサイト。宮本佳林さんは何においても絶対。**
-
-- **宮本佳林さんの言葉は、書かれたとおりが正解。** 「1+1は3」と言っていたら、そのまま「1+1は3」と書く。
-  誤字・脱字・言い回しも、それが正解として扱う。**勝手に直さない。**
-  直したほうがいいかもと思ったら、直さずに持ち主(このサイトの管理人)に相談する。管理人が判断して決める
-- **ほかの人の文章は、誤字・脱字をどんどん直してよい。**
-- **宮本佳林さんの投稿は、常に最新にしておく**(サイトの編集にも使う)。取り方を変えるときは、まず宮本さんが取れ続けるかを確かめる。
-  詳しくは [docs/instagram.md](docs/instagram.md)
+ハロー！プロジェクトのメンバーとOGのインスタの投稿を、日付・メンバー・本文で探せる個人の非公式サイト。
+[karin-archive](https://karin-archive.com/) とは別の Worker・別の D1 で動いている。
+サイトの説明は [このサイトについて](https://insta.karin-archive.com/about) と [仕組み](https://insta.karin-archive.com/tech) にある。
 
 ## 構成
 
 | 場所 | 中身 |
 |---|---|
-| `src/worker.js` | 公開API（投稿・カレンダー・アカウント）とクローラ用API。正規化と bigram 化はここだけ |
-| `public/` | 画面（静的ファイル。Worker を通さず配信） |
+| `src/worker.js` | 公開API（投稿・カレンダー・アカウント・日付）とクローラ用API。正規化と bigram 化はここだけ |
+| `public/` | 画面（静的ファイル） |
 | `schema.sql` | D1 `hello-insta` のテーブル。デプロイのたびに流す |
-| `crawler/fetch.py` | Graph API の Business Discovery で取得し、クローラ用API経由で D1 に書く |
-| `public/import.*` | 個人アカウント用の取り込みページ（自分用）とブックマークレット |
+| `crawler/fetch.py` | Instagram Graph API の Business Discovery で取得し、クローラ用API経由で D1 に書く |
+| `docs/instagram.md` | 投稿の取り方のまとめ |
 
 ## 動き方
 
-取り方の全体（公式API・Apify・IG取得・埋め込み）と鍵のありかは [docs/instagram.md](docs/instagram.md) にまとめてある。
-
 - **Deploy**（`deploy.yml`）: main への push で、スキーマ適用 → Worker デプロイ
-- **Fetch**（`fetch.yml`）: Worker の定時実行が毎時37分に起動する。新着の確認と過去分の遡り。詳しくは [docs/instagram.md](docs/instagram.md)（取り方の全体のまとめ。**宮本佳林さんは常に最新**）
-- **毎日の報告**（Worker の cron）: JST 20:00 に収録件数・前回からの増加数・新着を Discord へ（Worker のシークレット `DISCORD_WEBHOOK`）
-- 対象アカウントは karin-archive の SNS一覧スプシ（accounts シート）の所属で決まる。条件は `crawler/fetch.py` の `load_targets()`
-- 取れるのはビジネス／クリエイターアカウントだけ。個人アカウントは Fetch の警告に出る
-- **取り込み**（`public/import.html`）: 個人アカウントの分は手で入れる。`/import` を開き、合言葉（`CRAWL_TOKEN`）を欄に入れてブラウザに覚えさせ（Git には置かない）、
-  ブックマークレットを Graph API とは別のアカウントでログインしたブラウザの instagram.com で押す。
-  画面に出た投稿（プロフィールの一覧のリンクとサムネイルの alt、開いた投稿の本文）を拾うだけで、Instagram へは問い合わせない。
-  スクロールしてためたら「送る」（開いた貼り付けページへ postMessage で渡す）か「コピー」して貼り付けページで登録。
-  日時は shortcode から出す（メディアIDの上位ビットが投稿時刻）。受け付けるのは Fetch で「個人アカウント」になっている人だけ。
-  id は `web:<shortcode>`。公式APIで入っている投稿は shortcode で見て飛ばし、あとでプロに切り替えた人は公式APIの分に置き換わる
+- **Fetch**（`fetch.yml`）: Worker の定時実行が毎時起動する。新着の確認・過去分の遡り・周回（読み直し）
+- **毎日の報告**: Worker の定時実行で、収録件数と新着を Discord へ
+- 公式APIで取れるのはビジネス／クリエイターアカウントだけ。個人アカウントの人の分は別の方法で入れている（`docs/instagram.md`）
 
 ## 設定
 
@@ -48,17 +29,19 @@ GitHub の Secrets:
 
 | 名前 | 中身 |
 |---|---|
-| `CLOUDFLARE_API_TOKEN` | Workers・D1 の編集と、karin-archive.com の DNS 編集ができるトークン |
+| `CLOUDFLARE_API_TOKEN` | Workers・D1 の編集と、DNS 編集ができるトークン |
 | `CLOUDFLARE_ACCOUNT_ID` | Cloudflare のアカウントID |
-| `CRAWL_TOKEN` | クローラ用APIの合言葉（適当な長いランダム文字列）。デプロイ時に Worker の Secret にも入る |
+| `CRAWL_TOKEN` | クローラ用APIの合言葉（長いランダム文字列）。デプロイ時に Worker の Secret にも入る |
 | `IG_USER_ID` | 自分のプロアカウントの Instagram ユーザーID |
 | `IG_ACCESS_TOKEN` | Graph API の長期アクセストークン（約60日で切れる） |
 
-GitHub の Variables: `CRAWL_API` = `https://insta.karin-archive.com`
+GitHub の Variables: `CRAWL_API`（サイトのURL）。任意で `LATEST_EVERY_HOURS` `ROUND_CALLS` `ROUND_EVERY_DAYS`。
+
+Worker の Secret（Cloudflare）: `GH_DISPATCH_TOKEN`（Fetch の起動）、`DISCORD_WEBHOOK`、`APIFY_TOKEN`。
 
 ## アクセストークンの更新（約60日ごと）
 
-1. [Graph API エクスプローラー](https://developers.facebook.com/tools/explorer/)でアプリ hello・ユーザートークンを選び、
+1. [Graph API エクスプローラー](https://developers.facebook.com/tools/explorer/)でアプリとユーザートークンを選び、
    `instagram_basic` `instagram_manage_insights` `pages_show_list` `pages_read_engagement` `business_management` で Generate Access Token
 2. [アクセストークンデバッガー](https://developers.facebook.com/tools/debug/accesstoken/)に貼って「アクセストークンを延長」
 3. Secrets の `IG_ACCESS_TOKEN` を差し替える
