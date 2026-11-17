@@ -29,7 +29,10 @@
 
 - 対象: karin-archive の SNS一覧スプシ(accounts シート)で **instagram 行がある人は全員**(現役 → J.P ROOM → UP-FRONT CREATE → UP-FRONT PROMOTION → その他のOG。J.P ROOM と CREATE は `OG_ORDER` の順、その他のOG は名前の読みのあいうえお順)。
   グループ公式アカウントと、`EXTRA_ACCOUNTS`(福田花音さん、ショップ・FC など)も入る。
-  `EXCLUDED` の人は外す(石栗奏美さん: 鍵アカウントで何も取れない)
+  `EXCLUDED` の人は外し、D1 からも消す(鍵アカウント、本人の活動でないアカウント、管理人の判断で載せない人)。
+  **個人アカウントの OG は `PERSONAL_OG_KEEP`(高瀬くるみ・八木栞・竹内朱莉の書道・宮本佳林)だけ残し**、
+  ほかは個人アカウントと分かった時点で外して D1 からも消す(公式APIで入った投稿がある人は消さない)。
+  現役メンバーは個人アカウントでも対象
 - 起動: **Cloudflare の Worker の定時実行(毎時37分)が GitHub の workflow_dispatch で起動する**(`GH_DISPATCH_TOKEN`)。
   GitHub の定時実行は混むと間引かれ、1時間おきでも1日4回ほどしか動かなかったため。GitHub の schedule は控えとして残している。
   起動できなかったら Discord に1日1回まで知らせる
