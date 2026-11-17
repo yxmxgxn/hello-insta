@@ -41,8 +41,24 @@ input, select, button { font: inherit; color: var(--text); }
   border: 1px solid var(--line); border-radius: 8px; background: var(--bg);
 }
 input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
-#acc { width: 100%; padding: 4px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); }
-#acc option.off { color: var(--muted); }
+/* グループのボタンと、押すと並ぶアカウントのボタン(display を付けても hidden で隠れるように) */
+.gbtn[hidden], .gaccs[hidden], .picked[hidden] { display: none; }
+.gbtn, .gaccs, .picked { display: flex; flex-wrap: wrap; gap: 6px; }
+.gb, .ab, .pk {
+  padding: 4px 12px; border: 1px solid var(--line); border-radius: 999px;
+  background: var(--bg); color: var(--text); font-size: .85rem; line-height: 1.5;
+}
+.gb:hover, .ab:hover, .pk:hover { border-color: var(--accent); }
+.gb.on, .ab.on { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 700; }
+.gb.has:not(.on) { border-color: var(--accent); color: var(--accent); }
+.gaccs { padding: 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); }
+.ab.off:not(.on) { color: var(--muted); }
+.pk { border-color: var(--accent); color: var(--accent); }
+.picked { align-items: center; font-size: .85rem; }
+.plabel { color: var(--muted); }
+.otherbox { font-size: .92rem; }
+#other { max-width: 100%; padding: 4px 6px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); }
+#other option.off { color: var(--muted); }
 .row { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; font-size: .92rem; }
 .row input { padding: 4px 6px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); }
 button {

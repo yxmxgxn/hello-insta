@@ -36,8 +36,27 @@
     return error;
   }
 
+  // グループのボタン(押すと、その見出しのアカウントがボタンで並ぶ)。見出しの名前の頭で照らし合わせる
+  // (モーニング娘。は年で名前が変わるため)。ここに入らない見出しの人は「そのほか」のプルダウンへ
+  var GROUP_BUTTONS = ["モーニング娘。", "アンジュルム", "Juice=Juice", "つばきファクトリー", "BEYOOOOONDS",
+    "OCHA NORMA", "ロージークロニクル", "J.P ROOM", "UP-FRONT CREATE", "UP-FRONT PROMOTION"];
+  var accs = [];      // 選べるアカウント(アカウント一覧の順)
+  var openGroup = ""; // いま開いているグループのボタン
+  function groupOf(section) {
+    for (var i = 0; i < GROUP_BUTTONS.length; i++) if (section.indexOf(GROUP_BUTTONS[i]) === 0) return GROUP_BUTTONS[i];
+    return "";
+  }
+  function isSelected(u) { return selected().indexOf(u) >= 0; }
+  function setSelected(u, on) { options().forEach(function (o) { if (o.value === u) o.selected = on; }); }
+  function el(tag, cls, text) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  }
+
   function fillAccounts(list) {
-    var sel = $("acc"), groups = {}, order = [], blocked = [];
+    var sel = $("acc"), blocked = [];
     // 表示は「名前（件数）」。同じ名前のアカウントが複数ある人(本人のと書道のなど)だけ「名前（@アカウント）（件数）」にする
     var same = {};
     list.forEach(function (a) { same[a.name] = (same[a.name] || 0) + 1; });
@@ -45,33 +64,110 @@
     list.forEach(function (a) {
       names[a.username] = a.name;
       if (a.first && a.last) spans[a.username] = { first: a.first, last: a.last };
-      // 1件も取れていなくて、個人アカウントで取れないと分かっている人は、いちばん下の「取得不可」にまとめて選べなくする
+      // 1件も取れていなくて、個人アカウントで取れないと分かっている人は、プルダウンの一番下の「取得不可」にまとめて選べなくする
       // (回数制限などの一時的なエラーの人は、ふつうに「未取得」で並べる)
       if (!a.posts && /個人アカウント/.test(a.error || "")) {
         if (a.active) blocked.push(a);
         return;
       }
       var sec = a.active ? a.section : "以前の対象";
-      if (!groups[sec]) { groups[sec] = document.createElement("optgroup"); groups[sec].label = sec; order.push(sec); }
+      var text = label(a) + (a.posts ? "（" + a.posts + "）" : "（未取得）");
+      accs.push({ username: a.username, section: sec, group: a.active ? groupOf(sec) : "", text: text, off: !a.posts });
+      // 選んでいる人は、見えない select に持つ(URL・検索の条件はここから作る)
       var o = document.createElement("option");
       o.value = a.username;
-      o.textContent = label(a) + (a.posts ? "（" + a.posts + "）" : "（未取得）");
-      if (!a.posts) o.className = "off";
-      groups[sec].appendChild(o);
+      sel.appendChild(o);
     });
-    order.forEach(function (s) { sel.appendChild(groups[s]); });
 
-    if (!blocked.length) return;
-    var g = document.createElement("optgroup");
-    g.label = "取得不可（" + blocked.length + "）";
-    blocked.forEach(function (a) {
-      var o = document.createElement("option");
-      o.disabled = true;
-      o.textContent = label(a) + "（" + reason(a.error) + "）";
-      g.appendChild(o);
+    // グループのボタン
+    var bar = $("gbtn");
+    function gb(key, name) {
+      var b = el("button", "gb", name);
+      b.type = "button";
+      b.setAttribute("data-g", key);
+      b.onclick = function () {
+        if (!key) {
+          // すべて = 全員(選んでいる人を外して、開いているグループも閉じる)
+          options().forEach(function (o) { o.selected = false; });
+          openGroup = "";
+          changed();
+          return;
+        }
+        openGroup = openGroup === key ? "" : key;
+        render();
+      };
+      bar.appendChild(b);
+    }
+    gb("", "すべて");
+    GROUP_BUTTONS.forEach(function (g) {
+      if (accs.some(function (a) { return a.group === g; })) gb(g, g);
     });
-    sel.appendChild(g);
+
+    // そのほかのプルダウン(グループのボタンに入らない人)。選ぶと、その人を選んだ人に足す
+    var other = $("other"), groups = {}, order = [];
+    accs.forEach(function (a) {
+      if (a.group) return;
+      if (!groups[a.section]) { groups[a.section] = document.createElement("optgroup"); groups[a.section].label = a.section; order.push(a.section); }
+      var o = el("option", a.off ? "off" : "", a.text);
+      o.value = a.username;
+      groups[a.section].appendChild(o);
+    });
+    order.forEach(function (s) { other.appendChild(groups[s]); });
+    if (blocked.length) {
+      var g = document.createElement("optgroup");
+      g.label = "取得不可（" + blocked.length + "）";
+      blocked.forEach(function (a) {
+        var o = el("option", "", label(a) + "（" + reason(a.error) + "）");
+        o.disabled = true;
+        g.appendChild(o);
+      });
+      other.appendChild(g);
+    }
+    other.onchange = function () {
+      if (other.value) { setSelected(other.value, true); changed(); }
+      other.value = "";
+    };
   }
+
+  // ボタンと「選んでいる人」の表示を、いま選んでいる人に合わせる
+  function render() {
+    var sel = selected();
+    document.querySelectorAll("#gbtn .gb").forEach(function (b) {
+      var g = b.getAttribute("data-g");
+      var on = g ? g === openGroup : !sel.length;
+      b.classList.toggle("on", on);
+      b.setAttribute("aria-pressed", on ? "true" : "false");
+      // 開いていなくても、そのグループに選んでいる人がいれば印を付ける
+      b.classList.toggle("has", !!g && accs.some(function (a) { return a.group === g && sel.indexOf(a.username) >= 0; }));
+    });
+    var box = $("gaccs");
+    box.textContent = "";
+    box.hidden = !openGroup;
+    accs.forEach(function (a) {
+      if (!openGroup || a.group !== openGroup) return;
+      var on = sel.indexOf(a.username) >= 0;
+      var b = el("button", "ab" + (on ? " on" : "") + (a.off ? " off" : ""), a.text);
+      b.type = "button";
+      b.setAttribute("aria-pressed", on ? "true" : "false");
+      b.onclick = function () { setSelected(a.username, !isSelected(a.username)); changed(); };
+      box.appendChild(b);
+    });
+    // 選んでいる人(押すと外れる)。グループを閉じていても、プルダウンで選んだ人も、ここで分かる
+    var picked = $("picked");
+    picked.textContent = "";
+    picked.hidden = !sel.length;
+    if (sel.length) picked.appendChild(el("span", "plabel", "選んでいる人："));
+    accs.forEach(function (a) {
+      if (sel.indexOf(a.username) < 0) return;
+      var b = el("button", "pk", a.text + " ×");
+      b.type = "button";
+      b.title = "外す";
+      b.onclick = function () { setSelected(a.username, false); changed(); };
+      picked.appendChild(b);
+    });
+  }
+
+  function changed() { render(); load(false); }
 
   /* ---------- 検索語のハイライト ---------- */
 
@@ -177,7 +273,7 @@
 
   function only(account) {
     options().forEach(function (o) { o.selected = o.value === account; });
-    load(false);
+    changed();
     $("f").scrollIntoView({ behavior: "smooth" });
   }
 
@@ -284,15 +380,15 @@
   /* ---------- 起動 ---------- */
 
   $("f").addEventListener("submit", function (e) { e.preventDefault(); load(false); });
-  $("acc").addEventListener("change", function () { load(false); });
   $("from").addEventListener("change", function () { load(false); });
   $("to").addEventListener("change", function () { load(false); });
   $("more").addEventListener("click", function () { load(true); });
   $("reset").addEventListener("click", function () {
     options().forEach(function (o) { o.selected = false; });
+    openGroup = "";
     $("from").value = $("to").value = $("q").value = "";
     thisMonth();
-    load(false);
+    changed();
   });
   document.querySelectorAll("[data-move]").forEach(function (b) {
     b.addEventListener("click", function () { move(+b.getAttribute("data-move")); });
@@ -312,6 +408,7 @@
       var q = new URLSearchParams(location.search);
       var acc = (q.get("a") || "").split(",");
       options().forEach(function (o) { o.selected = acc.indexOf(o.value) >= 0; });
+      render();
       $("from").value = q.get("from") || "";
       $("to").value = q.get("to") || "";
       $("q").value = q.get("q") || "";
