@@ -40,10 +40,13 @@ import urllib.request
 
 GRAPH = "https://graph.facebook.com/v23.0"
 PAGE_SIZE = 50
-# 「頼むデータが多すぎる」(code 1)と断られたら、1ページの件数をこの順に小さくして頼み直す。
-# 一番小さくしても断られた遡りは打ち切る(投稿の多い人の古い方を、Meta がある深さより先は返さないことがある。
-# 高橋愛さん・牧野真莉愛さんなど。古い分は IG取得で入れる)
-SMALLER_PAGES = (25, 10, 5)
+# 「頼むデータが多すぎる」(code 1)と断られたら、この順に頼み直す: (1ページの件数, 頼む項目)。
+#   full = 全部(いいね数・持ち主・種類も)、lite = 本文と日時とリンクと種類だけ
+# 全部断られた遡りは打ち切る(投稿の多い人の古い方を、Meta がある深さより先は返さないことがある。古い分は IG取得で入れる)
+RETRIES = ((25, "full"), (10, "full"), (10, "lite"), (5, "lite"))
+CUT = "遡りを打ち切り"
+# 遡りを優先する人(一番先に遡る)。前に件数を減らしても断られて打ち切った人は、項目を減らして最初から遡り直す
+BACKFILL_FIRST = ["maria_makino.official", "miyaaa0825"]
 # 新着を見る間隔(時間)。GitHub の Variables の LATEST_EVERY_HOURS で変えられる。
 # 20 = 毎日(毎日ほぼ同じ回に回ってくるよう、24時間より少し短く)。
 # 大量の遡りをやり直すときは 168(週1回)にすると、その分を遡りに回せる
@@ -251,11 +254,12 @@ OPTIONAL = {"username": "投稿の持ち主", "media_product_type": "投稿の�
 asking = list(OPTIONAL)
 
 
-def fetch_page(username: str, after: str | None, limit: int = PAGE_SIZE) -> dict:
+def fetch_page(username: str, after: str | None, limit: int = PAGE_SIZE, items: str = "full") -> dict:
     media = f"media.limit({limit})" + (f".after({after})" if after else "")
-    extra = "".join("," + f for f in asking)
-    fields = (f"business_discovery.username({username})"
-              f"{{media_count,{media}{{id,caption,timestamp,permalink,media_type,like_count,comments_count{extra}}}}}")
+    want = "id,caption,timestamp,permalink,media_type"
+    if items == "full":
+        want += ",like_count,comments_count" + "".join("," + f for f in asking)
+    fields = f"business_discovery.username({username}){{media_count,{media}{{{want}}}}}"
     q = urllib.parse.urlencode({"fields": fields, "access_token": os.environ["IG_ACCESS_TOKEN"]})
     try:
         with urllib.request.urlopen(f"{GRAPH}/{os.environ['IG_USER_ID']}?{q}", timeout=60) as res:
@@ -355,6 +359,14 @@ def main() -> int:
     for st in state.values():
         if st["done"] and st["after"]:
             st["done"] = 0
+    # BACKFILL_FIRST の人で、前のやり方(件数だけ減らす)で打ち切った人は、最初から遡り直す。
+    # 新着を見る番に入れて最新ページからカーソルを取り直す(項目も減らすやり方で打ち切ったら、もう戻さない)
+    restart = set()
+    for user in BACKFILL_FIRST:
+        st = state.get(user)
+        if st and st["done"] and str(st.get("last_error") or "").startswith(CUT + "(古い投稿"):
+            st.update(done=0, after=None)
+            restart.add(user)
 
     # 新着を見るのは前に見てから LATEST_EVERY 以上たった人だけ。見ていない時間が長い人から順に回り、
     # 回数制限で途中で止まっても次の回が続きの人から見る。個人アカウントの人もここでだけ試す
@@ -367,6 +379,8 @@ def main() -> int:
         seen = st.get("latest_at") or ""
         if t["username"] in PRIORITY:
             return seen < priority_before
+        if t["username"] in restart:
+            return True
         return seen < (personal_before if st.get("last_error") == PERSONAL else due_before)
     # PRIORITY の人を一番先に、あとは見ていない時間が長い人から
     due = sorted((t for t in targets if is_due(t)),
@@ -377,18 +391,19 @@ def main() -> int:
     failed: list[str] = []
 
     def fetch_small(user: str, after: str | None) -> dict:
-        """1ページ50件で頼み、code 1 で断られたら SMALLER_PAGES の件数で頼み直す。"""
+        """1ページ50件で全部の項目を頼み、code 1 で断られたら RETRIES の順に小さくして頼み直す。"""
         nonlocal calls
-        for limit in (PAGE_SIZE, *SMALLER_PAGES):
+        tries = ((PAGE_SIZE, "full"), *RETRIES)
+        for limit, items in tries:
             try:
-                return fetch_page(user, after, limit)
+                return fetch_page(user, after, limit, items)
             except urllib.error.HTTPError as e:
                 body = e.read()
                 try:
                     code = json.loads(body.decode("utf-8")).get("error", {}).get("code")
                 except ValueError:
                     code = None
-                if code != 1 or limit == SMALLER_PAGES[-1]:
+                if code != 1 or (limit, items) == tries[-1]:
                     raise urllib.error.HTTPError(e.url, e.code, e.msg, e.headers, io.BytesIO(body)) from None
                 calls += 1
                 time.sleep(0.5)
@@ -409,7 +424,7 @@ def main() -> int:
                 raise RateLimited(msg) from None
             if after and msg.startswith("1/"):
                 # 一番小さいページでも断られた遡りは、毎回同じ場所で失敗して回数を使うだけなので打ち切る
-                msg = f"遡りを打ち切り(古い投稿を API が返さない: {msg})"
+                msg = f"{CUT}(件数と項目を減らしても古い投稿を API が返さない: {msg})"
                 crawl("POST", "posts", {"username": user, "posts": [], "state": {"after": None, "done": True}})
             failed.append(f"{user}{'(遡り)' if after else ''}: {msg}")
             crawl("POST", "error", {"username": user, "error": msg, "latest": not after})
@@ -437,8 +452,9 @@ def main() -> int:
                                     "media_count": media.get("media_count"), "latest": True})
             saved += len(media.get("data", []))
 
-        # 2周目: 遡りが終わっていないアカウントを、残りの回数で続ける(個人アカウントの人は取れないので飛ばす)
-        for t in targets:
+        # 2周目: 遡りが終わっていないアカウントを、残りの回数で続ける(個人アカウントの人は取れないので飛ばす)。
+        # BACKFILL_FIRST の人を一番先に
+        for t in sorted(targets, key=lambda t: t["username"] not in BACKFILL_FIRST):
             user = t["username"]
             st = state.get(user)
             if st and st.get("last_error") == PERSONAL:
