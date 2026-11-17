@@ -5,15 +5,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="only light">
 <meta name="robots" content="noindex, nofollow">
-<meta name="theme-color" content="#8C6BB8">
-<title>仕組み - ハロプロ Instagram 検索</title>
-<meta name="description" content="ハロプロ Instagram 検索の仕組み。どうやって投稿を集め、何を保存し、何をしないと決めているか。">
-<meta property="og:title" content="仕組み - ハロプロ Instagram 検索">
+<meta name="theme-color" content="#F04C5C">
+<title>仕組み - ハロプロ インスタ 検索</title>
+<meta name="description" content="ハロプロ インスタ 検索の仕組み。どうやって投稿を集め、何を保存し、何をしないと決めているか。">
+<meta property="og:title" content="仕組み - ハロプロ インスタ 検索">
 <meta property="og:description" content="どうやって投稿を集め、何を保存し、何をしないと決めているか。">
 <meta property="og:type" content="website">
 <link rel="canonical" href="https://insta.karin-archive.com/tech">
 <meta property="og:url" content="https://insta.karin-archive.com/tech">
-<meta property="og:site_name" content="ハロプロ Instagram 検索">
+<meta property="og:site_name" content="ハロプロ インスタ 検索">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap">
@@ -21,41 +21,57 @@
 </head>
 <body>
 <header class="site-head">
-  <h1><a href="/">ハロプロ Instagram 検索</a></h1>
+  <h1><a href="/">ハロプロ インスタ 検索</a></h1>
   <p class="lead">仕組み</p>
   <p class="lead sec"><a href="/about">このサイトについて</a> ｜ <a href="/">検索に戻る</a></p>
 </header>
 
 <main class="doc">
   <p class="doc-lead">
-    ハロー！プロジェクトのメンバーとOGの公式Instagramを、日付と本文から探せるようにした個人サイトです。
+    ハロー！プロジェクトのメンバーとOGのインスタを、日付と本文から探せるようにした個人サイトです。
     どうやって投稿を集め、何を保存し、何をしないと決めているかを説明します。
   </p>
 
   <h2>1. 全体の作り</h2>
   <p>
-    Cloudflare Workers と D1（SQLite）で動いています。サーバーやコンテナはありません。
-    1日に数回、収録プログラムが Instagram から新しい投稿を集め、検索用の索引に入れます。
-    検索のたびに Instagram へ問い合わせることはありません。
+    サイトは Cloudflare Workers と D1（SQLite）で動いています。
+    投稿は前もって集めてこのサイトのデータベースに入れてあり、<strong>検索のたびにインスタへ問い合わせることはありません</strong>。
+    日付の索引と、文章から作った検索用の索引を先に作っておき、1回に新しい方から100件だけを引くので、件数が増えても速さはほとんど変わりません。
   </p>
   <p>
     どのアカウントを収録するかは、同じ作者のサイト（karin-archive）の「SNS一覧」の元になっている表で決めています。
-    表の所属を直すと、次の収録から対象も変わります。
+    表を直すと、次の収録から対象も変わります。
   </p>
 
   <h2>2. 投稿の集め方</h2>
   <p>
-    Instagram（Meta）が公開している<strong>公式のAPI（Instagram Graph API の Business Discovery）</strong>を使っています。
-    ページを読み取って中身を抜き出す、いわゆるスクレイピングはしていません。
+    インスタの公式の仕組み（API）で読めるのは、ビジネスアカウントとクリエイターアカウントだけです。
+    そこで、アカウントの種類によって集め方を分けています。
   </p>
+
+  <h3>ビジネス・クリエイターアカウントの人</h3>
   <ul>
-    <li>収録のたびに、各アカウントの<strong>最新の投稿</strong>をまとめて読みます</li>
-    <li>過去の投稿は、APIの利用上限の範囲で<strong>少しずつ遡って</strong>います。上限に達したら、続きは次の回に回します</li>
-    <li>そのため、新しく対象になったアカウントの過去分がそろうまでには、しばらくかかります</li>
+    <li>Instagram（Meta）が公開している<strong>公式のAPI（Instagram Graph API の Business Discovery）</strong>で集めています</li>
+    <li>収録プログラムは1時間ごとに動き、各アカウントの<strong>最新の投稿を1日1回</strong>確かめます</li>
+    <li>過去の投稿は、APIの利用上限の範囲で少しずつ遡って集めました。上限に達したら、続きは次の回に回します</li>
+    <li>新しく対象になったアカウントは、過去分がそろうまでにしばらくかかります</li>
+  </ul>
+
+  <h3>個人アカウントの人</h3>
+  <ul>
+    <li>公式のAPIでは読めないので、<strong>最初に作者が、ブラウザに表示された投稿を集めました</strong>。画面に出ている投稿のリンクと文章を読み取るだけで、インスタの内部の仕組みに問い合わせることはしていません</li>
+    <li>それ以降の新しい投稿は、<strong>RSS のように新着を受け取れる外部のサービス</strong>を通して、毎日受け取っています</li>
+    <li>あまり投稿しない人は、作者がときどき見て、手で足しています</li>
   </ul>
   <p>
-    このAPIで読めるのは、ビジネスアカウントとクリエイターアカウントの、公開されている投稿だけです。
-    個人アカウントや、年齢制限のあるアカウントは読めません。
+    どの集め方で入っても、同じ投稿は1件にまとめます。
+    個人アカウントの人がビジネス・クリエイターアカウントに切り替えたときは、公式のAPIで読んだものに置き換わります。
+  </p>
+
+  <h3>共同投稿</h3>
+  <p>
+    2人以上の連名の投稿（共同投稿）は、<strong>投稿した本人（持ち主）の投稿</strong>として扱います。
+    持ち主がこのサイトで収録していない人のときは、連名に入っているメンバーの投稿として扱います。
   </p>
 
   <h2>3. 検索のしかた</h2>
@@ -71,22 +87,31 @@
   </ul>
   <p>
     結果は新しい投稿から順に並びます。総ヒット件数は表示しません。
+    数えるだけで、検索そのものより重くなるためです。
   </p>
 
   <h2>4. 表示するもの</h2>
   <p>
     一覧には、投稿日時・名前・投稿の種類と、文章の<strong>先頭の一部</strong>だけを出します。
-    投稿を見るときは Instagram の元の投稿へ移動します。このサイトの役目は、元の投稿を見つけて送り届けることです。
+    投稿そのものは、「▶ ここで見る」で開く<strong>インスタ公式の埋め込み</strong>か、インスタの元の投稿で見てもらいます。
+    このサイトの役目は、元の投稿を見つけて送り届けることです。
   </p>
   <p>
-    リールのリンクは、Instagramの投稿のアドレス（/p/…）にそろえています。
+    埋め込みは、インスタの「埋め込み」と同じものを置いて、インスタの埋め込み用のプログラム（embed.js）に表示してもらっています。
+    このプログラムは、最初に「▶ ここで見る」を押したときにだけ読み込みます。
+  </p>
+  <p>
+    リールのリンクは、インスタの投稿のアドレス（/p/…）にそろえています。
     リールのアドレス（/reel/…）だと、別の動画に案内されることがあるためです。
   </p>
 
   <h2>5. わかっている制約</h2>
   <ul>
-    <li><strong>消された投稿を自動では消せません</strong>。公式のAPIで分かるのは「いまある投稿」だけで、消えたことを確かめる手段がないためです。連絡をもらえれば手で消します</li>
-    <li><strong>文章の書き直しに追従するのは最近の投稿だけ</strong>です。古い投稿は、収録したときの文章のままです</li>
+    <li><strong>消された投稿を自動では消せません</strong>。いまある投稿は確かめられても、消えたことを確かめる仕組みがまだないためです。連絡をもらえれば、確かめたうえで消します</li>
+    <li><strong>文章の書き直しに追従するのは最近の投稿だけ</strong>です。古い投稿は、収録したときの文章のままのことがあります</li>
+    <li>書き直された投稿は、インスタ公式の埋め込みの側で、<strong>書き直す前の文章が混ざって出る</strong>ことがあります。インスタ側の表示なので、このサイトからは直せません</li>
+    <li>このサイトの投稿数は、インスタのプロフィールの「投稿」の数と少しずれることがあります。共同投稿や、プロフィールの一覧に出さないリールの数え方が違うためです</li>
+    <li>投稿の多いアカウントでは、とても古い投稿を公式のAPIが返さないことがあります。その分は、作者が手で足しています</li>
     <li><strong>ひらがなとカタカナは別扱い</strong>。「りんご」で「リンゴ」は出ません</li>
     <li><strong>アクセント付きのラテン文字は落ちます</strong>（「Café」は「caf」として扱われます）</li>
     <li>投稿日時は日本時間で、分までです</li>
@@ -96,19 +121,22 @@
   <ul>
     <li>画像・動画は<strong>1バイトも保存しない</strong>。文字だけです</li>
     <li>文章の全文は画面に出さない</li>
-    <li>いいね・コメント・フォロワーなど、投稿以外の情報は取らない</li>
-    <li>公式のAPI以外の方法（スクレイピングなど）で取りに行かない</li>
+    <li>コメントの中身・フォロワーなど、投稿以外の情報は取らない。いいねとコメントの数は、人気順に並べるためだけに持ち、画面には出さない</li>
+    <li>鍵をかけている（非公開の）アカウントは取りに行かない</li>
+    <li>投稿の文章をAIで処理しない。要約・文章の生成・学習には使わない（プログラムを書くのにはAIを使っています）</li>
     <li>検索した言葉やアクセスの記録を取らない</li>
   </ul>
   <p>
     消してほしい・載せないでほしいという連絡があれば、そのとおりに対応します。
     ご連絡は、<a href="https://karin-archive.com/">karin-archive</a>（同じ作者のサイト）のページ下にある「誤りの報告・追加のご要望」から送ってください。
   </p>
+
+  <p class="note">最終更新：2026年11月17日</p>
 </main>
 
 <footer class="site-foot">
   <p><a href="/about">このサイトについて</a> ｜ <a href="/">検索に戻る</a></p>
-  <p>画像・動画はこのサイトには保存していません。投稿は Instagram でご覧ください。</p>
+  <p>画像・動画はこのサイトには保存していません。投稿は Instagram の公式の埋め込みか、Instagram でご覧ください。</p>
 </footer>
 </body>
 </html>
