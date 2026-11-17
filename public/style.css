@@ -108,3 +108,45 @@ main.doc a { color: var(--accent); }
 .note { font-size: .92rem; color: var(--muted); margin-top: 12px; }
 main.doc strong { color: var(--accent); font-weight: 600; }
 .lead a { color: inherit; }
+
+/* ---------- 日付で見る(/day) ---------- */
+main.wide, .site-head.wide, .site-foot.wide { max-width: 1040px; }
+.daybar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 16px 0 4px; }
+.daybar input[type="date"] {
+  font: inherit; font-size: 1rem; padding: 6px 10px;
+  border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--text);
+}
+.daybar button:disabled { opacity: .35; cursor: default; }
+.daygrid { display: grid; grid-template-columns: 200px 1fr; gap: 24px; align-items: start; }
+.gnav { position: sticky; top: 12px; display: flex; flex-direction: column; gap: 2px; margin-top: 12px; }
+.gitem {
+  display: flex; justify-content: space-between; align-items: center; gap: 8px; width: 100%;
+  padding: 7px 10px; border: 0; border-radius: 8px; background: transparent; color: var(--text);
+  font: inherit; font-size: .9rem; text-align: left; cursor: pointer;
+}
+.gitem:hover { background: var(--line); }
+.gitem.on { background: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.gitem .n { font-size: .78rem; opacity: .7; font-variant-numeric: tabular-nums; }
+.results { list-style: none; margin: 0; padding: 0; }
+/* 読み込み中の空の一覧。高さが無いと下の部分が上がってきてページが揺れる */
+.results:empty { min-height: 70vh; }
+.results.loading { opacity: .45; transition: opacity .15s; }
+.results li {
+  padding: 12px 14px; margin-bottom: 10px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+}
+.results .meta { margin: 0 0 4px; display: flex; flex-wrap: wrap; align-items: center; gap: 0 10px; font-size: .82rem; color: var(--muted); }
+.results .meta time { font-variant-numeric: tabular-nums; }
+.results .meta .who { color: var(--text); font-weight: 700; }
+.results .text { display: block; color: var(--accent); overflow-wrap: anywhere; text-decoration: none; }
+.results .text:hover { text-decoration: underline; }
+/* 狭い画面ではグループを上に横並びにして、横にスクロールさせる */
+@media (max-width: 720px) {
+  .daygrid { grid-template-columns: 1fr; gap: 0; }
+  .gnav {
+    position: static; flex-direction: row; overflow-x: auto; gap: 6px;
+    margin: 8px -16px 0; padding: 0 16px 6px; scrollbar-width: thin;
+  }
+  .gitem { width: auto; flex: none; border: 1px solid var(--line); border-radius: 999px; padding: 5px 12px; }
+  .gitem.on { border-color: var(--accent); }
+}
