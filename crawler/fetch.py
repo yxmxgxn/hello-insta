@@ -102,12 +102,20 @@ GROUP_OFFICIAL: dict[str, str] = {
     "rosychronicle":  "rosy_chronicle_official",
 }
 
-# スプシに instagram 行があっても対象にしないアカウント: ユーザー名 → 理由
+# スプシに instagram 行があっても対象にしないアカウント: ユーザー名 → 理由。
+# ここに書いた人は、D1 からもアカウントと投稿を消す(Worker の /api/crawl/accounts の remove)
 EXCLUDED: dict[str, str] = {
     "kanami_ishiguri.official": "鍵アカウント(非公開)で、公式APIでも IG取得でも何も取れない",
     "chabu_kannagi": "猫の写真のアカウントで、本人の投稿ではない",
     "ishiguroaya.official": "管理人の判断で載せない",
     "liqinyao0111": "ごく個人的な日常のアカウントなので、載せない",
+    # 以下、管理人の判断で載せない(個人アカウントで集めていなかった人)
+    "rio_kitagawa_tx": "管理人の判断で載せない(北川莉央)",
+    "attchu": "管理人の判断で載せない(稲葉貴子)",
+    "mikataressa": "管理人の判断で載せない(ミカ)",
+    "muratamegumi33": "管理人の判断で載せない(村田めぐみ)",
+    "meg_5683": "管理人の判断で載せない(村上愛)",
+    "reina_ichioka": "管理人の判断で載せない(一岡伶奈)",
 }
 
 # スプシの判定に乗らないが対象にするアカウント: ユーザー名 → (表示名, 見出し)。一覧の一番下に並ぶ
@@ -323,7 +331,7 @@ def main() -> int:
     max_calls = int(os.environ.get("MAX_CALLS") or 150)
 
     targets = load_targets()
-    crawl("POST", "accounts", {"accounts": targets})
+    crawl("POST", "accounts", {"accounts": targets, "remove": list(EXCLUDED)})
     state = {s["username"]: s for s in crawl("GET", "state")["state"]}
     # 以前の判定(paging.next の有無や、件数が1ページに満たないこと)で途中なのに「遡り完了」にされた人を立て直す。
     # 完了なのにカーソルが残っている人は、まだ続きがあるかもしれないので遡りを再開する

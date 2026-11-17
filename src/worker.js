@@ -9,7 +9,8 @@
  *
  * クローラ用API (Authorization: Bearer <CRAWL_TOKEN>。未設定なら存在しないことにする)
  *   GET  /api/crawl/state      アカウントごとの取得の進み具合
- *   POST /api/crawl/accounts   SNSスプシ由来の対象アカウントを丸ごと差し替え(外れた人は active=0)
+ *   POST /api/crawl/accounts   SNSスプシ由来の対象アカウントを丸ごと差し替え(外れた人は active=0)。
+ *                              remove の人は、アカウントと投稿を D1 から消す(載せないと決めた人)
  *   POST /api/crawl/posts      1ページ分の投稿と、そのアカウントの進み具合をまとめて書く
  *   POST /api/crawl/error      取得エラーを記録
  *   POST /api/crawl/paste      取り込みページから、個人アカウントの投稿を書く(public/import.html)
@@ -214,9 +215,18 @@ async function crawlState(env) {
 
 // { accounts: [{ username, name, section, sort }] }
 async function crawlAccounts(request, env) {
-  const { accounts } = await request.json();
+  const { accounts, remove } = await request.json();
   if (!Array.isArray(accounts) || !accounts.length) return json({ error: "empty" }, 400);
   const stmts = [env.DB.prepare("UPDATE account SET active = 0")];
+  // 載せないと決めた人(fetch.py の EXCLUDED)は、対象から外すだけでなく、投稿ごと消す。
+  // 対象に入っている人は消さない(書き間違いで現役の人を消さないため)
+  const keep = new Set(accounts.map((a) => String(a.username)));
+  for (const u of (Array.isArray(remove) ? remove : []).map(String).filter((u) => u && !keep.has(u))) {
+    stmts.push(env.DB.prepare("DELETE FROM post_fts WHERE id IN (SELECT id FROM post WHERE account = ?)").bind(u));
+    stmts.push(env.DB.prepare("DELETE FROM post WHERE account = ?").bind(u));
+    stmts.push(env.DB.prepare("DELETE FROM fetch_state WHERE username = ?").bind(u));
+    stmts.push(env.DB.prepare("DELETE FROM account WHERE username = ?").bind(u));
+  }
   for (const a of accounts) {
     stmts.push(env.DB
       .prepare(
