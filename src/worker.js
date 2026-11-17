@@ -858,7 +858,7 @@ export default {
 
     // 取り込みページ(管理人用)は、サイトの鍵(SITE_PASS)を外して公開したあとも、CRAWL_TOKEN を合言葉にして閉じたままにする
     // (Basic 認証。利用者名は何でもよい)。中のデータの読み書きは、別に Bearer の CRAWL_TOKEN で守っている
-    if (p === "/import" || p.startsWith("/import.") || p.startsWith("/paste")) {
+    if (p === "/import" || p.startsWith("/import.")) {
       if (!env.CRAWL_TOKEN) return new Response("Not found", { status: 404 });
       if (!unlocked(request, env.CRAWL_TOKEN)) return locked();
     }
@@ -922,8 +922,6 @@ export default {
     }
 
     if (p.startsWith("/api/")) return new Response("Not found", { status: 404 });
-    // 取り込みページは /paste から /import に名前を変えた(TikTok とそろえる)。古いブックマークやブックマークレットの「送る」用
-    if (p === "/paste" || p === "/paste.html") return Response.redirect(new URL("/import" + url.search, url).toString(), 301);
     return env.ASSETS.fetch(request);
   },
 };

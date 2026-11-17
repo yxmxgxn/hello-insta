@@ -9,7 +9,7 @@
     "directory": "./public",
     "binding": "ASSETS",
     // すべて Worker を通す。合言葉(SITE_PASS)を画面にも掛けるため。
-    // 鍵を外すときは ["/api/*", "/import*", "/paste*"] にすると、ほかの静的ファイルは Worker を通らず配信される。
+    // 鍵を外すときは ["/api/*", "/import*"] にすると、ほかの静的ファイルは Worker を通らず配信される。
     // **取り込みページ(/import)は必ず Worker を通すこと**(CRAWL_TOKEN の合言葉で閉じたままにしているため)
     "run_worker_first": true
   },
