@@ -311,7 +311,10 @@
   getJson("/api/accounts")
     .then(function (d) {
       fillAccounts(d.accounts);
-      if (d.latest) $("latest").textContent = "いちばん新しい投稿：" + d.latest.replace(/-/g, "/");
+      // 収録しているアカウント(投稿が1件以上ある、いまの対象の人)と投稿の数
+      var got = d.accounts.filter(function (a) { return a.active && a.posts > 0; });
+      var total = got.reduce(function (n, a) { return n + a.posts; }, 0);
+      if (got.length) $("stats").textContent = "収録 " + total.toLocaleString("ja-JP") + " 投稿 / " + got.length + " アカウント";
     })
     .catch(function () {})
     .then(function () {
