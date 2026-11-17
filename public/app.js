@@ -3,6 +3,7 @@
 
   var TYPE = { VIDEO: "動画", CAROUSEL_ALBUM: "複数枚", IMAGE: "画像" };
   var names = {};               // ユーザー名 → 表示名
+  var spans = {};               // ユーザー名 → { first, last }(入っている投稿の最古・最新の日時)
   var lastTs = "", listNo = 0, calNo = 0;
   var calYear, calMonth;        // 表示中の月(calMonth は 1-12)
   var $ = function (id) { return document.getElementById(id); };
@@ -47,6 +48,7 @@
     var sel = $("acc"), groups = {}, order = [], blocked = [];
     list.forEach(function (a) {
       names[a.username] = a.name;
+      if (a.first && a.last) spans[a.username] = { first: a.first, last: a.last };
       // 1件も取れていなくて、個人アカウントで取れないと分かっている人は、いちばん下の「取得不可」にまとめて選べなくする
       // (回数制限などの一時的なエラーの人は、ふつうに「未取得」で並べる)
       if (!a.posts && /個人アカウント/.test(a.error || "")) {
@@ -239,6 +241,39 @@
 
   /* ---------- カレンダー ---------- */
 
+  // 選んでいる人(選んでいなければ全員)の、入っている投稿の最古と最新の日付。カレンダーと日付の欄はこの間だけにする
+  function range() {
+    var users = selected();
+    if (!users.length) users = Object.keys(spans);
+    var lo = "", hi = "";
+    users.forEach(function (u) {
+      var s = spans[u];
+      if (!s) return;
+      if (!lo || s.first < lo) lo = s.first;
+      if (!hi || s.last > hi) hi = s.last;
+    });
+    return lo ? { lo: lo.slice(0, 10), hi: hi.slice(0, 10) } : null;
+  }
+
+  // 月の番号(年*12 + 月-1)
+  function ym(date) { return +date.slice(0, 4) * 12 + (+date.slice(5, 7) - 1); }
+
+  // 表示中の月を範囲の中に収め、日付の欄の min/max と、月を動かすボタンの押せる・押せないをそろえる
+  function clampMonth() {
+    var r = range();
+    $("from").min = $("to").min = r ? r.lo : "";
+    $("from").max = $("to").max = r ? r.hi : "";
+    var cur = calYear * 12 + (calMonth - 1);
+    if (r) cur = Math.min(Math.max(cur, ym(r.lo)), ym(r.hi));
+    calYear = Math.floor(cur / 12);
+    calMonth = cur % 12 + 1;
+    document.querySelectorAll("[data-move]").forEach(function (b) {
+      var to = cur + +b.getAttribute("data-move");
+      // 1年ずつ動かすボタンは、行き先が範囲の外でも端の月まで動けるなら押せる
+      b.disabled = !!r && (to < ym(r.lo) && cur === ym(r.lo) || to > ym(r.hi) && cur === ym(r.hi));
+    });
+  }
+
   function drawCalendar(days) {
     var grid = $("cal-grid");
     grid.innerHTML = "";
@@ -273,6 +308,7 @@
   }
 
   function loadCalendar() {
+    clampMonth();
     var p = params();
     p.delete("from");
     p.delete("to");

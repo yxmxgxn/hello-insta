@@ -177,6 +177,7 @@ async function handleAccounts(env) {
       "SELECT a.username, a.name, a.section, a.active, s.last_error AS error, " +
       "(SELECT COUNT(*) FROM post WHERE account = a.username) AS posts, " +
       "(SELECT COUNT(*) FROM post WHERE account = a.username AND id LIKE 'web:%') AS posts_web, " +
+      "(SELECT MIN(ts) FROM post WHERE account = a.username) AS first, " +
       "(SELECT MAX(ts) FROM post WHERE account = a.username) AS last, " +
       "(SELECT permalink FROM post WHERE account = a.username ORDER BY ts DESC LIMIT 1) AS last_url, " +
       "(SELECT MAX(added_at) FROM post WHERE account = a.username) AS last_added, a.ig_count, a.ig_count_at " +
