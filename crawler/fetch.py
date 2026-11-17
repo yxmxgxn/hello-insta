@@ -5,7 +5,7 @@ Worker のクローラ用API(/api/crawl/*)経由で D1 に書き込む。
 
 対象アカウント: karin-archive の SNS一覧スプシ(accounts シート)の instagram 行のうち
   - 所属(affiliation)が現役グループの人
-  - OG: 所属が J.P ROOM / UP-FRONT PROMOTION の人、M-line 会員ページ(m-line 行)を持つ人
+  - OG: J.P ROOM・UP-FRONT CREATE は OG_ORDER の名前の順、UP-FRONT PROMOTION は所属がそこの人(加入順)
   - それ以外でも instagram 行がある人は全員「その他のOG」(引退した人も含む)。
     個人アカウントの人は取れないだけ(ログに出て、週1回試す)
 シートを直せば次の実行から対象も変わる。外れた人の投稿は消さない(Worker 側で active=0)。
@@ -74,7 +74,20 @@ GROUPS: dict[str, str] = {
     "ochanorma":      "OCHA NORMA",
     "rosychronicle":  "ロージークロニクル",
 }
-OG_SECTIONS = ["J.P ROOM", "M-line", "UP-FRONT PROMOTION", "その他のOG"]
+OG_SECTIONS = ["J.P ROOM", "UP-FRONT CREATE", "UP-FRONT PROMOTION", "その他のOG"]
+# J.P ROOM・UP-FRONT CREATE の見出しに並べる人と、その順番(スプシの名前で)。管理人が決めた順で、加入順ではない。
+# スプシの所属と違っても、ここに書いた見出しに入る(飯窪春菜・辻希美・藤本美貴は CREATE に並べる)
+OG_ORDER: dict[str, list[str]] = {
+    "J.P ROOM": [
+        "譜久村聖", "竹内朱莉", "石田亜佑美", "佐藤優樹", "宮崎由加", "宮本佳林",
+        "植村あかり", "佐々木莉佳子", "稲場愛香", "森戸知沙希", "小関舞", "浅倉樹々",
+    ],
+    "UP-FRONT CREATE": [
+        "安倍なつみ", "飯田圭織", "石川梨華", "勝田里奈", "熊井友理奈", "里田まい", "鈴木愛理",
+        "須藤茉麻", "高橋愛", "田中れいな", "中澤裕子", "中島早貴", "牧野真莉愛", "真野恵里菜",
+        "矢口真里", "矢島舞美", "保田圭", "山岸理子", "飯窪春菜", "辻希美", "藤本美貴",
+    ],
+}
 
 # グループの公式アカウント(affiliation slug → ユーザー名)。各グループの見出しの一番上に「○○ 公式」で並べる
 GROUP_OFFICIAL: dict[str, str] = {
@@ -91,6 +104,7 @@ GROUP_OFFICIAL: dict[str, str] = {
 EXCLUDED: dict[str, str] = {
     "kanami_ishiguri.official": "鍵アカウント(非公開)で、公式APIでも IG取得でも何も取れない",
     "chabu_kannagi": "猫の写真のアカウントで、本人の投稿ではない",
+    "ishiguroaya.official": "管理人の判断で載せない",
     "liqinyao0111": "ごく個人的な日常のアカウントなので、載せない",
 }
 
@@ -142,16 +156,16 @@ def load_targets() -> list[dict]:
             continue
         if not m["ig"]:
             continue
-        if m["aff"] == "jproom":
-            sec = "J.P ROOM"
+        name = m["name"].replace(" ", "").replace("　", "")
+        listed = [(sec, names.index(name)) for sec, names in OG_ORDER.items() if name in names]
+        if listed:
+            sec, pos = listed[0]
         elif m["aff"] == "upfrontpromotion":
-            sec = "UP-FRONT PROMOTION"
-        elif m["mline"]:
-            sec = "M-line"
+            sec, pos = "UP-FRONT PROMOTION", m["num"]
         else:
             # 引退した人・ほかの事務所の人なども、Instagram があれば入れる
-            sec = "その他のOG"
-        picked.append(((1, OG_SECTIONS.index(sec), m["num"]), m, sec))
+            sec, pos = "その他のOG", m["num"]
+        picked.append(((1, OG_SECTIONS.index(sec), pos), m, sec))
     # グループ公式は、そのグループのメンバーより前(加入順の番号 -1)に置く
     for slug, user in GROUP_OFFICIAL.items():
         picked.append(((0, group_order.index(slug), -1), {"name": f"{GROUPS[slug]} 公式", "ig": [user]}, GROUPS[slug]))
