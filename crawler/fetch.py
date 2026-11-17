@@ -118,6 +118,16 @@ EXCLUDED: dict[str, str] = {
     "reina_ichioka": "管理人の判断で載せない(一岡伶奈)",
 }
 
+# 対象は「現役メンバー」「公式APIで取れる人」と、次の個人アカウントのOGだけ(管理人が決めた)。
+# ほかの個人アカウントのOGは、個人アカウントと分かった時点で外し、D1 からも消す(公式APIで入った投稿がある人は消さない)。
+# 宮本佳林さんのアカウントは何があっても外さない
+PERSONAL_OG_KEEP = {
+    "kurumi_takase.official",       # 高瀬くるみ
+    "shiori_yagi.official",         # 八木栞
+    "akaritakeuchi_calligraphy",    # 竹内朱莉の書道のアカウント
+    "karin_miyamoto.official", "miyamoto_mg",  # 宮本佳林(絶対)
+}
+
 # スプシの判定に乗らないが対象にするアカウント: ユーザー名 → (表示名, 見出し)。一覧の一番下に並ぶ
 EXTRA_ACCOUNTS: dict[str, tuple[str, str]] = {
     # スプシでは引退(retirement)扱いなどで外れるが、入れておきたいOG
@@ -331,8 +341,14 @@ def main() -> int:
     max_calls = int(os.environ.get("MAX_CALLS") or 150)
 
     targets = load_targets()
-    crawl("POST", "accounts", {"accounts": targets, "remove": list(EXCLUDED)})
     state = {s["username"]: s for s in crawl("GET", "state")["state"]}
+    # 個人アカウントと分かっている OG(現役のグループにいない人)は、PERSONAL_OG_KEEP の人だけ残す
+    current = set(GROUPS.values())
+    drop = [t["username"] for t in targets
+            if t["section"] not in current and t["username"] not in PERSONAL_OG_KEEP
+            and state.get(t["username"], {}).get("last_error") == PERSONAL]
+    targets = [t for t in targets if t["username"] not in drop]
+    crawl("POST", "accounts", {"accounts": targets, "remove": list(EXCLUDED), "drop": drop})
     # 以前の判定(paging.next の有無や、件数が1ページに満たないこと)で途中なのに「遡り完了」にされた人を立て直す。
     # 完了なのにカーソルが残っている人は、まだ続きがあるかもしれないので遡りを再開する
     # (本当に終わっていた人は、次の1ページが空で返ってカーソルごと消え、正しく完了に戻る)

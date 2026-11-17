@@ -10,7 +10,8 @@
  * クローラ用API (Authorization: Bearer <CRAWL_TOKEN>。未設定なら存在しないことにする)
  *   GET  /api/crawl/state      アカウントごとの取得の進み具合
  *   POST /api/crawl/accounts   SNSスプシ由来の対象アカウントを丸ごと差し替え(外れた人は active=0)。
- *                              remove の人は、アカウントと投稿を D1 から消す(載せないと決めた人)
+ *                              remove の人は、アカウントと投稿を D1 から消す(載せないと決めた人)。
+ *                              drop の人(個人アカウントのOG)も消す。ただし公式APIで入った投稿がある人は残す
  *   POST /api/crawl/posts      1ページ分の投稿と、そのアカウントの進み具合をまとめて書く
  *   POST /api/crawl/error      取得エラーを記録
  *   POST /api/crawl/paste      取り込みページから、個人アカウントの投稿を書く(public/import.html)
@@ -215,7 +216,7 @@ async function crawlState(env) {
 
 // { accounts: [{ username, name, section, sort }] }
 async function crawlAccounts(request, env) {
-  const { accounts, remove } = await request.json();
+  const { accounts, remove, drop } = await request.json();
   if (!Array.isArray(accounts) || !accounts.length) return json({ error: "empty" }, 400);
   const stmts = [env.DB.prepare("UPDATE account SET active = 0")];
   // 載せないと決めた人(fetch.py の EXCLUDED)は、対象から外すだけでなく、投稿ごと消す。
@@ -226,6 +227,15 @@ async function crawlAccounts(request, env) {
     stmts.push(env.DB.prepare("DELETE FROM post WHERE account = ?").bind(u));
     stmts.push(env.DB.prepare("DELETE FROM fetch_state WHERE username = ?").bind(u));
     stmts.push(env.DB.prepare("DELETE FROM account WHERE username = ?").bind(u));
+  }
+  // 個人アカウントと分かった OG。公式APIで入った投稿(id が web: でないもの)がある人は、
+  // プロから個人に戻した人なので消さない(対象から外れて active=0 になるだけ)
+  for (const u of (Array.isArray(drop) ? drop : []).map(String).filter((u) => u && !keep.has(u))) {
+    const official = "SELECT 1 FROM post WHERE account = ?1 AND id NOT LIKE 'web:%'";
+    stmts.push(env.DB.prepare(`DELETE FROM post_fts WHERE id IN (SELECT id FROM post WHERE account = ?1) AND NOT EXISTS (${official})`).bind(u));
+    stmts.push(env.DB.prepare(`DELETE FROM post WHERE account = ?1 AND NOT EXISTS (${official})`).bind(u));
+    stmts.push(env.DB.prepare(`DELETE FROM fetch_state WHERE username = ?1 AND NOT EXISTS (${official})`).bind(u));
+    stmts.push(env.DB.prepare(`DELETE FROM account WHERE username = ?1 AND NOT EXISTS (${official})`).bind(u));
   }
   for (const a of accounts) {
     stmts.push(env.DB
