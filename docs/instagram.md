@@ -27,7 +27,7 @@
 
 ## 公式API(Fetch)
 
-- 対象: karin-archive の SNS一覧スプシ(accounts シート)で **instagram 行がある人は全員**(現役 → J.P ROOM → UP-FRONT CREATE → UP-FRONT PROMOTION → その他のOG。J.P ROOM と CREATE は `OG_ORDER` の順)。
+- 対象: karin-archive の SNS一覧スプシ(accounts シート)で **instagram 行がある人は全員**(現役 → J.P ROOM → UP-FRONT CREATE → UP-FRONT PROMOTION → その他のOG。J.P ROOM と CREATE は `OG_ORDER` の順、その他のOG は名前の読みのあいうえお順)。
   グループ公式アカウントと、`EXTRA_ACCOUNTS`(福田花音さん、ショップ・FC など)も入る。
   `EXCLUDED` の人は外す(石栗奏美さん: 鍵アカウントで何も取れない)
 - 起動: **Cloudflare の Worker の定時実行(毎時37分)が GitHub の workflow_dispatch で起動する**(`GH_DISPATCH_TOKEN`)。

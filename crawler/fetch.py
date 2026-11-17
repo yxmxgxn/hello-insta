@@ -6,7 +6,7 @@ Worker のクローラ用API(/api/crawl/*)経由で D1 に書き込む。
 対象アカウント: karin-archive の SNS一覧スプシ(accounts シート)の instagram 行のうち
   - 所属(affiliation)が現役グループの人
   - OG: J.P ROOM・UP-FRONT CREATE は OG_ORDER の名前の順、UP-FRONT PROMOTION は所属がそこの人(加入順)
-  - それ以外でも instagram 行がある人は全員「その他のOG」(引退した人も含む)。
+  - それ以外でも instagram 行がある人は全員「その他のOG」(引退した人も含む。名前の読みのあいうえお順)。
     個人アカウントの人は取れないだけ(ログに出て、週1回試す)
 シートを直せば次の実行から対象も変わる。外れた人の投稿は消さない(Worker 側で active=0)。
 
@@ -30,6 +30,8 @@ import csv
 import io
 import json
 import os
+import re
+import unicodedata
 import sys
 import time
 import urllib.error
@@ -127,6 +129,14 @@ def warn(msg: str) -> None:
 
 # ---------- 対象アカウント ----------
 
+def gojuon(kana: str) -> tuple[str, str]:
+    """あいうえお順に並べるためのキー。濁点・半濁点を外し(ご→こ)、カタカナはひらがなにして比べる。
+    濁点だけが違うときは、濁点の無い方を先にする"""
+    hira = "".join(chr(ord(c) - 0x60) if "ァ" <= c <= "ヶ" else c for c in kana)
+    plain = "".join(c for c in unicodedata.normalize("NFD", hira) if c not in "\u3099\u309a")
+    return (plain, hira)
+
+
 def load_targets() -> list[dict]:
     """[{username, name, section, sort}]。現役(グループ順→加入順)のあとにOG(見出しごと→加入順)。"""
     with urllib.request.urlopen(ACCOUNTS_CSV, timeout=60) as res:
@@ -138,15 +148,16 @@ def load_targets() -> list[dict]:
         num_s, name, platform, id_ = row[0], row[1], row[2], row[3]
         if not num_s.isdigit() or not platform:
             continue
-        m = members.setdefault(int(num_s), {"num": int(num_s), "name": name, "aff": "", "ig": [], "mline": False})
+        m = members.setdefault(int(num_s), {"num": int(num_s), "name": name, "aff": "", "ig": [], "kana": ""})
         if not m["name"] and name:
             m["name"] = name
-        if platform == "affiliation":
+        # 名前のひらがなの読みは、platform の欄にひらがなだけが入った行(ID は空)
+        if not id_ and re.fullmatch(r"[ぁ-ゖァ-ヺー・]+", platform):
+            m["kana"] = platform
+        elif platform == "affiliation":
             m["aff"] = id_
         elif platform == "instagram" and id_:
             m["ig"].append(id_.strip("/").lower())
-        elif platform == "m-line" and id_:
-            m["mline"] = True
 
     group_order = list(GROUPS)
     picked = []
@@ -163,8 +174,8 @@ def load_targets() -> list[dict]:
         elif m["aff"] == "upfrontpromotion":
             sec, pos = "UP-FRONT PROMOTION", m["num"]
         else:
-            # 引退した人・ほかの事務所の人なども、Instagram があれば入れる
-            sec, pos = "その他のOG", m["num"]
+            # 引退した人・ほかの事務所の人なども、Instagram があれば入れる。所属がばらばらなので、名前の読みのあいうえお順
+            sec, pos = "その他のOG", gojuon(m["kana"] or m["name"])
         picked.append(((1, OG_SECTIONS.index(sec), pos), m, sec))
     # グループ公式は、そのグループのメンバーより前(加入順の番号 -1)に置く
     for slug, user in GROUP_OFFICIAL.items():
