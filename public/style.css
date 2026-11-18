@@ -1,3 +1,5 @@
+/* 余白・文字の大きさ・部品の形は、アメブロ検索(ameblo.karin-archive.com)の style.css にそろえる。
+   違うのは色だけ。色は --accent の1色から作り(下の --cell* も)、--accent を変えれば全体が変わる */
 :root {
   /* 端末がダークモードでも常に明るい配色で出す(ブラウザの自動ダーク化も止める) */
   color-scheme: only light;
@@ -10,14 +12,21 @@
   --accent-ink: #ffffff;
   --mark: #fff0a8;
   --mark-ink: #1f1f1f;
+  /* 淡い〜濃いの段階(選んだ人の札・カレンダー)。アメブロ検索は緑の段階を持つが、ここは --accent から混ぜて作る */
+  --cell0: #f0f0ec;
+  --cell1: color-mix(in srgb, var(--accent) 22%, var(--surface));
+  --cell2: color-mix(in srgb, var(--accent) 48%, var(--surface));
+  --cell3: color-mix(in srgb, var(--accent) 74%, var(--surface));
+  --cell4: var(--accent);
 }
 
 * { box-sizing: border-box; }
-html { -webkit-text-size-adjust: 100%; }
+html { -webkit-text-size-adjust: 100%; scrollbar-gutter: stable; }   /* 一覧の長さでスクロールバーが出入りしても、横にずれないように */
 body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
+  /* Noto Sans JP で統一。system-ui だと Windows で細い Yu Gothic UI になるので使わない */
   font-family: "Noto Sans JP", -apple-system, BlinkMacSystemFont, "Hiragino Sans", sans-serif;
   line-height: 1.7;
 }
@@ -27,87 +36,159 @@ main, .site-head, .site-foot { max-width: 760px; margin: 0 auto; padding: 0 16px
 .site-head h1 { margin: 0; font-size: 1.5rem; letter-spacing: .02em; }
 .site-head h1 a { color: inherit; text-decoration: none; }
 .lead { margin: 4px 0 0; color: var(--muted); font-size: .92rem; }
-.lead.sec { font-size: .85rem; }
+.lead.sec { font-size: .85rem; margin-top: 6px; }
+.lead a { color: inherit; }
 
 .search {
   display: flex; flex-direction: column; gap: 10px;
-  margin: 16px 0 8px; padding: 16px;
-  background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+  margin: 16px 0 8px;
+  padding: 16px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
 }
 .q-row { display: flex; gap: 8px; }
 input, select, button { font: inherit; color: var(--text); }
 .q-row input {
-  flex: 1; min-width: 0; font-size: 1.05rem; padding: 10px 12px;
-  border: 1px solid var(--line); border-radius: 8px; background: var(--bg);
+  flex: 1;
+  min-width: 0;
+  font-size: 1.05rem;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg);
 }
 input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
-/* グループのボタンと、押すと並ぶアカウントのボタン(display を付けても hidden で隠れるように) */
-.gbtn[hidden], .gaccs[hidden], .picked[hidden] { display: none; }
-.gbtn, .gaccs, .picked { display: flex; flex-wrap: wrap; gap: 6px; }
-.gb, .ab, .pk {
-  padding: 4px 12px; border: 1px solid var(--line); border-radius: 999px;
-  background: var(--bg); color: var(--text); font-size: .85rem; line-height: 1.5;
-}
-.gb:hover, .ab:hover, .pk:hover { border-color: var(--accent); }
-.gb.on, .ab.on { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 700; }
-.gb.has:not(.on) { border-color: var(--accent); color: var(--accent); }
-.gaccs { padding: 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); }
-.ab.off:not(.on) { color: var(--muted); }
-.pk { border-color: var(--accent); color: var(--accent); }
-.picked { align-items: center; font-size: .85rem; }
-.plabel { color: var(--muted); }
-.otherbox { font-size: .92rem; }
-#other { max-width: 100%; padding: 4px 6px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); }
-#other option.off { color: var(--muted); }
-.row { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; font-size: .92rem; }
-.row input { padding: 4px 6px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); }
 button {
-  padding: 8px 16px; border: 1px solid var(--accent); border-radius: 8px;
-  background: var(--accent); color: var(--accent-ink); cursor: pointer;
+  cursor: pointer;
+  border: 0;
+  border-radius: 8px;
+  padding: 10px 18px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 600;
 }
-button.ghost { background: transparent; color: var(--accent); padding: 4px 10px; }
-.hint { margin: 0; color: var(--muted); font-size: .82rem; }
+select {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 5px 8px;
+  max-width: 60vw;
+}
+.ghost {
+  padding: 6px 10px;
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  font-weight: 400;
+  font-size: .82rem;
+  white-space: nowrap;
+}
+.ghost:hover { color: var(--accent); border-color: var(--accent); }
+.hint { margin: 0; font-size: .8rem; color: var(--muted); }
 
-.cal { margin: 16px 0; max-width: 420px; }
+/* ---- メンバー選択(アメブロ検索の .tag・.panel・.chip と同じ形) ---- */
+.gbtn[hidden], .gaccs[hidden], .picked[hidden] { display: none; }   /* display:flex が hidden を打ち消すのを防ぐ */
+.gbtn, .gaccs, .picked { display: flex; flex-wrap: wrap; gap: 6px; }
+.gb, .ab {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--line);
+  font-weight: 400;
+  font-size: .85rem;
+  line-height: 1.7;
+}
+.gb:hover, .ab:hover { border-color: var(--accent); }
+.gb.on, .ab.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
+/* グループの中に選んでいる人がいる(開いていない)状態 */
+.gb.has:not(.on) { border-color: var(--accent); color: var(--accent); }
+.ab.off:not(.on) { color: var(--muted); }
+.gaccs {
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg);
+}
+.picked { align-items: center; font-size: .82rem; }
+.plabel { color: var(--muted); }
+.pk {
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--cell1);
+  color: var(--text);
+  font-weight: 400;
+  font-size: .82rem;
+  line-height: 1.5;
+}
+.pk:hover { background: var(--accent); color: var(--accent-ink); }
+.otherbox { display: flex; align-items: center; gap: 6px; font-size: .9rem; color: var(--muted); }
+#other option.off { color: var(--muted); }
+
+.row { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; font-size: .9rem; color: var(--muted); }
+.row label { display: flex; align-items: center; gap: 6px; }
+.row input { padding: 5px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); }
+
+/* ---- カレンダー(アメブロ検索の .cal・.days と同じ形) ---- */
+.cal {
+  margin: 12px 0;
+  padding: 14px 16px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.cal > * { max-width: 420px; }
 .cal-head { display: flex; align-items: center; gap: 4px; margin-bottom: 6px; }
-.cal-head strong { flex: 1; text-align: center; }
-.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; margin-bottom: 6px; }
-.cal-grid .dow { text-align: center; font-size: .75rem; color: var(--muted); }
+.cal-head strong { flex: 1; text-align: center; font-size: .95rem; }
+.cal-head button { background: transparent; color: var(--accent); padding: 4px 10px; border: 1px solid var(--line); font-weight: 400; }
+.cal-head button:disabled { opacity: .3; cursor: default; }
+.cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px; margin-bottom: 6px; font-size: .8rem; }
+.cal-grid .dow { text-align: center; font-size: .72rem; color: var(--muted); }
 .cal-grid .dow:first-child { color: #c33; }
 .cal-grid .dow:nth-child(7) { color: #36c; }
 .day {
   aspect-ratio: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
-  padding: 0; border: 1px solid var(--line); border-radius: 6px;
-  background: var(--surface); color: var(--text); font-size: .82rem; line-height: 1.2;
+  padding: 0; border: 1px solid transparent; border-radius: 4px;
+  background: var(--cell0); color: var(--text); font-weight: 400; line-height: 1.2;
+  font-variant-numeric: tabular-nums;
 }
-.day:disabled { cursor: default; opacity: .4; }
-.day .n { font-size: .7rem; font-weight: 700; }
+.day:disabled { cursor: default; color: var(--muted); }
+.day .n { font-size: .68rem; opacity: .85; }
 .day.has { background: color-mix(in srgb, var(--accent) calc(12% + var(--lv) * 50%), var(--surface)); }
-.day.sel { outline: 2px solid var(--accent); outline-offset: -2px; }
+.day.sel { border-color: var(--text); }
 .day.today span:first-child { text-decoration: underline; }
 
+/* ---- 一覧(アメブロ検索の .results と同じカードの形) ---- */
 .list { list-style: none; margin: 0; padding: 0; }
-.list li { padding: 10px 0; border-bottom: 1px solid var(--line); }
-.meta { font-size: .85rem; color: var(--muted); margin-right: 6px; }
+.list li {
+  padding: 14px 16px;
+  margin-bottom: 10px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.meta { font-size: .8rem; color: var(--muted); margin-right: 6px; }
 .name {
   padding: 0; margin-right: 8px; border: 0; background: none; color: var(--text);
-  font-size: .85rem; font-weight: 700; text-decoration: underline dotted; cursor: pointer;
+  font-size: .8rem; font-weight: 600; text-decoration: underline dotted; cursor: pointer;
 }
 .type { font-size: .72rem; padding: 0 6px; border: 1px solid var(--line); border-radius: 4px; color: var(--muted); }
-.list a { display: block; margin-top: 2px; color: var(--accent); word-break: break-all; }
+.list a { display: block; margin-top: 2px; font-size: .92rem; color: var(--accent); overflow-wrap: anywhere; }
 .see {
-  margin-top: 4px; padding: 2px 10px; border: 1px solid var(--line); border-radius: 999px;
-  background: var(--surface); color: var(--muted); font-size: .78rem; cursor: pointer;
+  margin-top: 6px; padding: 3px 10px; border: 1px solid var(--line); border-radius: 999px;
+  background: var(--surface); color: var(--muted); font-weight: 400; font-size: .78rem;
 }
 .see:hover { color: var(--accent); border-color: var(--accent); }
 /* 公式の埋め込みは幅 326〜540px。スマホでは画面いっぱいまで */
 .embed { margin-top: 8px; max-width: 540px; }
 .embed .instagram-media { margin: 0 !important; min-width: 0 !important; width: 100% !important; }
-mark { background: var(--mark); color: var(--mark-ink); border-radius: 2px; }
-.status { color: var(--muted); font-size: .9rem; }
-.more { display: block; margin: 8px auto 24px; }
+mark { background: var(--mark); color: var(--mark-ink); padding: 0 1px; border-radius: 2px; }
+.status { min-height: 1.7em; margin: 12px 2px; font-size: .9rem; color: var(--muted); }
+.more { display: block; margin: 8px auto 24px; background: transparent; color: var(--accent); border: 1px solid var(--accent); }
+.more[hidden] { display: none; }   /* 上の display: block が hidden 属性に勝ってしまうため */
 
-.site-foot { padding-top: 16px; padding-bottom: 32px; color: var(--muted); font-size: .8rem; border-top: 1px solid var(--line); margin-top: 24px; }
+.site-foot { padding-top: 16px; padding-bottom: 40px; font-size: .78rem; color: var(--muted); border-top: 1px solid var(--line); margin-top: 24px; }
 .site-foot p { margin: 4px 0; }
 .site-foot a { color: inherit; }
 
@@ -118,18 +199,18 @@ main.doc h2 { margin-top: 32px; margin-bottom: 12px; font-size: 1.3rem; border-b
 main.doc h3 { margin-top: 20px; margin-bottom: 8px; font-size: 1.1rem; }
 main.doc h3 + p { margin-top: 0; }
 main.doc p { margin: 8px 0; }
-main.doc ul { margin: 8px 0; padding-left: 24px; }
+main.doc ul, main.doc ol { margin: 8px 0; padding-left: 24px; }
 main.doc li { margin: 6px 0; }
 main.doc a { color: var(--accent); }
 .note { font-size: .92rem; color: var(--muted); margin-top: 12px; }
 main.doc strong { color: var(--accent); font-weight: 600; }
-.lead a { color: inherit; }
+main.doc em { font-style: italic; }
 
 /* ---------- 日付で見る(/day) ---------- */
 main.wide, .site-head.wide, .site-foot.wide { max-width: 1040px; }
 .daybar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 16px 0 4px; }
 .daybar input[type="date"] {
-  font: inherit; font-size: 1rem; padding: 6px 10px;
+  font-size: 1rem; padding: 6px 10px;
   border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--text);
 }
 .daybar button:disabled { opacity: .35; cursor: default; }
@@ -138,23 +219,27 @@ main.wide, .site-head.wide, .site-foot.wide { max-width: 1040px; }
 .gitem {
   display: flex; justify-content: space-between; align-items: center; gap: 8px; width: 100%;
   padding: 7px 10px; border: 0; border-radius: 8px; background: transparent; color: var(--text);
-  font: inherit; font-size: .9rem; text-align: left; cursor: pointer;
+  font-weight: 400; font-size: .9rem; text-align: left;
 }
-.gitem:hover { background: var(--line); }
+.gitem:hover { background: var(--cell0); }
 .gitem.on { background: var(--accent); color: var(--accent-ink); font-weight: 600; }
 .gitem .n { font-size: .78rem; opacity: .7; font-variant-numeric: tabular-nums; }
 .results { list-style: none; margin: 0; padding: 0; }
 /* 読み込み中の空の一覧。高さが無いと下の部分が上がってきてページが揺れる */
 .results:empty { min-height: 70vh; }
+/* 次の結果が届くまで前の結果を薄く残す(一覧を空にすると画面が詰まってピクッと動くため) */
 .results.loading { opacity: .45; transition: opacity .15s; }
 .results li {
-  padding: 12px 14px; margin-bottom: 10px;
-  background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+  padding: 14px 16px;
+  margin-bottom: 10px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
 }
-.results .meta { margin: 0 0 4px; display: flex; flex-wrap: wrap; align-items: center; gap: 0 10px; font-size: .82rem; color: var(--muted); }
+.results .meta { margin: 0 0 6px; display: flex; flex-wrap: wrap; align-items: center; gap: 0 10px; font-size: .8rem; color: var(--muted); }
 .results .meta time { font-variant-numeric: tabular-nums; }
-.results .meta .who { color: var(--text); font-weight: 700; }
-.results .text { display: block; color: var(--accent); overflow-wrap: anywhere; text-decoration: none; }
+.results .meta .who { color: var(--text); font-weight: 600; }
+.results .text { display: block; font-size: .92rem; color: var(--accent); overflow-wrap: anywhere; text-decoration: none; }
 .results .text:hover { text-decoration: underline; }
 /* 狭い画面ではグループを上に横並びにして、横にスクロールさせる */
 @media (max-width: 720px) {
@@ -167,6 +252,6 @@ main.wide, .site-head.wide, .site-foot.wide { max-width: 1040px; }
   .gitem.on { border-color: var(--accent); }
 }
 
-/* フッターの「このサイトを紹介する」(アメブロ検索とそろえる) */
+/* フッターの「このサイトを紹介する」 */
 .site-foot .share { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin: 10px 0; }
 .site-foot .share .ghost { padding: 3px 10px; font-size: .78rem; }
