@@ -8,7 +8,10 @@
   --text: #1f1f1f;
   --muted: #6b6b6b;
   --line: #e4e2dd;
-  --accent: #F04C5C;        /* Instagram のアイコンの真ん中あたりの色 */
+  /* 初代(2010年)の Instagram のアイコンの色。画像の上半分の茶色・下半分のベージュの、平らなところの中央値。
+     茶色は白に対して 7.26:1 で、文字にもそのまま使える(アメブロ検索がアメブロの緑をそのまま使うのと同じ考え) */
+  --accent: #695245;        /* アイコンの茶色 */
+  --beige: #CCBFB3;         /* アイコンのベージュ。カレンダーの淡い側 */
   --accent-ink: #ffffff;
   --mark: #fff0a8;
   --mark-ink: #1f1f1f;
@@ -155,7 +158,9 @@ select {
 }
 .day:disabled { cursor: default; color: var(--muted); }
 .day .n { font-size: .68rem; opacity: .85; }
-.day.has { background: color-mix(in srgb, var(--accent) calc(12% + var(--lv) * 50%), var(--surface)); }
+/* 投稿のある日は、少ないほどアイコンのベージュ、多いほど茶色。濃い日は字を白にする(黒字・白字とも 4:1 前後を保つ境目) */
+.day.has { background: color-mix(in srgb, var(--accent) calc(var(--lv) * 100%), var(--beige)); }
+.day.has.dk { color: var(--accent-ink); }
 .day.sel { border-color: var(--text); }
 .day.today span:first-child { text-decoration: underline; }
 
