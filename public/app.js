@@ -338,6 +338,7 @@
       b.className = "day" + (n ? " has" : "") + (key === selDay ? " sel" : "") + (key === today ? " today" : "");
       b.innerHTML = "<span>" + d + "</span>" + (n ? '<span class="n">' + n + "</span>" : "");
       if (n) b.style.setProperty("--lv", (n / max).toFixed(2));
+      if (n / max > 0.65) b.classList.add("dk");
       b.disabled = !n && key !== selDay;
       b.setAttribute("aria-label", calMonth + "月" + d + "日 " + n + "件");
       b.onclick = (function (k) { return function () { pickDay(k); }; })(key);
