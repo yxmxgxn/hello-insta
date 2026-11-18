@@ -70,16 +70,9 @@
       meta.appendChild(el("span", "who", names[r.account] || r.account));
       if (TYPE[r.media_type]) meta.appendChild(el("span", "type", TYPE[r.media_type]));
       li.appendChild(meta);
-      var a = el("a", "text", clean(r.excerpt) || "（本文なし）");
-      // /reel/ だと別の動画に飛ばされることがあるので、リールも開ける /p/ にそろえる
-      a.href = r.permalink.replace("/reel/", "/p/");
-      a.target = "_blank";
-      a.rel = "noopener noreferrer";
-      li.appendChild(a);
-      var see = el("button", "see", "▶ ここで見る");
-      see.type = "button";
-      see.onclick = function () { window.toggleEmbed(li, see, a.href); };
-      li.appendChild(see);
+      // 本文の抜粋は黒い文字で、リンクにしない。元の投稿へは下の「Instagram で開く ↗」
+      li.appendChild(el("p", "text", clean(r.excerpt) || "（本文なし）"));
+      li.appendChild(window.postActions(li, r.permalink));
       list.appendChild(li);
     });
     var name = pick ? pick + "・" : "";

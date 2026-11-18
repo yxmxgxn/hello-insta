@@ -207,7 +207,7 @@
     var li = document.createElement("li");
     var meta = document.createElement("span");
     meta.className = "meta";
-    meta.textContent = post.ts.replace(/-/g, "/");
+    meta.textContent = post.ts;   // 2026-11-18 21:01(アメブロ検索と同じハイフン。秒は持たない)
     li.appendChild(meta);
     var nm = document.createElement("button");
     nm.type = "button";
@@ -222,21 +222,14 @@
       t.textContent = TYPE[post.media_type];
       li.appendChild(t);
     }
-    var a = document.createElement("a");
-    // /reel/ だと別の動画に飛ばされることがあるので、リールも開ける /p/ にそろえる
-    a.href = post.permalink.replace("/reel/", "/p/");
-    a.target = "_blank";
-    a.rel = "noopener noreferrer";
+    // 本文の抜粋は黒い文字で、リンクにしない(選んでコピーでき、触っただけで外へ飛ばない)
+    var p = document.createElement("p");
+    p.className = "text";
     // 以前の取り込みで絵文字が途中で割れた抜粋があるので、片割れのサロゲートを除いて出す
     var text = (post.excerpt || "").replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, "");
-    if (text) highlight(a, text, q); else a.textContent = "（本文なし）";
-    li.appendChild(a);
-    var see = document.createElement("button");
-    see.type = "button";
-    see.className = "see";
-    see.textContent = "▶ ここで見る";
-    see.onclick = function () { window.toggleEmbed(li, see, a.href); };
-    li.appendChild(see);
+    if (text) highlight(p, text, q); else p.textContent = "（本文なし）";
+    li.appendChild(p);
+    li.appendChild(window.postActions(li, post.permalink));
     return li;
   }
 
