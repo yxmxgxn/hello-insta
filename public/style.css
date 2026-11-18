@@ -179,12 +179,16 @@ select {
   font-size: .8rem; font-weight: 600; text-decoration: underline dotted; cursor: pointer;
 }
 .type { font-size: .72rem; padding: 0 6px; border: 1px solid var(--line); border-radius: 4px; color: var(--muted); }
-.list a { display: block; margin-top: 2px; font-size: .92rem; color: var(--accent); overflow-wrap: anywhere; }
+/* 本文の抜粋は黒い文字(リンクにしない)。トップと /day 共通 */
+.list .text, .results .text { margin: 2px 0 0; font-size: .92rem; color: var(--text); overflow-wrap: anywhere; }
+/* 投稿の下の操作の行:「▶ ここで見る」と「Instagram で開く ↗」 */
+.acts { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; margin-top: 8px; }
 .see {
-  margin-top: 6px; padding: 3px 10px; border: 1px solid var(--line); border-radius: 999px;
+  padding: 3px 10px; border: 1px solid var(--line); border-radius: 999px;
   background: var(--surface); color: var(--muted); font-weight: 400; font-size: .78rem;
 }
 .see:hover { color: var(--accent); border-color: var(--accent); }
+.open { font-size: .78rem; color: var(--accent); }
 /* 公式の埋め込みは幅 326〜540px。スマホでは画面いっぱいまで */
 .embed { margin-top: 8px; max-width: 540px; }
 .embed .instagram-media { margin: 0 !important; min-width: 0 !important; width: 100% !important; }
@@ -244,8 +248,6 @@ main.wide, .site-head.wide, .site-foot.wide { max-width: 1040px; }
 .results .meta { margin: 0 0 6px; display: flex; flex-wrap: wrap; align-items: center; gap: 0 10px; font-size: .8rem; color: var(--muted); }
 .results .meta time { font-variant-numeric: tabular-nums; }
 .results .meta .who { color: var(--text); font-weight: 600; }
-.results .text { display: block; font-size: .92rem; color: var(--accent); overflow-wrap: anywhere; text-decoration: none; }
-.results .text:hover { text-decoration: underline; }
 /* 狭い画面ではグループを上に横並びにして、横にスクロールさせる */
 @media (max-width: 720px) {
   .daygrid { grid-template-columns: 1fr; gap: 0; }

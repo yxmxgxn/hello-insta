@@ -1,5 +1,6 @@
 // Instagram 公式の埋め込みを、押したときだけ開く(トップと /day で共通)。
-// window.toggleEmbed(li, ボタン, 投稿のURL) で、li の下に開く/閉じる
+// window.toggleEmbed(li, ボタン, 投稿のURL) で、li の下に開く/閉じる。
+// window.postActions(li, permalink) は、投稿の下の「▶ ここで見る」「Instagram で開く ↗」の行を作る
 (function () {
   "use strict";
 
@@ -51,5 +52,28 @@
       .catch(function () { /* 読み込めなくても「Instagram で見る」は押せる */ });
   }
 
+  // 投稿の下の操作の行:「▶ ここで見る」(サイトの中で開く)と「Instagram で開く ↗」(元の投稿へ)
+  function actions(li, permalink) {
+    // /reel/ だと別の動画に飛ばされることがあるので、リールも開ける /p/ にそろえる
+    var url = permalink.replace("/reel/", "/p/");
+    var row = document.createElement("div");
+    row.className = "acts";
+    var see = document.createElement("button");
+    see.type = "button";
+    see.className = "see";
+    see.textContent = "▶ ここで見る";
+    see.onclick = function () { toggleEmbed(li, see, url); };
+    var open = document.createElement("a");
+    open.className = "open";
+    open.href = url;
+    open.target = "_blank";
+    open.rel = "noopener noreferrer";
+    open.textContent = "Instagram で開く ↗";
+    row.appendChild(see);
+    row.appendChild(open);
+    return row;
+  }
+
   window.toggleEmbed = toggleEmbed;
+  window.postActions = actions;
 })();
