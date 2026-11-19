@@ -700,7 +700,7 @@ async function handleRank(url, env) {
 <meta name="robots" content="noindex, nofollow">
 <title>ランキング（自分用）</title>
 <style>
-  body { font-family: "Noto Sans JP", sans-serif; margin: 16px; color: #1f1f1f; background: #fafaf8; }
+  body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; margin: 16px; color: #1f1f1f; background: #fafaf8; }
   form { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
   table { border-collapse: collapse; width: 100%; font-size: .88rem; }
   th, td { border-bottom: 1px solid #e4e2dd; padding: 6px; text-align: left; vertical-align: top; }
