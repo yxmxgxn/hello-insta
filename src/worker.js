@@ -2,7 +2,7 @@
  * ハロプロ Instagram 投稿アーカイブ Worker (Static Assets 併用)
  *
  * 公開API
- *   GET /api/posts?a=&from=&to=&q=&before=   投稿を新しい順に100件ずつ。a はユーザー名のカンマ区切り
+ *   GET /api/posts?a=&act=&from=&to=&q=&before=   投稿を新しい順に100件ずつ。a はユーザー名のカンマ区切り。act=1 は(a が無いとき)現役グループの人だけ
  *   GET /api/calendar?ym=YYYY-MM&a=&q=        その月の日ごとの投稿数(a / q の条件込み)。ym なしなら月ごとの投稿数
  *   GET /api/accounts                         絞り込み用のアカウント一覧
  *   GET /api/day?d=YYYY-MM-DD                 その日の投稿を時刻の順に(/day のページ用)
@@ -122,6 +122,9 @@ const nowJst = () => new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 16
 /* ============================ 公開API ============================ */
 
 // a / from / to / q の共通条件
+// 「ハロプロ現役のみ」の対象の見出し(account.section の頭)。crawler/fetch.py の GROUPS(現役グループ)と同じものを保つ
+const ACTIVE_SECTIONS = ["モーニング娘。", "アンジュルム", "Juice=Juice", "つばきファクトリー", "BEYOOOOONDS", "OCHA NORMA", "ロージークロニクル"];
+
 function filters(p) {
   const where = [];
   const args = [];
@@ -129,6 +132,10 @@ function filters(p) {
   if (accounts.length) {
     where.push(`account IN (${accounts.map(() => "?").join(",")})`);
     args.push(...accounts);
+  } else if (p.get("act") === "1") {
+    // アカウントを選んでいないときだけ、現役グループの人に絞る(選んでいれば、その人たちを出す)
+    where.push(`account IN (SELECT username FROM account WHERE active = 1 AND (${ACTIVE_SECTIONS.map(() => "section LIKE ?").join(" OR ")}))`);
+    args.push(...ACTIVE_SECTIONS.map((s) => s + "%"));
   }
   const from = p.get("from") || "";
   const to = p.get("to") || "";
