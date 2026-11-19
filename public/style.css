@@ -62,7 +62,7 @@ input, select, button { font: inherit; color: var(--text); }
   border-radius: 8px;
   background: var(--bg);
 }
-input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+.q-row input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
 button {
   cursor: pointer;
   border: 0;
@@ -138,8 +138,27 @@ select {
 .chk input { accent-color: var(--accent); width: 16px; height: 16px; }
 #other option.off { color: var(--muted); }
 
-.row { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; font-size: .9rem; color: var(--muted); }
-.row label { display: flex; align-items: center; gap: 6px; }
+/* ---- 検索欄の下の行・メンバー選択のパネル(アメブロ検索と同じ形) ---- */
+.opts { display: flex; flex-wrap: wrap; gap: 8px 16px; margin-top: 12px; align-items: center; font-size: .9rem; color: var(--muted); }
+.opts label { display: flex; align-items: center; gap: 6px; }
+.opts .chk { gap: 4px; }
+.pick-open {
+  padding: 5px 12px;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--line);
+  font-weight: 400;
+  font-size: .9rem;
+}
+.pick-open[aria-expanded="true"] { border-color: var(--accent); color: var(--accent); }
+.panel { margin-top: 12px; padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); }
+.panel[hidden] { display: none; }
+.panel > * + * { margin-top: 10px; }
+.panel .gaccs { padding: 0; border: 0; }
+.panel-h { display: flex; justify-content: flex-end; }
+.panel .other { display: block; }
+.panel .other[hidden] { display: none; }
+.picked { margin-top: 10px; }
 .dfield { display: flex; align-items: center; gap: 6px; }
 .dfield[hidden] { display: none; }
 .dsel { display: inline-flex; gap: 2px; }

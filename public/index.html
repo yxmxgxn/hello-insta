@@ -31,16 +31,29 @@
     <!-- 取得不可の人も並ぶので、検索結果の抜粋には使わせない(ページ全体は noindex にしない) -->
     <!-- 選んでいる人は見えない select に持つ(URL・検索の条件はここから作る) -->
     <select id="acc" multiple hidden aria-hidden="true"></select>
-    <label class="chk"><input id="act" type="checkbox">ハロプロ現役のみ</label>
-    <div id="gbtn" class="gbtn" role="group" aria-label="グループ" data-nosnippet></div>
-    <div id="gaccs" class="gaccs" role="group" aria-label="アカウント" hidden data-nosnippet></div>
-    <select id="other" class="other" aria-label="その他のアカウント" data-nosnippet><option value="">その他のアカウント</option></select>
-    <div id="picked" class="picked" hidden data-nosnippet></div>
-    <div class="row">
+    <div class="opts">
+      <button id="pick-open" class="pick-open" type="button" aria-expanded="false" aria-controls="panel"><span id="pick-label">メンバー選択</span></button>
+      <label class="chk"><input id="act" type="checkbox">ハロプロ現役のみ</label>
+      <label>並び
+        <select id="order" name="order">
+          <option value="">新しい順</option>
+          <option value="old">古い順</option>
+        </select>
+      </label>
+    </div>
+    <div class="opts dates">
       <input type="hidden" id="from"><input type="hidden" id="to">
       <span class="dfield">いつから <span class="dsel" data-for="from" role="group" aria-label="いつから"><select class="y" aria-label="年"></select><select class="m" aria-label="月"></select></span></span>
       <span class="dfield">いつまで <span class="dsel" data-for="to" role="group" aria-label="いつまで"><select class="y" aria-label="年"></select><select class="m" aria-label="月"></select></span></span>
       <button type="button" class="ghost" id="reset">リセット</button>
+    </div>
+    <div id="picked" class="picked" hidden data-nosnippet></div>
+    <!-- メンバー選択のパネル。グループを押すとそのグループのアカウントがボタンで並ぶ -->
+    <div id="panel" class="panel" hidden>
+      <div id="gbtn" class="gbtn" role="group" aria-label="グループ" data-nosnippet></div>
+      <div id="gaccs" class="gaccs" role="group" aria-label="アカウント" hidden data-nosnippet></div>
+      <select id="other" class="other" aria-label="その他のアカウント" data-nosnippet><option value="">その他のアカウント</option></select>
+      <div class="panel-h"><button type="button" class="ghost" id="pick-close">閉じる</button></div>
     </div>
     <p class="hint">メンバーを選択すると、その人たちだけに絞り込めます。空白で区切って検索すると全部含む投稿が並びます。</p>
   </form>
