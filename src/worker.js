@@ -222,7 +222,7 @@ async function handleAccounts(env) {
       "(SELECT MIN(ts) FROM post WHERE account = a.username) AS first, " +
       "(SELECT MAX(ts) FROM post WHERE account = a.username) AS last, " +
       "(SELECT permalink FROM post WHERE account = a.username ORDER BY ts DESC LIMIT 1) AS last_url, " +
-      "(SELECT MAX(added_at) FROM post WHERE account = a.username) AS last_added, a.ig_count, a.ig_count_at " +
+      "(SELECT MAX(added_at) FROM post WHERE account = a.username) AS last_added, a.ig_count, a.ig_count_at, a.groups " +
       "FROM account a LEFT JOIN fetch_state s ON s.username = a.username ORDER BY a.active DESC, a.sort"),
     env.DB.prepare("SELECT MAX(ts) AS ts FROM post"),
   ]);
@@ -280,10 +280,10 @@ async function crawlAccounts(request, env) {
   for (const a of accounts) {
     stmts.push(env.DB
       .prepare(
-        "INSERT INTO account(username, name, section, sort, active) VALUES(?, ?, ?, ?, 1) " +
+        "INSERT INTO account(username, name, section, sort, active, groups) VALUES(?, ?, ?, ?, 1, ?) " +
         "ON CONFLICT(username) DO UPDATE SET name = excluded.name, section = excluded.section, " +
-        "sort = excluded.sort, active = 1")
-      .bind(String(a.username), String(a.name), String(a.section), Number(a.sort) || 0));
+        "sort = excluded.sort, active = 1, groups = excluded.groups")
+      .bind(String(a.username), String(a.name), String(a.section), Number(a.sort) || 0, String(a.groups || "")));
   }
   await env.DB.batch(stmts);
   return json({ ok: true, count: accounts.length });

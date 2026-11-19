@@ -106,6 +106,13 @@ OG_ORDER: dict[str, list[str]] = {
     ],
 }
 
+# スプシの GroupNo / SubGroup の値 → 現役グループの名前(グループのボタンと同じ名前)。
+# OG(その他のOG など)を、「そのグループにいたことがある人」で絞るのに使う。ほかの番号(昔のグループなど)は使わない
+GROUP_NAMES: dict[int, str] = {
+    2: "モーニング娘。", 11: "アンジュルム", 12: "Juice=Juice", 15: "つばきファクトリー",
+    16: "BEYOOOOONDS", 17: "OCHA NORMA", 18: "ロージークロニクル",
+}
+
 # グループの公式アカウント(affiliation slug → ユーザー名)。各グループの見出しの一番上に「○○ 公式」で並べる
 GROUP_OFFICIAL: dict[str, str] = {
     "morningmusume":  "morningmusume_official",
@@ -186,7 +193,7 @@ def load_targets() -> list[dict]:
         num_s, name, platform, id_ = row[0], row[1], row[2], row[3]
         if not num_s.isdigit() or not platform:
             continue
-        m = members.setdefault(int(num_s), {"num": int(num_s), "name": name, "aff": "", "ig": [], "kana": ""})
+        m = members.setdefault(int(num_s), {"num": int(num_s), "name": name, "aff": "", "ig": [], "kana": "", "groups": []})
         if not m["name"] and name:
             m["name"] = name
         # 名前のひらがなの読みは、platform の欄にひらがなだけが入った行(ID は空)
@@ -194,6 +201,9 @@ def load_targets() -> list[dict]:
             m["kana"] = platform
         elif platform == "affiliation":
             m["aff"] = id_
+        elif platform in ("GroupNo", "SubGroup") and id_.isdigit() and int(id_) in GROUP_NAMES:
+            if GROUP_NAMES[int(id_)] not in m["groups"]:
+                m["groups"].append(GROUP_NAMES[int(id_)])
         elif platform == "instagram" and id_:
             m["ig"].append(id_.strip("/").lower())
 
@@ -224,7 +234,8 @@ def load_targets() -> list[dict]:
         for user in m["ig"]:
             # 複数アカウントを持つ人(例: 書道用の別アカウント)はユーザー名を添えて区別する
             name = m["name"] if len(m["ig"]) == 1 else f"{m['name']}（@{user}）"
-            out.setdefault(user, {"username": user, "name": name, "section": sec})
+            out.setdefault(user, {"username": user, "name": name, "section": sec,
+                                  "groups": ("," + ",".join(m.get("groups", [])) + ",") if m.get("groups") else ""})
     for user, (name, sec) in EXTRA_ACCOUNTS.items():
         out.setdefault(user, {"username": user, "name": name, "section": sec})
     targets = [t for t in out.values() if t["username"] not in EXCLUDED]
