@@ -148,7 +148,12 @@ EXTRA_ACCOUNTS: dict[str, tuple[str, str]] = {
     # スプシでは引退(retirement)扱いなどで外れるが、入れておきたいOG
     "kanon_fukuda": ("福田花音", "その他のOG"),
     **{user: (user, "その他")
-       for user in ("hello_shop_official", "hp_officialfanclub", "helloproject_stream", "odybooks", "mlinesp.official")},
+       for user in ("hello_shop_official", "hp_officialfanclub", "helloproject_stream", "odybooks")},
+    "mlinesp.official": ("M-line Specialの楽屋", "その他"),
+    # 現役のグループではなくなった(解散・活動休止の)グループの公式アカウント
+    "kobushifactory_official": ("こぶしファクトリー 公式", "その他のグループ"),
+    "countrygirls_official": ("カントリー・ガールズ 公式", "その他のグループ"),
+    "taiyo_and_ciscomoon": ("太陽とシスコムーン 公式", "その他のグループ"),
 }
 
 
