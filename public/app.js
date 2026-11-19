@@ -321,10 +321,31 @@
     return lo ? { lo: lo.slice(0, 10), hi: hi.slice(0, 10) } : null;
   }
 
-  /* ---------- いつから・いつまで(年・月・日を選ぶ) ---------- */
-  // ブラウザの日付の欄は、端末によって令和の表示になったり、打ち込むしかなかったりするので、年・月・日の3つのプルダウンにする。
+  /* ---------- 月ごとの件数 ---------- */
+  // 選んでいる人・検索語の条件での { "YYYY-MM": 件数 }。年×月の表、いつから・いつまでの選択肢、カレンダーの移動に使う
+  var months = null, monthsKey = null, monthsNo = 0;
+  function yms() { return months ? Object.keys(months).sort() : []; }
+  function loadMonths() {
+    var p = params();
+    p.delete("from");
+    p.delete("to");
+    var key = p.toString();
+    if (key === monthsKey) return Promise.resolve();
+    monthsKey = key;
+    var my = ++monthsNo;
+    return getJson("/api/calendar?" + key)
+      .then(function (d) {
+        if (my !== monthsNo) return;
+        months = {};
+        d.months.forEach(function (r) { months[r[0]] = r[1]; });
+      })
+      .catch(function () { if (my === monthsNo) { months = null; monthsKey = null; } });
+  }
+
+  /* ---------- いつから・いつまで(年・月を選ぶ) ---------- */
+  // 日はカレンダーで選ぶので、ここは年と月だけ。ブラウザの日付の欄は端末によって令和の表示になるので使わない。
   // 値は見えない #from / #to に YYYY-MM-DD で持つ(URL・検索の条件はここから作る)。
-  // 年だけ・年と月だけでも選べる: いつからは その年(月)の初め、いつまでは その年(月)の終わり になる
+  // 年だけでも選べる: いつからは その年(月)の初め、いつまでは その年(月)の終わり になる
   function lastDay(y, m) { return new Date(Date.UTC(+y, +m, 0)).getUTCDate(); }
   function opt(sel, value, text) {
     var o = document.createElement("option");
@@ -332,70 +353,148 @@
     o.textContent = text;
     sel.appendChild(o);
   }
-  // 選んでいる人の範囲(r)で年の選択肢を作り直し、#from / #to の値をプルダウンに映す
-  function syncDates(r) {
-    var hi = r ? +r.hi.slice(0, 4) : new Date().getFullYear();
-    var lo = r ? +r.lo.slice(0, 4) : hi;
+  function boxOf(id) { return document.querySelector('.dsel[data-for="' + id + '"]'); }
+  // プルダウンの年・月から #from / #to の値を作る
+  function dateValue(id, y, m) {
+    if (!y) return "";
+    var mm = m || (id === "from" ? "1" : "12");
+    return y + "-" + pad(+mm) + "-" + pad(id === "from" ? 1 : lastDay(y, mm));
+  }
+  // 年は投稿のある年だけ、月はその年の投稿のある月だけを選択肢にし、#from / #to の値をプルダウンに映す
+  function syncDates() {
+    var list = yms(), years = [];
+    list.forEach(function (k) { var y = k.slice(0, 4); if (years.indexOf(y) < 0) years.push(y); });
+    if (!list.length) {
+      var r = range();
+      if (r) for (var k = +r.lo.slice(0, 4); k <= +r.hi.slice(0, 4); k++) years.push(String(k));
+    }
+    years.reverse();   // 新しい年を上に
     ["from", "to"].forEach(function (id) {
-      var v = $(id).value, box = document.querySelector('.dsel[data-for="' + id + '"]');
-      var y = box.querySelector(".y"), m = box.querySelector(".m"), d = box.querySelector(".d");
-      var vy = v.slice(0, 4), vm = v ? String(+v.slice(5, 7)) : "", vd = v ? String(+v.slice(8, 10)) : "";
+      var v = $(id).value, box = boxOf(id);
+      var y = box.querySelector(".y"), m = box.querySelector(".m");
+      var vy = v.slice(0, 4), vm = v ? String(+v.slice(5, 7)) : "";
+      // 年だけで選んだとき(1月1日〜 / 〜12月31日)は、月を空のままにしておく
+      if (y.value === vy && !m.value && dateValue(id, vy, "") === v) vm = "";
       y.textContent = "";
       opt(y, "", "年");
-      for (var k = hi; k >= Math.min(lo, vy ? +vy : lo); k--) opt(y, String(k), k + "年");
-      if (vy && +vy > hi) opt(y, vy, vy + "年");
+      var ys = years.slice();
+      if (vy && ys.indexOf(vy) < 0) ys.push(vy), ys.sort().reverse();
+      ys.forEach(function (k) { opt(y, k, k + "年"); });
       m.textContent = "";
       opt(m, "", "月");
-      for (k = 1; k <= 12; k++) opt(m, String(k), k + "月");
-      d.textContent = "";
-      opt(d, "", "日");
-      var nd = vy && vm ? lastDay(vy, vm) : 31;
-      for (k = 1; k <= nd; k++) opt(d, String(k), k + "日");
-      y.value = vy; m.value = vm; d.value = vd;
+      var ms = list.filter(function (k) { return k.slice(0, 4) === vy; }).map(function (k) { return String(+k.slice(5, 7)); });
+      if (!list.length && vy) for (k = 1; k <= 12; k++) ms.push(String(k));
+      if (vm && ms.indexOf(vm) < 0) ms.push(vm), ms.sort(function (a, b) { return a - b; });
+      ms.forEach(function (k) { opt(m, k, k + "月"); });
+      m.disabled = !vy;
+      y.value = vy;
+      m.value = vm;
     });
   }
   // プルダウンを選んだら、#from / #to の値を作って一覧を出し直す
-  function dateChanged(id) {
-    var box = document.querySelector('.dsel[data-for="' + id + '"]');
-    var y = box.querySelector(".y").value, m = box.querySelector(".m").value, d = box.querySelector(".d").value;
-    var v = "";
-    if (y) {
-      var mm = m || (id === "from" ? "1" : "12");
-      var dd = d || (id === "from" ? "1" : String(lastDay(y, mm)));
-      dd = String(Math.min(+dd, lastDay(y, mm)));   // 2月31日などは月の終わりに
-      v = y + "-" + pad(+mm) + "-" + pad(+dd);
-    }
-    $(id).value = v;
+  function dateChanged(id, changedYear) {
+    var box = boxOf(id);
+    var y = box.querySelector(".y").value, m = box.querySelector(".m").value;
+    // 年を変えて、その年に投稿のない月になったら、月は外す
+    if (changedYear && m && months && !months[y + "-" + pad(+m)]) { m = ""; box.querySelector(".m").value = ""; }
+    $(id).value = dateValue(id, y, m);
     load(false);
   }
   document.querySelectorAll(".dsel").forEach(function (box) {
-    box.querySelectorAll("select").forEach(function (s) {
-      s.addEventListener("change", function () { dateChanged(box.getAttribute("data-for")); });
-    });
+    var id = box.getAttribute("data-for");
+    box.querySelector(".y").addEventListener("change", function () { dateChanged(id, true); });
+    box.querySelector(".m").addEventListener("change", function () { dateChanged(id, false); });
   });
 
-  // 月の番号(年*12 + 月-1)
-  function ym(date) { return +date.slice(0, 4) * 12 + (+date.slice(5, 7) - 1); }
+  /* ---------- 年×月の表とカレンダー(アメブロ検索と同じ形) ---------- */
 
-  // 表示中の月を範囲の中に収め、日付の欄の min/max と、月を動かすボタンの押せる・押せないをそろえる
+  // 月の番号(年*12 + 月-1)。YYYY-MM でも YYYY-MM-DD でもよい
+  function ym(date) { return +date.slice(0, 4) * 12 + (+date.slice(5, 7) - 1); }
+  function curYm() { return calYear * 12 + (calMonth - 1); }
+  function setYm(n) { calYear = Math.floor(n / 12); calMonth = n % 12 + 1; }
+
+  // 前・次の投稿がある月(月ごとの件数がまだ無いときは隣の月)
+  function stepYm(cur, dir) {
+    var list = yms().map(ym);
+    if (!list.length) return cur + dir;
+    if (dir < 0) { for (var i = list.length - 1; i >= 0; i--) if (list[i] < cur) return list[i]; }
+    else { for (i = 0; i < list.length; i++) if (list[i] > cur) return list[i]; }
+    return null;
+  }
+
+  // 表示中の月を、投稿のある範囲の中に収める
   function clampMonth() {
-    var r = range();
-    syncDates(r);
-    var cur = calYear * 12 + (calMonth - 1);
-    if (r) cur = Math.min(Math.max(cur, ym(r.lo)), ym(r.hi));
-    calYear = Math.floor(cur / 12);
-    calMonth = cur % 12 + 1;
-    document.querySelectorAll("[data-move]").forEach(function (b) {
-      var to = cur + +b.getAttribute("data-move");
-      // 1年ずつ動かすボタンは、行き先が範囲の外でも端の月まで動けるなら押せる
-      b.disabled = !!r && (to < ym(r.lo) && cur === ym(r.lo) || to > ym(r.hi) && cur === ym(r.hi));
-    });
+    var list = yms(), r = range();
+    var lo = list.length ? ym(list[0]) : r ? ym(r.lo) : null;
+    var hi = list.length ? ym(list[list.length - 1]) : r ? ym(r.hi) : null;
+    var cur = curYm();
+    if (lo !== null) cur = Math.min(Math.max(cur, lo), hi);
+    setYm(cur);
+  }
+
+  // 色の濃さ: 少ないほどアイコンのベージュ、多いほど茶色。濃いところは字を白に
+  function shade(b, n, max) {
+    if (!n) return;
+    b.classList.add("has");
+    b.style.setProperty("--lv", (n / max).toFixed(2));
+    if (n / max > 0.65) b.classList.add("dk");
+  }
+
+  // 年が左、月が上の表。数字はその月の投稿数。押すとその月だけを表示し、もう一度押すと外す
+  function drawYears() {
+    var box = $("years");
+    box.textContent = "";
+    var list = yms();
+    if (!list.length) return;
+    var max = 1;
+    list.forEach(function (k) { if (months[k] > max) max = months[k]; });
+    var f = $("from").value, t = $("to").value;
+    box.appendChild(document.createElement("span"));
+    for (var m = 1; m <= 12; m++) {
+      var h = document.createElement("span");
+      h.className = "mh";
+      h.textContent = m;
+      box.appendChild(h);
+    }
+    for (var y = +list[list.length - 1].slice(0, 4); y >= +list[0].slice(0, 4); y--) {
+      var yl = document.createElement("span");
+      yl.className = "yl";
+      yl.textContent = y;
+      box.appendChild(yl);
+      for (m = 1; m <= 12; m++) {
+        var key = y + "-" + pad(m), n = months[key] || 0;
+        var b = document.createElement("button");
+        b.type = "button";
+        b.className = "ymc" + (f === key + "-01" && t === key + "-" + pad(lastDay(y, m)) ? " sel" : "") +
+          (y === calYear && m === calMonth ? " cur" : "");
+        b.textContent = n ? n : "";
+        b.disabled = !n;
+        b.title = y + "年" + m + "月 " + n + "件";
+        b.setAttribute("aria-label", b.title);
+        shade(b, n, max);
+        b.onclick = (function (k, yy, mm) { return function () { pickMonth(k, yy, mm); }; })(key, y, m);
+        box.appendChild(b);
+      }
+    }
+  }
+
+  function pickMonth(key, y, m) {
+    var f = key + "-01", t = key + "-" + pad(lastDay(y, m));
+    var on = !($("from").value === f && $("to").value === t);
+    $("from").value = on ? f : "";
+    $("to").value = on ? t : "";
+    setYm(y * 12 + m - 1);
+    load(false);
   }
 
   function drawCalendar(days) {
     var grid = $("cal-grid");
     grid.innerHTML = "";
-    $("cal-title").textContent = calYear + "年" + calMonth + "月";
+    var total = months ? months[calYear + "-" + pad(calMonth)] : null;
+    $("cal-title").textContent = calYear + "年" + calMonth + "月" + (total != null ? "（" + total.toLocaleString("ja-JP") + "件）" : "");
+    var cur = curYm();
+    $("prev").disabled = stepYm(cur, -1) === null;
+    $("next").disabled = stepYm(cur, 1) === null;
     "日月火水木金土".split("").forEach(function (d) {
       var e = document.createElement("div");
       e.className = "dow";
@@ -415,10 +514,10 @@
       var n = days ? (days[key] || 0) : 0;
       var b = document.createElement("button");
       b.type = "button";
-      b.className = "day" + (n ? " has" : "") + (key === selDay ? " sel" : "") + (key === today ? " today" : "");
-      b.innerHTML = "<span>" + d + "</span>" + (n ? '<span class="n">' + n + "</span>" : "");
-      if (n) b.style.setProperty("--lv", (n / max).toFixed(2));
-      if (n / max > 0.65) b.classList.add("dk");
+      b.className = "day" + (key === selDay ? " sel" : "") + (key === today ? " today" : "");
+      // 日付の横に件数(アメブロ検索と同じ「日/件数件」)
+      b.innerHTML = "<span>" + d + "</span>" + (n ? "<small>/" + n + '<span class="u">件</span></small>' : "");
+      shade(b, n, max);
       b.disabled = !n && key !== selDay;
       b.setAttribute("aria-label", calMonth + "月" + d + "日 " + n + "件");
       b.onclick = (function (k) { return function () { pickDay(k); }; })(key);
@@ -427,22 +526,26 @@
   }
 
   function loadCalendar() {
-    clampMonth();
-    var p = params();
-    p.delete("from");
-    p.delete("to");
-    p.set("ym", calYear + "-" + pad(calMonth));
-    drawCalendar(null);
     var my = ++calNo;
-    getJson("/api/calendar?" + p.toString())
-      .then(function (d) { if (my === calNo) drawCalendar(d.days); })
-      .catch(function () {});
+    loadMonths().then(function () {
+      if (my !== calNo) return;
+      clampMonth();
+      syncDates();
+      drawYears();
+      drawCalendar(null);
+      var p = params();
+      p.delete("from");
+      p.delete("to");
+      p.set("ym", calYear + "-" + pad(calMonth));
+      return getJson("/api/calendar?" + p.toString())
+        .then(function (d) { if (my === calNo) drawCalendar(d.days); });
+    }).catch(function () {});
   }
 
-  function move(delta) {
-    var m = calYear * 12 + (calMonth - 1) + delta;
-    calYear = Math.floor(m / 12);
-    calMonth = m % 12 + 1;
+  function move(dir) {
+    var to = stepYm(curYm(), dir);
+    if (to === null) return;
+    setYm(to);
     loadCalendar();
   }
 
@@ -469,9 +572,8 @@
     thisMonth();
     changed();
   });
-  document.querySelectorAll("[data-move]").forEach(function (b) {
-    b.addEventListener("click", function () { move(+b.getAttribute("data-move")); });
-  });
+  $("prev").addEventListener("click", function () { move(-1); });
+  $("next").addEventListener("click", function () { move(1); });
 
   getJson("/api/accounts")
     .then(function (d) {

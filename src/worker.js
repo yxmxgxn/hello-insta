@@ -3,7 +3,7 @@
  *
  * 公開API
  *   GET /api/posts?a=&from=&to=&q=&before=   投稿を新しい順に100件ずつ。a はユーザー名のカンマ区切り
- *   GET /api/calendar?ym=YYYY-MM&a=&q=        その月の日ごとの投稿数(a / q の条件込み)
+ *   GET /api/calendar?ym=YYYY-MM&a=&q=        その月の日ごとの投稿数(a / q の条件込み)。ym なしなら月ごとの投稿数
  *   GET /api/accounts                         絞り込み用のアカウント一覧
  *   GET /api/day?d=YYYY-MM-DD                 その日の投稿を時刻の順に(/day のページ用)
  *
@@ -158,10 +158,19 @@ async function handlePosts(url, env) {
 async function handleCalendar(url, env) {
   const p = new URLSearchParams(url.searchParams);
   const ym = p.get("ym") || "";
-  if (!/^\d{4}-\d{2}$/.test(ym)) return json({ error: "ym" }, 400);
   p.delete("from");
   p.delete("to");
   const { where, args } = filters(p);
+  // ym なし: 月ごとの件数(年×月の表と、いつから・いつまでの選択肢に使う)
+  if (!ym) {
+    const { results } = await env.DB
+      .prepare("SELECT substr(ts, 1, 7) AS ym, COUNT(*) AS n FROM post" +
+        (where.length ? " WHERE " + where.join(" AND ") : "") + " GROUP BY ym ORDER BY ym")
+      .bind(...args)
+      .all();
+    return json({ months: results.map((r) => [r.ym, r.n]) }, 200, "public, max-age=300");
+  }
+  if (!/^\d{4}-\d{2}$/.test(ym)) return json({ error: "ym" }, 400);
   const [y, m] = ym.split("-").map(Number);
   const next = m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, "0")}`;
   where.push("ts >= ?", "ts < ?");

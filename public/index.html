@@ -40,23 +40,22 @@
     <div id="picked" class="picked" hidden data-nosnippet></div>
     <div class="row">
       <input type="hidden" id="from"><input type="hidden" id="to">
-      <span class="dfield">いつから <span class="dsel" data-for="from" role="group" aria-label="いつから"><select class="y" aria-label="年"></select><select class="m" aria-label="月"></select><select class="d" aria-label="日"></select></span></span>
-      <span class="dfield">いつまで <span class="dsel" data-for="to" role="group" aria-label="いつまで"><select class="y" aria-label="年"></select><select class="m" aria-label="月"></select><select class="d" aria-label="日"></select></span></span>
+      <span class="dfield">いつから <span class="dsel" data-for="from" role="group" aria-label="いつから"><select class="y" aria-label="年"></select><select class="m" aria-label="月"></select></span></span>
+      <span class="dfield">いつまで <span class="dsel" data-for="to" role="group" aria-label="いつまで"><select class="y" aria-label="年"></select><select class="m" aria-label="月"></select></span></span>
       <button type="button" class="ghost" id="reset">リセット</button>
     </div>
     <p class="hint">メンバーを選択すると、その人たちだけに絞り込めます。空白で区切って検索すると全部含む投稿が並びます。</p>
   </form>
 
   <section class="cal" aria-label="投稿カレンダー">
+    <div id="years" class="years"></div>
     <div class="cal-head">
-      <button type="button" class="ghost" data-move="-12" aria-label="前の年">«</button>
-      <button type="button" class="ghost" data-move="-1" aria-label="前の月">‹</button>
+      <button type="button" class="ghost" id="prev" aria-label="前の投稿がある月">‹</button>
       <strong id="cal-title"></strong>
-      <button type="button" class="ghost" data-move="1" aria-label="次の月">›</button>
-      <button type="button" class="ghost" data-move="12" aria-label="次の年">»</button>
+      <button type="button" class="ghost" id="next" aria-label="次の投稿がある月">›</button>
     </div>
     <div class="cal-grid" id="cal-grid"></div>
-    <p class="hint">数字はその日の投稿数（メンバー・本文の条件込み）。日付を押すとその日だけを表示し、もう一度押すと解除します。</p>
+    <p class="hint">数字は投稿数（メンバー・本文の条件込み）。月や日付を押すとそこだけを表示し、もう一度押すと解除します。</p>
   </section>
 
   <ul id="list" class="list"></ul>
