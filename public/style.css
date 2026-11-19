@@ -103,6 +103,11 @@ select {
   font-size: .85rem;
   line-height: 1.7;
 }
+/* 選ぶと太字になっても幅が変わらないよう、太字の文字の幅を見えない行で先に取っておく */
+.gb, .ab, .gitem .gname { display: inline-flex; flex-direction: column; align-items: center; }
+.gb::after, .ab::after, .gitem .gname::after {
+  content: attr(data-label); height: 0; overflow: hidden; visibility: hidden; font-weight: 600;
+}
 .gb:hover, .ab:hover { border-color: var(--accent); }
 .gb.on, .ab.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
 /* グループの中に選んでいる人がいる(開いていない)状態 */
@@ -131,7 +136,9 @@ select {
 
 .row { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; font-size: .9rem; color: var(--muted); }
 .row label { display: flex; align-items: center; gap: 6px; }
-.row input { padding: 5px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); }
+.dfield { display: flex; align-items: center; gap: 6px; }
+.dsel { display: inline-flex; gap: 2px; }
+.dsel select { max-width: none; padding: 5px 4px; }
 
 /* ---- カレンダー(アメブロ検索の .cal・.days と同じ形) ---- */
 .cal {
@@ -246,7 +253,7 @@ main.wide, .site-head.wide, .site-foot.wide { max-width: 1040px; }
 }
 .gitem:hover { background: var(--cell0); }
 .gitem.on { background: var(--accent); color: var(--accent-ink); font-weight: 600; }
-.gitem .n { font-size: .78rem; opacity: .7; font-variant-numeric: tabular-nums; }
+.gitem .n { font-size: .78rem; opacity: .7; font-weight: 400; font-variant-numeric: tabular-nums; }
 .results { list-style: none; margin: 0; padding: 0; }
 /* 読み込み中の空の一覧。高さが無いと下の部分が上がってきてページが揺れる */
 .results:empty { min-height: 70vh; }
