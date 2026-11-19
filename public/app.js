@@ -287,7 +287,6 @@
 
   function load(more) {
     var my = ++listNo;
-    if (!more && !selected().length) $("from").value = $("to").value = "";   // 期間はメンバーを選んでいるときだけ
     var p = params();
     var q = p.get("q") || "";
     if (more && lastTs) p.set("before", lastTs);
@@ -556,14 +555,13 @@
     }
   }
 
-  // 日付で見るのは、メンバーを選んでいるときだけ(アメブロ検索と同じ。誰も選んでいないときは、いつから・いつまでも出さない)
+  // 表とカレンダーは、メンバーを選んでいるときだけ(アメブロ検索と同じ)。いつから・いつまでは、いつも出しておく
   function loadCalendar() {
     var my = ++calNo;
     var on = selected().length > 0;
     $("cal").hidden = !on;
     $("cal-hint").hidden = on;
-    document.querySelectorAll(".dfield").forEach(function (e) { e.hidden = !on; });
-    if (!on) return;
+    if (!on) { months = null; monthsKey = null; syncDates(); return; }
     loadMonths().then(function () {
       if (my !== calNo) return;
       clampMonth();
@@ -609,7 +607,8 @@
     if (users.length > G_MAX) { note.textContent = "選んでいる人が多すぎます（" + G_MAX + "人まで。いま" + users.length + "人）"; return; }
     note.textContent = "";
     var site = users.map(function (u) { return "site:instagram.com/" + u; }).join(" OR ");
-    var q = [users.length > 1 ? "(" + site + ")" : site, $("q").value.trim()].filter(Boolean).join(" ");
+    // 検索語を先に、site: はそのあと
+    var q = [$("q").value.trim(), users.length > 1 ? "(" + site + ")" : site].filter(Boolean).join(" ");
     window.open("https://www.google.com/search?" + new URLSearchParams({ q: q }), "_blank", "noopener");
   });
 
