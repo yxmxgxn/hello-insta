@@ -29,8 +29,9 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  /* Noto Sans JP で統一。system-ui だと Windows で細い Yu Gothic UI になるので使わない */
-  font-family: "Noto Sans JP", -apple-system, BlinkMacSystemFont, "Hiragino Sans", sans-serif;
+  /* アメブロ検索・アメブロ本体と同じ指定。Mac はシステムフォント、Windows などは各自のブラウザの Sans Serif 設定になる。
+     system-ui は Windows で細い Yu Gothic UI になるので使わない */
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
   line-height: 1.7;
 }
 main, .site-head, .site-foot { max-width: 760px; margin: 0 auto; padding: 0 16px; }
