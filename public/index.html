@@ -63,10 +63,9 @@
       <select id="other" class="other" aria-label="その他のアカウント" data-nosnippet><option value="">その他のアカウント</option></select>
       <div class="panel-h"><button type="button" class="ghost" id="pick-close">閉じる</button></div>
     </div>
-    <p class="hint">メンバーを選択すると、その人たちだけに絞り込めます。空白で区切って検索すると全部含む投稿が並びます。</p>
+    <p class="hint">空白で区切って検索すると全部含む投稿が並びます。語の前に「-」を付けると、その語を含まない投稿に絞れます（例：ライブ -リハーサル）。</p>
   </form>
 
-  <p id="cal-hint" class="hint">メンバーを選ぶと、日付で見られます。</p>
   <section class="cal" id="cal" aria-label="投稿カレンダー" hidden>
     <div id="years" class="years"></div>
     <div class="cal-head">
@@ -77,8 +76,8 @@
     <div class="cal-grid" id="cal-grid"></div>
   </section>
 
-  <ul id="list" class="list"></ul>
   <p id="status" class="status" aria-live="polite"></p>
+  <ul id="list" class="list"></ul>
   <button type="button" id="more" class="more" hidden>さらに古い投稿</button>
 </main>
 
