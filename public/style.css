@@ -178,6 +178,20 @@ select {
   padding: 0; margin-right: 8px; border: 0; background: none; color: var(--text);
   font-size: .8rem; font-weight: 600; text-decoration: underline dotted; cursor: pointer;
 }
+/* 名前を押したときの小さなメニュー(暫定) */
+.list li { position: relative; }
+.nmenu {
+  position: absolute; z-index: 10; left: 16px; right: 16px; max-width: 320px; margin-top: 4px;
+  display: flex; flex-direction: column; padding: 4px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, .12);
+}
+.nmenu button, .nmenu a {
+  display: block; padding: 8px 10px; border-radius: 6px; text-align: left;
+  background: transparent; color: var(--text); font-weight: 400; font-size: .88rem; text-decoration: none;
+}
+.nmenu button:hover, .nmenu a:hover, .nmenu button:focus-visible, .nmenu a:focus-visible { background: var(--cell0); }
+.nmenu a { color: var(--accent); }
 .type { font-size: .72rem; padding: 0 6px; border: 1px solid var(--line); border-radius: 4px; color: var(--muted); }
 /* 本文の抜粋は黒い文字(リンクにしない)。トップと /day 共通 */
 .list .text, .results .text { margin: 2px 0 0; font-size: .92rem; color: var(--text); overflow-wrap: anywhere; }

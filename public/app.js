@@ -201,6 +201,39 @@
     flush();
   }
 
+  /* ---------- 名前を押したときの小さなメニュー(暫定) ---------- */
+  // 「この人の投稿だけ見る」(サイトの中で絞り込む)か「Instagram のプロフィールを開く ↗」かを選ぶ。
+  // はい・いいえで聞かず、押せば何が起きるかを書いた2つから選ぶ。外を押すか Esc で閉じる
+  var menu = null;
+  function closeMenu() { if (menu) { menu.remove(); menu = null; } }
+  function nameMenu(btn, account) {
+    var same = menu && menu.getAttribute("data-for") === account && menu.previousSibling === btn;
+    closeMenu();
+    if (same) return;   // もう一度押したら閉じるだけ
+    menu = document.createElement("div");
+    menu.className = "nmenu";
+    menu.setAttribute("role", "menu");
+    menu.setAttribute("data-for", account);
+    var only1 = document.createElement("button");
+    only1.type = "button";
+    only1.setAttribute("role", "menuitem");
+    only1.textContent = (names[account] || account) + " の投稿だけ見る";
+    only1.onclick = function () { closeMenu(); only(account); };
+    var prof = document.createElement("a");
+    prof.setAttribute("role", "menuitem");
+    prof.href = "https://www.instagram.com/" + encodeURIComponent(account) + "/";
+    prof.target = "_blank";
+    prof.rel = "noopener noreferrer";
+    prof.textContent = "Instagram のプロフィールを開く ↗";
+    prof.onclick = closeMenu;
+    menu.appendChild(only1);
+    menu.appendChild(prof);
+    btn.insertAdjacentElement("afterend", menu);
+    only1.focus();
+  }
+  document.addEventListener("click", function (e) { if (menu && !menu.contains(e.target)) closeMenu(); });
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeMenu(); });
+
   /* ---------- 一覧 ---------- */
 
   function row(post, q) {
@@ -213,8 +246,8 @@
     nm.type = "button";
     nm.className = "name";
     nm.textContent = names[post.account] || post.account;
-    nm.title = "このメンバーだけに絞り込む";
-    nm.onclick = function () { only(post.account); };
+    nm.setAttribute("aria-haspopup", "menu");
+    nm.onclick = function (e) { e.stopPropagation(); nameMenu(nm, post.account); };
     li.appendChild(nm);
     if (TYPE[post.media_type]) {
       var t = document.createElement("span");
