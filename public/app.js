@@ -192,7 +192,7 @@
 
   // 検索語を <mark> で囲む(大文字小文字・全角半角の違いは無視)
   function highlight(el, text, q) {
-    var words = q.split(/[\s　]+/).filter(Boolean);
+    var words = q.split(/[\s　]+/).filter(function (w) { return w && !/^[-－‐−]/.test(w); });   // 「-」の語(含まない語)は色を付けない
     if (!words.length) { el.textContent = text; return; }
     var norm = function (s) { return s.normalize("NFKC").toLowerCase(); };
     // NFKC で長さが変わる文字があるとずれるので、1文字ずつ正規化して元の位置と対応を取る
@@ -285,10 +285,37 @@
     return li;
   }
 
+  // 「test ／ ハロプロ現役のみ ／ 40 件表示」の前半(いまの条件。アメブロ検索と同じ言い方)
+  function periodLabel(f, t) {
+    function lab(v, day) { var a = v.split("-"); return a[0] + "年" + (+a[1]) + "月" + (day ? (+a[2]) + "日" : ""); }
+    var last = function (v) { return +v.slice(8, 10) === new Date(+v.slice(0, 4), +v.slice(5, 7), 0).getDate(); };
+    if (f && t && f === t) return lab(f, true);
+    var fm = !f || f.slice(8, 10) === "01", tm = !t || last(t);
+    if (f && t && fm && tm) {
+      if (f.slice(0, 4) === t.slice(0, 4) && f.slice(5, 7) === "01" && t.slice(5, 7) === "12") return f.slice(0, 4) + "年";
+      if (f.slice(0, 7) === t.slice(0, 7)) return lab(f);
+    }
+    return (f ? lab(f, !fm) : "") + "〜" + (t ? lab(t, !tm) : "");
+  }
+  function condText() {
+    var parts = [], q = $("q").value.trim(), sel = selected();
+    if (q) parts.push("「" + q + "」");
+    if (sel.length) {
+      var nm = sel.map(function (u) { return names[u] || u; });
+      parts.push(nm.length > 3 ? nm.slice(0, 3).join("・") + " ほか" + (nm.length - 3) + "人" : nm.join("・"));
+    } else if ($("act").checked) {
+      parts.push("ハロプロ現役のみ");
+    }
+    var f = $("from").value, t = $("to").value;
+    if (f || t) parts.push(periodLabel(f, t));
+    return parts.join(" ／ ");
+  }
+
   function load(more) {
     var my = ++listNo;
     var p = params();
     var q = p.get("q") || "";
+    var cond = condText();
     if (more && lastTs) p.set("before", lastTs);
     if (!more) {
       $("list").innerHTML = "";
@@ -307,8 +334,14 @@
         if (my !== listNo) return; // 後から出した条件の結果を優先
         d.posts.forEach(function (post) { $("list").appendChild(row(post, q)); });
         if (d.posts.length) lastTs = d.posts[d.posts.length - 1].ts;
+        if (d.error === "notonly") {
+          $("status").textContent = "「-」の付いた語（含まない語）だけでは探せません。含む語と一緒に使ってください";
+          return;
+        }
         var n = $("list").children.length;
-        $("status").textContent = n ? n + "件表示中" : "該当する投稿はありません";
+        $("status").textContent = n
+          ? (cond ? cond + " ／ " : "") + n.toLocaleString("ja-JP") + " 件表示" + (d.more ? "（まだあります）" : "")
+          : (cond ? cond + " ／ " : "") + "該当する投稿はありません";
         $("more").hidden = !d.more;
         $("more").textContent = $("order").value === "old" ? "さらに新しい投稿" : "さらに古い投稿";
       })
@@ -560,7 +593,6 @@
     var my = ++calNo;
     var on = selected().length > 0;
     $("cal").hidden = !on;
-    $("cal-hint").hidden = on;
     if (!on) { months = null; monthsKey = null; syncDates(); return; }
     loadMonths().then(function () {
       if (my !== calNo) return;

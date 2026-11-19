@@ -45,14 +45,19 @@ function bigrams(s) {
   return out;
 }
 
-// 検索語 → FTS5 のクエリ。語ごとに bigram のフレーズ(連続一致≒部分一致)にして AND で繋ぐ
+// 検索語 → FTS5 のクエリ。語ごとに bigram のフレーズ(連続一致≒部分一致)にして AND で繋ぐ。
+// 「-」で始まる語は、含まない語(NOT)。含まない語だけのときは { onlyNot: true }(探せない)
 function buildMatch(q) {
-  const parts = [];
+  const terms = [], nots = [];
   for (const raw of q.slice(0, MAX_Q).split(/[\s　]+/)) {
-    const toks = bigrams(normalize(raw));
-    if (toks.length) parts.push('"' + toks.join(" ") + '"');
+    const neg = /^[-－‐−]/.test(raw);
+    const toks = bigrams(normalize(neg ? raw.slice(1) : raw));
+    if (toks.length) (neg ? nots : terms).push('"' + toks.join(" ") + '"');
   }
-  return parts.length ? parts.join(" AND ") : null;
+  if (!terms.length) return nots.length ? { onlyNot: true } : null;
+  let match = terms.join(" AND ");
+  if (nots.length) match = `(${match})` + nots.map((p) => ` NOT (${p})`).join("");
+  return { match };
 }
 
 /* ============================ 共通 ============================ */
@@ -141,18 +146,19 @@ function filters(p) {
   const to = p.get("to") || "";
   if (DATE_RE.test(from)) { where.push("ts >= ?"); args.push(from); }
   if (DATE_RE.test(to)) { where.push("ts < ?"); args.push(to + " 99"); } // その日の終わりまで
-  const match = buildMatch(p.get("q") || "");
-  if (match) {
+  const built = buildMatch(p.get("q") || "");
+  if (built && built.match) {
     where.push("id IN (SELECT id FROM post_fts WHERE post_fts MATCH ?)");
-    args.push(match);
+    args.push(built.match);
   }
-  return { where, args };
+  return { where, args, notonly: !!(built && built.onlyNot) };
 }
 
 // 新しい順(order=old なら古い順)。人気順はやめた。いいね数での並べ替えは公開画面では使わない
 async function handlePosts(url, env) {
   const p = url.searchParams;
-  const { where, args } = filters(p);
+  const { where, args, notonly } = filters(p);
+  if (notonly) return json({ error: "notonly", posts: [], more: false });   // 含まない語(-)だけでは探せない
   const before = p.get("before") || "";
   // order=old は古い順(続きの before は「これより新しいもの」になる)
   const old = p.get("order") === "old";
