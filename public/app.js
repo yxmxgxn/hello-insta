@@ -21,6 +21,7 @@
     if ($("from").value) p.set("from", $("from").value);
     if ($("to").value) p.set("to", $("to").value);
     if ($("q").value.trim()) p.set("q", $("q").value.trim());
+    if ($("act").checked) p.set("act", "1");
     return p;
   }
 
@@ -38,6 +39,7 @@
 
   // グループのボタン(押すと、その見出しのアカウントがボタンで並ぶ)。見出しの名前の頭で照らし合わせる
   // (モーニング娘。は年で名前が変わるため)。ここに入らない見出しの人は「そのほか」のプルダウンへ
+  var ACTIVE_GROUPS = ["モーニング娘。", "アンジュルム", "Juice=Juice", "つばきファクトリー", "BEYOOOOONDS", "OCHA NORMA", "ロージークロニクル"];
   var GROUP_BUTTONS = ["モーニング娘。", "アンジュルム", "Juice=Juice", "つばきファクトリー", "BEYOOOOONDS",
     "OCHA NORMA", "ロージークロニクル", "J.P ROOM", "UP-FRONT CREATE", "UP-FRONT PROMOTION"];
   var accs = [];      // 選べるアカウント(アカウント一覧の順)
@@ -133,8 +135,13 @@
   // ボタンと「選んでいる人」の表示を、いま選んでいる人に合わせる
   function render() {
     var sel = selected();
+    var act = $("act").checked;
+    // 現役のみのときは、現役グループのボタンだけ(OG のグループと「その他のアカウント」は隠す)
+    $("other").hidden = act;
+    if (act && openGroup && ACTIVE_GROUPS.indexOf(openGroup) < 0) openGroup = "";
     document.querySelectorAll("#gbtn .gb").forEach(function (b) {
       var g = b.getAttribute("data-g");
+      b.hidden = act && !!g && ACTIVE_GROUPS.indexOf(g) < 0;
       var on = g ? g === openGroup : !sel.length;
       b.classList.toggle("on", on);
       b.setAttribute("aria-pressed", on ? "true" : "false");
@@ -594,8 +601,18 @@
   $("reset").addEventListener("click", function () {
     options().forEach(function (o) { o.selected = false; });
     openGroup = "";
+    $("act").checked = false;
     $("from").value = $("to").value = $("q").value = "";
     thisMonth();
+    changed();
+  });
+  // ハロプロ現役のみ: 入れたら、現役グループ以外の人の選択は外す。期間の指定も外す
+  $("act").addEventListener("change", function () {
+    if ($("act").checked) {
+      accs.forEach(function (a) { if (ACTIVE_GROUPS.indexOf(a.group) < 0) setSelected(a.username, false); });
+    }
+    $("from").value = $("to").value = "";
+    lastSel = null;
     changed();
   });
   $("prev").addEventListener("click", function () { move(-1); });
@@ -616,6 +633,7 @@
       var acc = (q.get("a") || "").split(",");
       options().forEach(function (o) { o.selected = acc.indexOf(o.value) >= 0; });
       lastSel = selected().join(",");
+      $("act").checked = q.get("act") === "1";
       render();
       $("from").value = q.get("from") || "";
       $("to").value = q.get("to") || "";

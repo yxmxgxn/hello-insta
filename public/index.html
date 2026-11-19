@@ -31,9 +31,10 @@
     <!-- 取得不可の人も並ぶので、検索結果の抜粋には使わせない(ページ全体は noindex にしない) -->
     <!-- 選んでいる人は見えない select に持つ(URL・検索の条件はここから作る) -->
     <select id="acc" multiple hidden aria-hidden="true"></select>
+    <label class="chk"><input id="act" type="checkbox">ハロプロ現役のみ</label>
     <div id="gbtn" class="gbtn" role="group" aria-label="グループ" data-nosnippet></div>
     <div id="gaccs" class="gaccs" role="group" aria-label="アカウント" hidden data-nosnippet></div>
-    <label class="otherbox" data-nosnippet>そのほか <select id="other"><option value="">そのほかのアカウントから選ぶ</option></select></label>
+    <select id="other" class="other" aria-label="その他のアカウント" data-nosnippet><option value="">その他のアカウント</option></select>
     <div id="picked" class="picked" hidden data-nosnippet></div>
     <div class="row">
       <input type="hidden" id="from"><input type="hidden" id="to">
