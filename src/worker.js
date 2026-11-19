@@ -2,7 +2,7 @@
  * ハロプロ Instagram 投稿アーカイブ Worker (Static Assets 併用)
  *
  * 公開API
- *   GET /api/posts?a=&act=&from=&to=&q=&before=   投稿を新しい順に100件ずつ。a はユーザー名のカンマ区切り。act=1 は(a が無いとき)現役グループの人だけ
+ *   GET /api/posts?a=&act=&order=&from=&to=&q=&before=   投稿を新しい順に100件ずつ。a はユーザー名のカンマ区切り。act=1 は(a が無いとき)現役グループの人だけ
  *   GET /api/calendar?ym=YYYY-MM&a=&q=        その月の日ごとの投稿数(a / q の条件込み)。ym なしなら月ごとの投稿数
  *   GET /api/accounts                         絞り込み用のアカウント一覧
  *   GET /api/day?d=YYYY-MM-DD                 その日の投稿を時刻の順に(/day のページ用)
@@ -149,15 +149,17 @@ function filters(p) {
   return { where, args };
 }
 
-// 新しい順だけ(人気順はやめた。いいね数での並べ替えは公開画面では使わない)
+// 新しい順(order=old なら古い順)。人気順はやめた。いいね数での並べ替えは公開画面では使わない
 async function handlePosts(url, env) {
   const p = url.searchParams;
   const { where, args } = filters(p);
   const before = p.get("before") || "";
-  if (before) { where.push("ts < ?"); args.push(before.slice(0, 16)); }
+  // order=old は古い順(続きの before は「これより新しいもの」になる)
+  const old = p.get("order") === "old";
+  if (before) { where.push(old ? "ts > ?" : "ts < ?"); args.push(before.slice(0, 16)); }
   const sql =
     "SELECT id, account, ts, permalink, media_type, excerpt FROM post" +
-    (where.length ? " WHERE " + where.join(" AND ") : "") + " ORDER BY ts DESC LIMIT ?";
+    (where.length ? " WHERE " + where.join(" AND ") : "") + (old ? " ORDER BY ts ASC LIMIT ?" : " ORDER BY ts DESC LIMIT ?");
   const { results } = await env.DB.prepare(sql).bind(...args, PAGE).all();
   return json({ posts: results, more: results.length === PAGE }, 200, "public, max-age=300");
 }

@@ -22,6 +22,7 @@
     if ($("to").value) p.set("to", $("to").value);
     if ($("q").value.trim()) p.set("q", $("q").value.trim());
     if ($("act").checked) p.set("act", "1");
+    if ($("order").value) p.set("order", $("order").value);
     return p;
   }
 
@@ -136,6 +137,7 @@
   function render() {
     var sel = selected();
     var act = $("act").checked;
+    $("pick-label").textContent = sel.length ? "メンバー選択　現在" + sel.length + "人" : "メンバー選択";
     // 現役のみのときは、現役グループのボタンだけ(OG のグループと「その他のアカウント」は隠す)
     $("other").hidden = act;
     if (act && openGroup && ACTIVE_GROUPS.indexOf(openGroup) < 0) openGroup = "";
@@ -309,6 +311,7 @@
         var n = $("list").children.length;
         $("status").textContent = n ? n + "件表示中" : "該当する投稿はありません";
         $("more").hidden = !d.more;
+        $("more").textContent = $("order").value === "old" ? "さらに新しい投稿" : "さらに古い投稿";
       })
       .catch(function () {
         if (my === listNo) $("status").textContent = "読み込みに失敗しました。時間をおいて再度お試しください。";
@@ -357,6 +360,7 @@
     var p = params();
     p.delete("from");
     p.delete("to");
+    p.delete("order");
     var key = p.toString();
     if (key === monthsKey) return Promise.resolve();
     monthsKey = key;
@@ -569,6 +573,7 @@
       var p = params();
       p.delete("from");
       p.delete("to");
+      p.delete("order");
       p.set("ym", calYear + "-" + pad(calMonth));
       return getJson("/api/calendar?" + p.toString())
         .then(function (d) { if (my === calNo) drawCalendar(d.days); });
@@ -596,12 +601,21 @@
 
   /* ---------- 起動 ---------- */
 
-  $("f").addEventListener("submit", function (e) { e.preventDefault(); load(false); });
+  // メンバー選択のパネル(開く・閉じる)。検索したら畳む(結果を見せるため)
+  function panel(open) {
+    $("panel").hidden = !open;
+    $("pick-open").setAttribute("aria-expanded", open ? "true" : "false");
+  }
+  $("pick-open").addEventListener("click", function () { panel($("panel").hidden); });
+  $("pick-close").addEventListener("click", function () { panel(false); });
+  $("order").addEventListener("change", function () { load(false); });
+  $("f").addEventListener("submit", function (e) { e.preventDefault(); panel(false); load(false); });
   $("more").addEventListener("click", function () { load(true); });
   $("reset").addEventListener("click", function () {
     options().forEach(function (o) { o.selected = false; });
     openGroup = "";
     $("act").checked = false;
+    $("order").value = "";
     $("from").value = $("to").value = $("q").value = "";
     thisMonth();
     changed();
@@ -634,6 +648,7 @@
       options().forEach(function (o) { o.selected = acc.indexOf(o.value) >= 0; });
       lastSel = selected().join(",");
       $("act").checked = q.get("act") === "1";
+      $("order").value = q.get("order") === "old" ? "old" : "";
       render();
       $("from").value = q.get("from") || "";
       $("to").value = q.get("to") || "";
