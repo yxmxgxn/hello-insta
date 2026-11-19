@@ -159,6 +159,7 @@ select {
 .panel > * + * { margin-top: 10px; }
 .panel .gaccs { padding: 0; border: 0; }
 .panel-h { display: flex; justify-content: flex-end; }
+.gall { flex-basis: 100%; display: flex; justify-content: flex-end; }
 .panel .other { display: block; }
 .panel .other[hidden] { display: none; }
 .picked { margin-top: 10px; }
