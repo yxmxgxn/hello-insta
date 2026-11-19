@@ -48,7 +48,9 @@
       var b = el("button", "gitem" + (pick === key ? " on" : ""));
       b.type = "button";
       b.setAttribute("aria-pressed", pick === key ? "true" : "false");
-      b.appendChild(el("span", "gname", name));
+      var gn = el("span", "gname", name);
+      gn.setAttribute("data-label", name);   // 選ぶと太字になっても幅が変わらないように(style.css)
+      b.appendChild(gn);
       b.appendChild(el("span", "n", String(n)));
       b.onclick = function () { pick = pick === key && key ? "" : key; sync(); draw(); };
       return b;

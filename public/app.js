@@ -83,6 +83,7 @@
     var bar = $("gbtn");
     function gb(key, name) {
       var b = el("button", "gb", name);
+      b.setAttribute("data-label", name);
       b.type = "button";
       b.setAttribute("data-g", key);
       b.onclick = function () {
@@ -147,6 +148,7 @@
       if (!openGroup || a.group !== openGroup) return;
       var on = sel.indexOf(a.username) >= 0;
       var b = el("button", "ab" + (on ? " on" : "") + (a.off ? " off" : ""), a.text);
+      b.setAttribute("data-label", a.text);
       b.type = "button";
       b.setAttribute("aria-pressed", on ? "true" : "false");
       b.onclick = function () { setSelected(a.username, !isSelected(a.username)); changed(); };
@@ -319,14 +321,66 @@
     return lo ? { lo: lo.slice(0, 10), hi: hi.slice(0, 10) } : null;
   }
 
+  /* ---------- いつから・いつまで(年・月・日を選ぶ) ---------- */
+  // ブラウザの日付の欄は、端末によって令和の表示になったり、打ち込むしかなかったりするので、年・月・日の3つのプルダウンにする。
+  // 値は見えない #from / #to に YYYY-MM-DD で持つ(URL・検索の条件はここから作る)。
+  // 年だけ・年と月だけでも選べる: いつからは その年(月)の初め、いつまでは その年(月)の終わり になる
+  function lastDay(y, m) { return new Date(Date.UTC(+y, +m, 0)).getUTCDate(); }
+  function opt(sel, value, text) {
+    var o = document.createElement("option");
+    o.value = value;
+    o.textContent = text;
+    sel.appendChild(o);
+  }
+  // 選んでいる人の範囲(r)で年の選択肢を作り直し、#from / #to の値をプルダウンに映す
+  function syncDates(r) {
+    var hi = r ? +r.hi.slice(0, 4) : new Date().getFullYear();
+    var lo = r ? +r.lo.slice(0, 4) : hi;
+    ["from", "to"].forEach(function (id) {
+      var v = $(id).value, box = document.querySelector('.dsel[data-for="' + id + '"]');
+      var y = box.querySelector(".y"), m = box.querySelector(".m"), d = box.querySelector(".d");
+      var vy = v.slice(0, 4), vm = v ? String(+v.slice(5, 7)) : "", vd = v ? String(+v.slice(8, 10)) : "";
+      y.textContent = "";
+      opt(y, "", "年");
+      for (var k = hi; k >= Math.min(lo, vy ? +vy : lo); k--) opt(y, String(k), k + "年");
+      if (vy && +vy > hi) opt(y, vy, vy + "年");
+      m.textContent = "";
+      opt(m, "", "月");
+      for (k = 1; k <= 12; k++) opt(m, String(k), k + "月");
+      d.textContent = "";
+      opt(d, "", "日");
+      var nd = vy && vm ? lastDay(vy, vm) : 31;
+      for (k = 1; k <= nd; k++) opt(d, String(k), k + "日");
+      y.value = vy; m.value = vm; d.value = vd;
+    });
+  }
+  // プルダウンを選んだら、#from / #to の値を作って一覧を出し直す
+  function dateChanged(id) {
+    var box = document.querySelector('.dsel[data-for="' + id + '"]');
+    var y = box.querySelector(".y").value, m = box.querySelector(".m").value, d = box.querySelector(".d").value;
+    var v = "";
+    if (y) {
+      var mm = m || (id === "from" ? "1" : "12");
+      var dd = d || (id === "from" ? "1" : String(lastDay(y, mm)));
+      dd = String(Math.min(+dd, lastDay(y, mm)));   // 2月31日などは月の終わりに
+      v = y + "-" + pad(+mm) + "-" + pad(+dd);
+    }
+    $(id).value = v;
+    load(false);
+  }
+  document.querySelectorAll(".dsel").forEach(function (box) {
+    box.querySelectorAll("select").forEach(function (s) {
+      s.addEventListener("change", function () { dateChanged(box.getAttribute("data-for")); });
+    });
+  });
+
   // 月の番号(年*12 + 月-1)
   function ym(date) { return +date.slice(0, 4) * 12 + (+date.slice(5, 7) - 1); }
 
   // 表示中の月を範囲の中に収め、日付の欄の min/max と、月を動かすボタンの押せる・押せないをそろえる
   function clampMonth() {
     var r = range();
-    $("from").min = $("to").min = r ? r.lo : "";
-    $("from").max = $("to").max = r ? r.hi : "";
+    syncDates(r);
     var cur = calYear * 12 + (calMonth - 1);
     if (r) cur = Math.min(Math.max(cur, ym(r.lo)), ym(r.hi));
     calYear = Math.floor(cur / 12);
@@ -407,8 +461,6 @@
   /* ---------- 起動 ---------- */
 
   $("f").addEventListener("submit", function (e) { e.preventDefault(); load(false); });
-  $("from").addEventListener("change", function () { load(false); });
-  $("to").addEventListener("change", function () { load(false); });
   $("more").addEventListener("click", function () { load(true); });
   $("reset").addEventListener("click", function () {
     options().forEach(function (o) { o.selected = false; });

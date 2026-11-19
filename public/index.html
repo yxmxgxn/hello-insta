@@ -39,12 +39,12 @@
     <label class="otherbox" data-nosnippet>そのほか <select id="other"><option value="">そのほかのアカウントから選ぶ</option></select></label>
     <div id="picked" class="picked" hidden data-nosnippet></div>
     <div class="row">
-      <label>いつから <input type="date" id="from"></label>
-      <label>いつまで <input type="date" id="to"></label>
+      <input type="hidden" id="from"><input type="hidden" id="to">
+      <span class="dfield">いつから <span class="dsel" data-for="from" role="group" aria-label="いつから"><select class="y" aria-label="年"></select><select class="m" aria-label="月"></select><select class="d" aria-label="日"></select></span></span>
+      <span class="dfield">いつまで <span class="dsel" data-for="to" role="group" aria-label="いつまで"><select class="y" aria-label="年"></select><select class="m" aria-label="月"></select><select class="d" aria-label="日"></select></span></span>
       <button type="button" class="ghost" id="reset">リセット</button>
     </div>
-    <p class="hint">グループを押すとアカウントが並び、押すと選べます（何人でも）。もう一度押すと外れます。「すべて」で全員に戻ります。一覧のメンバー名を押すと、その人だけに絞り込むか、Instagram のプロフィールを開くかを選べます。空白で区切ると「全部含む」投稿を探します。</p>
-    <p class="hint" data-nosnippet>「そのほか」の一番下の「取得不可」は、まだ投稿を集められていない人です。</p>
+    <p class="hint">メンバーを選択すると、その人たちだけに絞り込めます。空白で区切って検索すると全部含む投稿が並びます。</p>
   </form>
 
   <section class="cal" aria-label="投稿カレンダー">
