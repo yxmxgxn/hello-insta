@@ -153,6 +153,17 @@
     var box = $("gaccs");
     box.textContent = "";
     box.hidden = !openGroup;
+    // 開いているグループの全員を、まとめて選ぶ・外す(右上)
+    if (openGroup) {
+      var members = accs.filter(function (a) { return a.group === openGroup; });
+      var allOn = members.length > 0 && members.every(function (a) { return sel.indexOf(a.username) >= 0; });
+      var head = el("div", "gall");
+      var allBtn = el("button", "ghost", allOn ? "全員外す" : "全員選ぶ");
+      allBtn.type = "button";
+      allBtn.onclick = function () { members.forEach(function (a) { setSelected(a.username, !allOn); }); changed(); };
+      head.appendChild(allBtn);
+      box.appendChild(head);
+    }
     accs.forEach(function (a) {
       if (!openGroup || a.group !== openGroup) return;
       var on = sel.indexOf(a.username) >= 0;
@@ -662,6 +673,11 @@
     $("from").value = $("to").value = $("q").value = "";
     thisMonth();
     changed();
+  });
+  // 日付をリセット: いつから・いつまで(カレンダーで押した日も)だけを外す。メンバーや検索語はそのまま
+  $("reset-date").addEventListener("click", function () {
+    $("from").value = $("to").value = "";
+    load(false);
   });
   // ハロプロ現役のみ: 入れたら、現役グループ以外の人の選択は外す。期間の指定も外す
   $("act").addEventListener("change", function () {
