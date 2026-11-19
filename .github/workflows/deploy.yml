@@ -144,6 +144,15 @@ jobs:
           command: d1 execute hello-insta --remote --command "ALTER TABLE fetch_state ADD COLUMN round_at TEXT"
 
       # クローラ用APIの合言葉(CRAWL_TOKEN)とサイトの鍵(SITE_PASS)は GitHub の Secret から Worker の Secret へ流し込む
+      - name: Add column account.groups
+        continue-on-error: true
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: '4'
+          command: d1 execute hello-insta --remote --command "ALTER TABLE account ADD COLUMN groups TEXT"
+
       - name: Deploy to Cloudflare Workers
         uses: cloudflare/wrangler-action@v3
         with:

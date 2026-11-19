@@ -44,6 +44,8 @@
   var GROUP_BUTTONS = ["モーニング娘。", "アンジュルム", "Juice=Juice", "つばきファクトリー", "BEYOOOOONDS",
     "OCHA NORMA", "ロージークロニクル", "J.P ROOM", "UP-FRONT CREATE", "UP-FRONT PROMOTION"];
   var accs = [];      // 選べるアカウント(アカウント一覧の順)
+  var redrawOther = function () {};   // 「その他のアカウント」のプルダウンを作り直す(開いているグループに合わせる)
+  var otherCount = 0;                 // いまプルダウンに入っている人数
   var openGroup = ""; // いま開いているグループのボタン
   function groupOf(section) {
     for (var i = 0; i < GROUP_BUTTONS.length; i++) if (section.indexOf(GROUP_BUTTONS[i]) === 0) return GROUP_BUTTONS[i];
@@ -75,7 +77,7 @@
       }
       var sec = a.active ? a.section : "以前の対象";
       var text = label(a) + (a.posts ? "（" + a.posts + "）" : "（未取得）");
-      accs.push({ username: a.username, section: sec, group: a.active ? groupOf(sec) : "", text: text, off: !a.posts });
+      accs.push({ username: a.username, section: sec, group: a.active ? groupOf(sec) : "", text: text, off: !a.posts, groups: a.groups || "" });
       // 選んでいる人は、見えない select に持つ(URL・検索の条件はここから作る)
       var o = document.createElement("option");
       o.value = a.username;
@@ -109,26 +111,40 @@
       if (first) gb(g, first.section.replace(/[’‘]/g, "'"));
     });
 
-    // そのほかのプルダウン(グループのボタンに入らない人)。選ぶと、その人を選んだ人に足す
-    var other = $("other"), groups = {}, order = [];
-    accs.forEach(function (a) {
-      if (a.group) return;
-      if (!groups[a.section]) { groups[a.section] = document.createElement("optgroup"); groups[a.section].label = a.section; order.push(a.section); }
-      var o = el("option", a.off ? "off" : "", a.text);
-      o.value = a.username;
-      groups[a.section].appendChild(o);
-    });
-    order.forEach(function (s) { other.appendChild(groups[s]); });
-    if (blocked.length) {
-      var g = document.createElement("optgroup");
-      g.label = "取得不可（" + blocked.length + "）";
-      blocked.forEach(function (a) {
-        var o = el("option", "", label(a) + "（" + reason(a.error) + "）");
-        o.disabled = true;
-        g.appendChild(o);
+    // 「その他のアカウント」のプルダウン(グループのボタンに入らない人)。選ぶと、その人を選んだ人に足す。
+    // グループのボタンを開いているときは、そのグループにいたことがある人だけに絞る
+    var other = $("other");
+    redrawOther = function () {
+      var inG = function (a) { return !openGroup || (a.groups || "").indexOf("," + openGroup + ",") >= 0; };
+      var groups = {}, order = [], count = 0;
+      other.textContent = "";
+      other.appendChild(el("option", "", "その他のアカウント"));
+      other.firstChild.value = "";
+      accs.forEach(function (a) {
+        if (a.group || !inG(a)) return;
+        if (!groups[a.section]) { groups[a.section] = document.createElement("optgroup"); groups[a.section].label = a.section; order.push(a.section); }
+        var o = el("option", a.off ? "off" : "", a.text);
+        o.value = a.username;
+        groups[a.section].appendChild(o);
+        count++;
       });
-      other.appendChild(g);
-    }
+      order.forEach(function (s) { other.appendChild(groups[s]); });
+      var bl = blocked.filter(inG);
+      if (bl.length) {
+        var g = document.createElement("optgroup");
+        g.label = "取得不可（" + bl.length + "）";
+        bl.forEach(function (a) {
+          var o = el("option", "", label(a) + "（" + reason(a.error) + "）");
+          o.disabled = true;
+          g.appendChild(o);
+        });
+        other.appendChild(g);
+        count += bl.length;
+      }
+      otherCount = count;
+      other.value = "";
+    };
+    redrawOther();
     other.onchange = function () {
       if (other.value) { setSelected(other.value, true); changed(); }
       other.value = "";
@@ -141,7 +157,8 @@
     var act = $("act").checked;
     $("pick-label").textContent = sel.length ? "メンバー選択　現在" + sel.length + "人" : "メンバー選択";
     // 現役のみのときは、現役グループのボタンだけ(OG のグループと「その他のアカウント」は隠す)
-    $("other").hidden = act;
+    redrawOther();
+    $("other").hidden = act || !otherCount;
     if (act && openGroup && ACTIVE_GROUPS.indexOf(openGroup) < 0) openGroup = "";
     document.querySelectorAll("#gbtn .gb").forEach(function (b) {
       var g = b.getAttribute("data-g");

@@ -36,7 +36,8 @@ CREATE TABLE IF NOT EXISTS account (
   sort     INTEGER NOT NULL,
   active   INTEGER NOT NULL DEFAULT 1,
   ig_count    INTEGER,           -- Instagram のプロフィールに出ている投稿数(公式APIの media_count か、IG取得が拾った数)
-  ig_count_at TEXT               -- その数を取った日時(JST)
+  ig_count_at TEXT,              -- その数を取った日時(JST)
+  groups      TEXT               -- 所属したことがある現役グループの名前(",モーニング娘。,Juice=Juice,")。OG を、グループで絞る(プルダウン)のに使う
 );
 
 -- アカウントごとの取得の進み具合
