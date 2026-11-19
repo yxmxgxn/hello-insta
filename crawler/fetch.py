@@ -122,7 +122,6 @@ GROUP_OFFICIAL: dict[str, str] = {
 EXCLUDED: dict[str, str] = {
     "kanami_ishiguri.official": "鍵アカウント(非公開)で、公式APIでも IG取得でも何も取れない",
     "chabu_kannagi": "猫の写真のアカウントで、本人の投稿ではない",
-    "ishiguroaya.official": "管理人の判断で載せない",
     "liqinyao0111": "ごく個人的な日常のアカウントなので、載せない",
     # 以下、管理人の判断で載せない(個人アカウントで集めていなかった人)
     "rio_kitagawa_tx": "管理人の判断で載せない(北川莉央)",
@@ -153,7 +152,6 @@ EXTRA_ACCOUNTS: dict[str, tuple[str, str]] = {
     # 現役のグループではなくなった(解散・活動休止の)グループの公式アカウント
     "kobushifactory_official": ("こぶしファクトリー 公式", "その他のグループ"),
     "countrygirls_official": ("カントリー・ガールズ 公式", "その他のグループ"),
-    "taiyo_and_ciscomoon": ("太陽とシスコムーン 公式", "その他のグループ"),
 }
 
 
