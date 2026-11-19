@@ -169,7 +169,15 @@
     });
   }
 
-  function changed() { render(); load(false); }
+  // メンバーの選び方が変わったら、期間の指定(いつから・いつまで・押した月や日)は外す(アメブロ検索と同じ)
+  var lastSel = null;
+  function changed() {
+    var now = selected().join(",");
+    if (lastSel !== null && now !== lastSel) $("from").value = $("to").value = "";
+    lastSel = now;
+    render();
+    load(false);
+  }
 
   /* ---------- 検索語のハイライト ---------- */
 
@@ -270,6 +278,7 @@
 
   function load(more) {
     var my = ++listNo;
+    if (!more && !selected().length) $("from").value = $("to").value = "";   // 期間はメンバーを選んでいるときだけ
     var p = params();
     var q = p.get("q") || "";
     if (more && lastTs) p.set("before", lastTs);
@@ -445,11 +454,9 @@
   }
 
   // 色の濃さ: 少ないほどアイコンのベージュ、多いほど茶色。濃いところは字を白に
+  // 色の濃さは4段階(アメブロ検索と同じ)。少ないほどアイコンのベージュ、多いほど茶色
   function shade(b, n, max) {
-    if (!n) return;
-    b.classList.add("has");
-    b.style.setProperty("--lv", (n / max).toFixed(2));
-    if (n / max > 0.65) b.classList.add("dk");
+    if (n) b.classList.add("l" + Math.min(4, Math.ceil(n / max * 4)));
   }
 
   // 年が左、月が上の表。数字はその月の投稿数。押すとその月だけを表示し、もう一度押すと外す
@@ -538,8 +545,14 @@
     }
   }
 
+  // 日付で見るのは、メンバーを選んでいるときだけ(アメブロ検索と同じ。誰も選んでいないときは、いつから・いつまでも出さない)
   function loadCalendar() {
     var my = ++calNo;
+    var on = selected().length > 0;
+    $("cal").hidden = !on;
+    $("cal-hint").hidden = on;
+    document.querySelectorAll(".dfield").forEach(function (e) { e.hidden = !on; });
+    if (!on) return;
     loadMonths().then(function () {
       if (my !== calNo) return;
       clampMonth();
@@ -602,6 +615,7 @@
       var q = new URLSearchParams(location.search);
       var acc = (q.get("a") || "").split(",");
       options().forEach(function (o) { o.selected = acc.indexOf(o.value) >= 0; });
+      lastSel = selected().join(",");
       render();
       $("from").value = q.get("from") || "";
       $("to").value = q.get("to") || "";

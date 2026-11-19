@@ -137,6 +137,7 @@ select {
 .row { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; font-size: .9rem; color: var(--muted); }
 .row label { display: flex; align-items: center; gap: 6px; }
 .dfield { display: flex; align-items: center; gap: 6px; }
+.dfield[hidden] { display: none; }
 .dsel { display: inline-flex; gap: 2px; }
 .dsel select:disabled { opacity: .5; }
 .dsel select { max-width: none; padding: 5px 4px; }
@@ -172,9 +173,12 @@ select {
 .day { min-height: 30px; display: flex; align-items: center; justify-content: center; }
 .day:disabled { cursor: default; color: var(--muted); }
 .day small { font-size: .68rem; opacity: .85; margin-left: 1px; }
-/* 投稿のある月・日は、少ないほどアイコンのベージュ、多いほど茶色。濃いところは字を白にする(黒字・白字とも 4:1 前後を保つ境目) */
-.ymc.has, .day.has { background: color-mix(in srgb, var(--accent) calc(var(--lv) * 100%), var(--beige)); }
-.ymc.has.dk, .day.has.dk { color: var(--accent-ink); }
+/* 投稿のある月・日は4段階(アメブロ検索と同じ)。少ないほどアイコンのベージュ、多いほど茶色。
+   l1・l2 は黒字、l3・l4 は白字(どれも 4.5:1 以上) */
+.ymc.l1, .day.l1 { background: var(--beige); }
+.ymc.l2, .day.l2 { background: color-mix(in srgb, var(--accent) 35%, var(--beige)); }
+.ymc.l3, .day.l3 { background: color-mix(in srgb, var(--accent) 75%, var(--beige)); color: var(--accent-ink); }
+.ymc.l4, .day.l4 { background: var(--accent); color: var(--accent-ink); }
 .ymc.sel, .day.sel { border-color: var(--text); }
 /* スマホの幅では、4桁の月の数・3桁の日の数がマスに収まるように詰める(日の「件」は省く) */
 @media (max-width: 480px) {
