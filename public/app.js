@@ -106,9 +106,7 @@
     }
     gb("", "すべて");
     GROUP_BUTTONS.forEach(function (g) {
-      // 見出しの名前をそのまま出す(モーニング娘。'26 のように、年が付く名前も。引用符は半角にそろえる)
-      var first = accs.filter(function (a) { return a.group === g; })[0];
-      if (first) gb(g, first.section.replace(/[’‘]/g, "'"));
+      if (accs.some(function (a) { return a.group === g; })) gb(g, g);
     });
 
     // 「その他のアカウント」のプルダウン(グループのボタンに入らない人)。選ぶと、その人を選んだ人に足す。
