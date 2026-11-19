@@ -138,6 +138,7 @@ select {
 .row label { display: flex; align-items: center; gap: 6px; }
 .dfield { display: flex; align-items: center; gap: 6px; }
 .dsel { display: inline-flex; gap: 2px; }
+.dsel select:disabled { opacity: .5; }
 .dsel select { max-width: none; padding: 5px 4px; }
 
 /* ---- カレンダー(アメブロ検索の .cal・.days と同じ形) ---- */
@@ -149,26 +150,39 @@ select {
   border-radius: 12px;
 }
 .cal > * { max-width: 420px; }
+/* 年が左・月が上の表(アメブロ検索の .years と同じ形) */
+.cal > .years { max-width: 560px; }
+.years { display: grid; grid-template-columns: 3.2em repeat(12, minmax(0, 1fr)); gap: 3px; margin-bottom: 14px; font-size: .72rem; }
+.years .yl { color: var(--muted); align-self: center; font-variant-numeric: tabular-nums; }
+.years .mh { color: var(--muted); text-align: center; }
+.years:empty { display: none; }
+.ymc, .day {
+  padding: 0; border: 1px solid transparent; border-radius: 4px;
+  background: var(--cell0); color: var(--text); font: inherit; font-weight: 400; line-height: 1.2;
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.ymc { min-height: 26px; }
+.ymc:disabled { cursor: default; }
+.ymc.cur { box-shadow: inset 0 -2px 0 var(--text); }
 .cal-head { display: flex; align-items: center; gap: 4px; margin-bottom: 6px; }
 .cal-head strong { flex: 1; text-align: center; font-size: .95rem; }
 .cal-head button { background: transparent; color: var(--accent); padding: 4px 10px; border: 1px solid var(--line); font-weight: 400; }
 .cal-head button:disabled { opacity: .3; cursor: default; }
 .cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px; margin-bottom: 6px; font-size: .8rem; }
 .cal-grid .dow { text-align: center; font-size: .72rem; color: var(--muted); }
-.cal-grid .dow:first-child { color: #c33; }
-.cal-grid .dow:nth-child(7) { color: #36c; }
-.day {
-  aspect-ratio: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
-  padding: 0; border: 1px solid transparent; border-radius: 4px;
-  background: var(--cell0); color: var(--text); font-weight: 400; line-height: 1.2;
-  font-variant-numeric: tabular-nums;
-}
+/* 日付の横に件数(アメブロ検索の .days と同じ「日/件数件」) */
+.day { min-height: 30px; display: flex; align-items: center; justify-content: center; }
 .day:disabled { cursor: default; color: var(--muted); }
-.day .n { font-size: .68rem; opacity: .85; }
-/* 投稿のある日は、少ないほどアイコンのベージュ、多いほど茶色。濃い日は字を白にする(黒字・白字とも 4:1 前後を保つ境目) */
-.day.has { background: color-mix(in srgb, var(--accent) calc(var(--lv) * 100%), var(--beige)); }
-.day.has.dk { color: var(--accent-ink); }
-.day.sel { border-color: var(--text); }
+.day small { font-size: .68rem; opacity: .85; margin-left: 1px; }
+/* 投稿のある月・日は、少ないほどアイコンのベージュ、多いほど茶色。濃いところは字を白にする(黒字・白字とも 4:1 前後を保つ境目) */
+.ymc.has, .day.has { background: color-mix(in srgb, var(--accent) calc(var(--lv) * 100%), var(--beige)); }
+.ymc.has.dk, .day.has.dk { color: var(--accent-ink); }
+.ymc.sel, .day.sel { border-color: var(--text); }
+/* スマホの幅では、4桁の月の数・3桁の日の数がマスに収まるように詰める(日の「件」は省く) */
+@media (max-width: 480px) {
+  .years { grid-template-columns: 2.4em repeat(12, minmax(0, 1fr)); gap: 2px; font-size: .6rem; letter-spacing: -.03em; }
+  .day small .u { display: none; }
+}
 .day.today span:first-child { text-decoration: underline; }
 
 /* ---- 一覧(アメブロ検索の .results と同じカードの形) ---- */
