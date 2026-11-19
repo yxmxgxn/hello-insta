@@ -457,7 +457,8 @@
     var box = $("years");
     box.textContent = "";
     var list = shownYms();
-    if (!list.length) return;
+    // 2人以上を選んでいるときは出さない(何人も混ぜた月ごとの数は見ても使いどころがない)。日のカレンダーは出す
+    if (!list.length || selected().length > 1) return;
     var max = 1;
     list.forEach(function (k) { if (months[k] > max) max = months[k]; });
     var f = $("from").value, t = $("to").value;
