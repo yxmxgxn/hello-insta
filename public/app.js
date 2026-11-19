@@ -325,6 +325,18 @@
   // 選んでいる人・検索語の条件での { "YYYY-MM": 件数 }。年×月の表、いつから・いつまでの選択肢、カレンダーの移動に使う
   var months = null, monthsKey = null, monthsNo = 0;
   function yms() { return months ? Object.keys(months).sort() : []; }
+  // いつから・いつまでで絞った月の範囲(月の番号)。月や日を押して1か月の中だけにしたときは、表とカレンダーは絞らない
+  function period() {
+    var f = $("from").value, t = $("to").value;
+    if (!f && !t) return null;
+    if (f && t && f.slice(0, 7) === t.slice(0, 7)) return null;
+    return { lo: f ? ym(f) : -Infinity, hi: t ? ym(t) : Infinity };
+  }
+  // 表とカレンダーに出す、投稿のある月(いつから・いつまでの範囲の中だけ)
+  function shownYms() {
+    var r = period();
+    return yms().filter(function (k) { return !r || ym(k) >= r.lo && ym(k) <= r.hi; });
+  }
   function loadMonths() {
     var p = params();
     p.delete("from");
@@ -415,7 +427,7 @@
 
   // 前・次の投稿がある月(月ごとの件数がまだ無いときは隣の月)
   function stepYm(cur, dir) {
-    var list = yms().map(ym);
+    var list = shownYms().map(ym);
     if (!list.length) return cur + dir;
     if (dir < 0) { for (var i = list.length - 1; i >= 0; i--) if (list[i] < cur) return list[i]; }
     else { for (i = 0; i < list.length; i++) if (list[i] > cur) return list[i]; }
@@ -424,7 +436,7 @@
 
   // 表示中の月を、投稿のある範囲の中に収める
   function clampMonth() {
-    var list = yms(), r = range();
+    var list = shownYms(), r = range();
     var lo = list.length ? ym(list[0]) : r ? ym(r.lo) : null;
     var hi = list.length ? ym(list[list.length - 1]) : r ? ym(r.hi) : null;
     var cur = curYm();
@@ -444,7 +456,7 @@
   function drawYears() {
     var box = $("years");
     box.textContent = "";
-    var list = yms();
+    var list = shownYms();
     if (!list.length) return;
     var max = 1;
     list.forEach(function (k) { if (months[k] > max) max = months[k]; });
@@ -462,7 +474,7 @@
       yl.textContent = y;
       box.appendChild(yl);
       for (m = 1; m <= 12; m++) {
-        var key = y + "-" + pad(m), n = months[key] || 0;
+        var key = y + "-" + pad(m), n = list.indexOf(key) >= 0 ? months[key] : 0;
         var b = document.createElement("button");
         b.type = "button";
         b.className = "ymc" + (f === key + "-01" && t === key + "-" + pad(lastDay(y, m)) ? " sel" : "") +
