@@ -47,7 +47,8 @@
     <p class="hint">メンバーを選択すると、その人たちだけに絞り込めます。空白で区切って検索すると全部含む投稿が並びます。</p>
   </form>
 
-  <section class="cal" aria-label="投稿カレンダー">
+  <p id="cal-hint" class="hint">メンバーを選ぶと、日付で見られます。</p>
+  <section class="cal" id="cal" aria-label="投稿カレンダー" hidden>
     <div id="years" class="years"></div>
     <div class="cal-head">
       <button type="button" class="ghost" id="prev" aria-label="前の投稿がある月">‹</button>
