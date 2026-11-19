@@ -132,7 +132,10 @@ select {
   line-height: 1.5;
 }
 .pk:hover { background: var(--accent); color: var(--accent-ink); }
-.otherbox { display: flex; align-items: center; gap: 6px; font-size: .9rem; color: var(--muted); }
+.other { align-self: flex-start; max-width: 100%; }
+.gb[hidden] { display: none; }
+.chk { display: flex; align-items: center; gap: 4px; font-size: .9rem; color: var(--muted); }
+.chk input { accent-color: var(--accent); width: 16px; height: 16px; }
 #other option.off { color: var(--muted); }
 
 .row { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; font-size: .9rem; color: var(--muted); }
