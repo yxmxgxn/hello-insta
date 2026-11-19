@@ -149,9 +149,7 @@ select {
   border: 1px solid var(--line);
   border-radius: 12px;
 }
-.cal > * { max-width: 420px; }
 /* 年が左・月が上の表(アメブロ検索の .years と同じ形) */
-.cal > .years { max-width: 560px; }
 .years { display: grid; grid-template-columns: 3.2em repeat(12, minmax(0, 1fr)); gap: 3px; margin-bottom: 14px; font-size: .72rem; }
 .years .yl { color: var(--muted); align-self: center; font-variant-numeric: tabular-nums; }
 .years .mh { color: var(--muted); text-align: center; }
