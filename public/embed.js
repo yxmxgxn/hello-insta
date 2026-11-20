@@ -58,7 +58,7 @@
     modal.querySelector(".emodal-stage").appendChild(el);
     cards.push({ li: li, el: el });
     // 8秒たっても埋め込みにならなければ(非公開・埋め込み禁止・読み込めないなど)、右下の「Instagram で開く」を案内する
-    setTimeout(function () { if (!el.querySelector("iframe")) el.classList.add("fail"); }, 8000);
+    setTimeout(function () { if (!el.querySelector("iframe.instagram-media-rendered")) el.classList.add("fail"); }, 8000);
     loadEmbedJs()
       .then(function () { if (window.instgrm) window.instgrm.Embeds.process(); })
       .catch(function () { /* 読み込めなくても「Instagram で見る」は押せる */ });
@@ -87,13 +87,14 @@
     }, 1500);
   }
 
-  // 枠の高さを、読み込む前から確保しておく(右下の「Instagram で開く ↗」の縦の位置が動かないように)。
-  // 埋め込みの高さは投稿ごとに違うので、よくある縦長の写真(4:5)とその下の分(約200px)を見込む。画面に収まる高さまで
+  // 枠の高さは、投稿によらず同じに決めておく(早く動かしても枠が縮んだり開いたりしない。右下の「Instagram で開く ↗」の位置も動かない)。
+  // 埋め込みの高さは投稿ごとに違うので、よくある縦長の写真(4:5)とその下の分(約200px)を見込み、画面に収まる高さまで。
+  // それより長い投稿は、枠の中だけがスクロールする。読み込み中は、枠の真ん中に「くるくる」を出す
   function reserve(el) {
     var stage = el.parentNode, w = stage.clientWidth;
     var max = parseFloat(getComputedStyle(el).maxHeight) || 0;
     var h = Math.round(1.25 * w + 200);
-    el.style.minHeight = (max ? Math.min(h, max) : h) + "px";
+    el.style.height = (max ? Math.min(h, max) : h) + "px";
   }
 
   function show(li) {

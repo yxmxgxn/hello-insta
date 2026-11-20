@@ -276,11 +276,25 @@ select {
 /* 埋め込みになる前の、素の「Instagram で見る」のリンク(青い字で左に一瞬出て、動いて見える)は出さない。
    代わりに、枠と「読み込み中…」を出す。リンクは、右下の「Instagram で開く ↗」にある */
 .emodal-card > blockquote > a { display: none; }
-.emodal-card:not(:has(iframe))::before {
-  content: "読み込み中…"; display: flex; align-items: center; justify-content: center;
-  min-height: inherit; color: var(--muted); font-size: .9rem;
+/* 読み込み中(埋め込みが出来上がるまで)は、枠の真ん中に「くるくる」。枠の高さは変えない */
+.emodal-card:not(:has(iframe.instagram-media-rendered)) { display: flex; align-items: center; justify-content: center; }
+.emodal-card:not(:has(iframe.instagram-media-rendered))::before {
+  content: ""; width: 30px; height: 30px; border: 3px solid #e2e2e2; border-top-color: var(--accent); border-radius: 50%;
+  animation: emspin .8s linear infinite;
 }
-.emodal-card.fail:not(:has(iframe))::before { content: "埋め込みを表示できませんでした。右下の「Instagram で開く ↗」から見てください。"; padding: 24px; text-align: center; line-height: 1.7; }
+@keyframes emspin { to { transform: rotate(360deg); } }
+/* 埋め込みになる前の blockquote は、枠も線も出さず、場所も取らない(線が見えたり、くるくるが左に寄ったりするため) */
+.emodal-card:not(:has(iframe.instagram-media-rendered)) > blockquote,
+.emodal-card:not(:has(iframe.instagram-media-rendered)) > iframe {
+  position: absolute !important; visibility: hidden !important; width: 0 !important; height: 0 !important;
+  min-width: 0 !important; margin: 0 !important; padding: 0 !important; border: 0 !important; overflow: hidden !important;
+}
+/* 読み込めなかった(非公開・埋め込み禁止など)ときは、くるくるの代わりに案内 */
+.emodal-card.fail:not(:has(iframe.instagram-media-rendered))::before {
+  content: "埋め込みを表示できませんでした。右下の「Instagram で開く ↗」から見てください。";
+  width: auto; height: auto; border: 0; border-radius: 0; animation: none; padding: 24px; text-align: center;
+  line-height: 1.7; color: var(--muted); font-size: .9rem;
+}
 /* スマホ(タッチ)では、スクロールの細い線がカードの右端に出て、幅がはみ出して見えるので、出さない */
 @media (pointer: coarse) {
   .emodal-card { scrollbar-width: none; }
