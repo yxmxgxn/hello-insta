@@ -57,6 +57,8 @@
     el.appendChild(bq);
     modal.querySelector(".emodal-stage").appendChild(el);
     cards.push({ li: li, el: el });
+    // 8秒たっても埋め込みにならなければ(非公開・埋め込み禁止・読み込めないなど)、右下の「Instagram で開く」を案内する
+    setTimeout(function () { if (!el.querySelector("iframe")) el.classList.add("fail"); }, 8000);
     loadEmbedJs()
       .then(function () { if (window.instgrm) window.instgrm.Embeds.process(); })
       .catch(function () { /* 読み込めなくても「Instagram で見る」は押せる */ });

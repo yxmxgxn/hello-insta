@@ -273,6 +273,14 @@ select {
   overflow-y: auto; overscroll-behavior: contain; background: #fff; border-radius: 12px;
 }
 .emodal-card.on { position: relative; visibility: visible; pointer-events: auto; }
+/* 埋め込みになる前の、素の「Instagram で見る」のリンク(青い字で左に一瞬出て、動いて見える)は出さない。
+   代わりに、枠と「読み込み中…」を出す。リンクは、右下の「Instagram で開く ↗」にある */
+.emodal-card > blockquote > a { display: none; }
+.emodal-card:not(:has(iframe))::before {
+  content: "読み込み中…"; display: flex; align-items: center; justify-content: center;
+  min-height: 320px; color: var(--muted); font-size: .9rem;
+}
+.emodal-card.fail:not(:has(iframe))::before { content: "埋め込みを表示できませんでした。右下の「Instagram で開く ↗」から見てください。"; padding: 24px; text-align: center; line-height: 1.7; }
 .emodal-card .instagram-media { margin: 0 !important; min-width: 0 !important; width: 100% !important; max-width: none !important; }
 .emodal-prev, .emodal-next, .emodal-x {
   position: relative; z-index: 1; width: 44px; height: 44px; padding: 0; border-radius: 50%;
