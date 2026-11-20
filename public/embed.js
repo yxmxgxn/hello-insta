@@ -1,5 +1,5 @@
 // Instagram 公式の埋め込みを、押したときだけ、暗い背景のポップアップで開く(トップと /day で共通)。
-// window.postActions(li, permalink) は、投稿の下の「▶ ここで見る」「Instagram で開く ↗」の行を作る。
+// window.postActions(li, permalink) は、投稿の下の「▶ ここで見る」「Instagram で見る ↗」の行を作る。
 // ポップアップの中では、「‹」「›」・キーボードの ← → ・(パソコンは)暗い背景でのホイールで、一覧の前後の投稿に移れる。
 // 閉じるのは「×」・背景・Esc。前後の投稿は、開いた投稿が表示し終わってから、裏で先に読み込んでおく
 (function () {
@@ -87,7 +87,7 @@
     }, 1500);
   }
 
-  // 枠の高さは、投稿によらず同じに決めておく(早く動かしても枠が縮んだり開いたりしない。右下の「Instagram で開く ↗」の位置も動かない)。
+  // 枠の高さは、投稿によらず同じに決めておく(早く動かしても枠が縮んだり開いたりしない。右下の「Instagram で見る ↗」の位置も動かない)。
   // 埋め込みの高さは投稿ごとに違うので、よくある縦長の写真(4:5)とその下の分(約200px)を見込み、画面に収まる高さまで。
   // それより長い投稿は、枠の中だけがスクロールする。読み込み中は、枠の真ん中に「くるくる」を出す
   function reserve(el) {
@@ -109,7 +109,7 @@
     var more = document.getElementById("more");
     modal.querySelector(".emodal-next").disabled = i >= all.length - 1 && !(more && !more.hidden);
     modal.querySelector(".emodal-count").textContent = (i + 1) + " / " + all.length + (more && !more.hidden ? "+" : "");
-    // 右下の「Instagram で開く ↗」も、この投稿に(動画はこちらのほうがきれい。コメントもできる)
+    // 右下の「Instagram で見る ↗」も、この投稿に(動画はこちらのほうがきれい。コメントもできる)
     modal.querySelector(".emodal-link").href = urlOf(li);
     // 後ろの一覧も、いま出している投稿に合わせて動かす
     li.scrollIntoView({ block: "nearest" });
@@ -184,7 +184,7 @@
     link.className = "emodal-link";
     link.target = "_blank";
     link.rel = "noopener noreferrer";
-    link.textContent = "Instagram で開く ↗";
+    link.textContent = "Instagram で見る ↗";
     modal.appendChild(bg);
     modal.appendChild(btn("emodal-x", "閉じる", "×", close));
     modal.appendChild(btn("emodal-prev", "前の投稿", "‹", function () { step(-1); }));
@@ -210,7 +210,7 @@
     show(li);
   }
 
-  // 投稿の下の操作の行:「▶ ここで見る」(ポップアップで開く)と「Instagram で開く ↗」(元の投稿へ)
+  // 投稿の下の操作の行:「▶ ここで見る」(ポップアップで開く)と「Instagram で見る ↗」(元の投稿へ)
   function actions(li, permalink) {
     // /reel/ だと別の動画に飛ばされることがあるので、リールも開ける /p/ にそろえる
     var url = permalink.replace("/reel/", "/p/");
@@ -227,7 +227,7 @@
     link.href = url;
     link.target = "_blank";
     link.rel = "noopener noreferrer";
-    link.textContent = "Instagram で開く ↗";
+    link.textContent = "Instagram で見る ↗";
     row.appendChild(see);
     row.appendChild(link);
     return row;
