@@ -149,6 +149,10 @@ PERSONAL_OG_KEEP = {
     "shiori_yagi.official",         # 八木栞
     "akaritakeuchi_calligraphy",    # 竹内朱莉の書道のアカウント
     "karin_miyamoto.official", "miyamoto_mg",  # 宮本佳林(絶対)
+    # 個人アカウントだが、IG取得で入れると決めた人(これが無いと、個人アカウントと分かった次の回で、対象から外れて消える)
+    "ishiguroaya.official",         # 石黒彩
+    "kobushifactory_official",      # こぶしファクトリー公式
+    "countrygirls_official",        # カントリー・ガールズ公式
 }
 
 # スプシの判定に乗らないが対象にするアカウント: ユーザー名 → (表示名, 見出し)。一覧の一番下に並ぶ
