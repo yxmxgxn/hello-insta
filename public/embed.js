@@ -27,6 +27,7 @@
   var modal = null;      // ポップアップ(開いている間だけ)
   var current = null;    // いま出している投稿の li
   var opener = null;     // 開いたボタン(閉じたらここに戻す)
+  var suppressClick = false;   // スワイプの終わりで、背景を押したことにしない
 
   function urlOf(li) { return li.getAttribute("data-url"); }
 
@@ -61,6 +62,8 @@
     var more = document.getElementById("more");
     modal.querySelector(".emodal-next").disabled = i >= all.length - 1 && !(more && !more.hidden);
     modal.querySelector(".emodal-count").textContent = (i + 1) + " / " + all.length + (more && !more.hidden ? "+" : "");
+    // 右下の「Instagram で開く ↗」も、この投稿に(動画はこちらのほうがきれい。コメントもできる)
+    modal.querySelector(".emodal-link").href = urlOf(li);
     // 後ろの一覧も、いま出している投稿に合わせて動かす
     li.scrollIntoView({ block: "nearest" });
   }
@@ -111,6 +114,34 @@
     return b;
   }
 
+  // 暗い背景(カードの外)でのスワイプ・ホイールで、前後の投稿へ。左・上へのスワイプ、下へのホイールが「次」。
+  // カードの中は Instagram の画面なので、スクロール(長いキャプション)や横のスワイプ(複数枚の写真)は Instagram が受ける
+  function gestures(root, card) {
+    var x0 = 0, y0 = 0, on = false, wheelAt = 0;
+    root.addEventListener("pointerdown", function (e) {
+      if (card.contains(e.target) || e.target.closest("button, a")) return;
+      on = true; x0 = e.clientX; y0 = e.clientY;
+    });
+    root.addEventListener("pointerup", function (e) {
+      if (!on) return;
+      on = false;
+      var dx = e.clientX - x0, dy = e.clientY - y0;
+      if (Math.max(Math.abs(dx), Math.abs(dy)) < 50) return;   // 短いのは、背景を押しただけ
+      step((Math.abs(dx) > Math.abs(dy) ? dx : dy) < 0 ? 1 : -1);
+      suppressClick = true;
+      setTimeout(function () { suppressClick = false; }, 0);
+    });
+    root.addEventListener("pointercancel", function () { on = false; });
+    root.addEventListener("wheel", function (e) {
+      if (card.contains(e.target)) return;
+      e.preventDefault();
+      var now = Date.now();
+      if (now - wheelAt < 450 || Math.abs(e.deltaY) + Math.abs(e.deltaX) < 8) return;   // 勢いのある1回で1つだけ
+      wheelAt = now;
+      step((Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY) > 0 ? 1 : -1);
+    }, { passive: false });
+  }
+
   function open(li, from) {
     close();
     opener = from;
@@ -121,18 +152,25 @@
     modal.setAttribute("aria-label", "投稿");
     var bg = document.createElement("div");
     bg.className = "emodal-bg";
-    bg.onclick = close;
+    bg.onclick = function () { if (!suppressClick) close(); };
     var card = document.createElement("div");
     card.className = "emodal-card";
     var count = document.createElement("div");
     count.className = "emodal-count";
     count.setAttribute("aria-live", "polite");
+    var link = document.createElement("a");
+    link.className = "emodal-link";
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    link.textContent = "Instagram で開く ↗";
     modal.appendChild(bg);
     modal.appendChild(btn("emodal-x", "閉じる", "×", close));
     modal.appendChild(btn("emodal-prev", "前の投稿", "‹", function () { step(-1); }));
     modal.appendChild(card);
     modal.appendChild(btn("emodal-next", "次の投稿", "›", function () { step(1); }));
+    modal.appendChild(link);
     modal.appendChild(count);
+    gestures(modal, card);
     document.body.appendChild(modal);
     document.documentElement.classList.add("emodal-open");
     document.addEventListener("keydown", onKey, true);
