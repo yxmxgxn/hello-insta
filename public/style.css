@@ -262,11 +262,12 @@ select {
 .emodal {
   position: fixed; inset: 0; z-index: 100;
   display: grid; grid-template-columns: auto minmax(0, 540px) auto; align-items: center; justify-content: center;
-  grid-template-areas: "prev card next"; gap: 12px; padding: 16px;
+  grid-template-areas: "prev card next" ". link ."; gap: 12px; padding: 16px; align-content: center;
+  touch-action: none;
 }
 .emodal-bg { position: absolute; inset: 0; background: rgba(0, 0, 0, .86); }
 .emodal-card {
-  grid-area: card; position: relative; z-index: 1; max-height: calc(100vh - 56px); max-height: calc(100dvh - 56px);
+  grid-area: card; position: relative; z-index: 1; max-height: calc(100vh - 110px); max-height: calc(100dvh - 110px);
   overflow-y: auto; overscroll-behavior: contain; background: #fff; border-radius: 12px;
 }
 .emodal-card .instagram-media { margin: 0 !important; min-width: 0 !important; width: 100% !important; max-width: none !important; }
@@ -274,6 +275,12 @@ select {
   position: relative; z-index: 1; width: 44px; height: 44px; padding: 0; border-radius: 50%;
   background: rgba(255, 255, 255, .92); color: #1f1f1f; font-size: 1.5rem; line-height: 1; font-weight: 400;
 }
+.emodal-link {
+  grid-area: link; justify-self: end; position: relative; z-index: 1; margin-top: -4px;
+  padding: 7px 14px; border-radius: 999px; background: rgba(255, 255, 255, .92); color: #1f1f1f;
+  font-size: .85rem; text-decoration: none; white-space: nowrap;
+}
+.emodal-link:hover { background: #fff; }
 .emodal-prev { grid-area: prev; }
 .emodal-next { grid-area: next; }
 .emodal-prev:disabled, .emodal-next:disabled { opacity: .3; cursor: default; }
@@ -281,8 +288,8 @@ select {
 .emodal-count { position: absolute; left: 0; right: 0; bottom: 10px; z-index: 1; text-align: center; font-size: .8rem; color: rgba(255, 255, 255, .8); font-variant-numeric: tabular-nums; pointer-events: none; }
 /* 狭い画面では、‹ › をカードの下に並べる */
 @media (max-width: 700px) {
-  .emodal { grid-template-columns: 1fr 1fr; grid-template-areas: "card card" "prev next"; align-content: center; padding: 12px 12px 36px; row-gap: 12px; }
-  .emodal-card { max-height: calc(100vh - 140px); max-height: calc(100dvh - 140px); }
+  .emodal { grid-template-columns: 1fr 1fr; grid-template-areas: "card card" "link link" "prev next"; align-content: center; padding: 12px 12px 36px; row-gap: 10px; }
+  .emodal-card { max-height: calc(100vh - 190px); max-height: calc(100dvh - 190px); }
   .emodal-prev { justify-self: end; margin-right: 16px; }
   .emodal-next { justify-self: start; margin-left: 16px; }
 }
