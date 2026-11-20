@@ -256,20 +256,35 @@ select {
 }
 .see:hover { color: var(--accent); border-color: var(--accent); }
 .open { font-size: .78rem; color: var(--accent); }
-/* 公式の埋め込みは幅 326〜540px。スマホでは画面いっぱいまで */
-.embed { margin-top: 8px; max-width: 540px; }
-.embed .instagram-media { margin: 0 !important; min-width: 0 !important; width: 100% !important; }
-/* パソコンの幅では、埋め込みを投稿の文章の右横に出す(下に出すと縦に長く、スクロールが増えるため)。
-   スマホ・狭い画面は、いままでどおり文章の下 */
-@media (min-width: 900px) {
-  .list li:has(> .embed), .results li:has(> .embed) {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 340px;   /* 公式の埋め込みの最小の幅(326px)に近い幅。文章の列を広く残す */
-    column-gap: 20px;
-    align-items: start;
-  }
-  .list li:has(> .embed) > .body, .results li:has(> .embed) > .body { grid-column: 1; min-width: 0; }
-  .list li:has(> .embed) > .embed, .results li:has(> .embed) > .embed { grid-column: 2; grid-row: 1; margin-top: 0; width: 100%; max-width: 340px; }
+/* 公式の埋め込みは、暗い背景のポップアップで開く(幅 326〜540px。スマホでは画面いっぱいまで)。
+   ‹ › で一覧の前後の投稿へ。閉じるのは ×・背景・Esc */
+.emodal-open { overflow: hidden; }
+.emodal {
+  position: fixed; inset: 0; z-index: 100;
+  display: grid; grid-template-columns: auto minmax(0, 540px) auto; align-items: center; justify-content: center;
+  grid-template-areas: "prev card next"; gap: 12px; padding: 16px;
+}
+.emodal-bg { position: absolute; inset: 0; background: rgba(0, 0, 0, .86); }
+.emodal-card {
+  grid-area: card; position: relative; z-index: 1; max-height: calc(100vh - 56px); max-height: calc(100dvh - 56px);
+  overflow-y: auto; overscroll-behavior: contain; background: #fff; border-radius: 12px;
+}
+.emodal-card .instagram-media { margin: 0 !important; min-width: 0 !important; width: 100% !important; max-width: none !important; }
+.emodal-prev, .emodal-next, .emodal-x {
+  position: relative; z-index: 1; width: 44px; height: 44px; padding: 0; border-radius: 50%;
+  background: rgba(255, 255, 255, .92); color: #1f1f1f; font-size: 1.5rem; line-height: 1; font-weight: 400;
+}
+.emodal-prev { grid-area: prev; }
+.emodal-next { grid-area: next; }
+.emodal-prev:disabled, .emodal-next:disabled { opacity: .3; cursor: default; }
+.emodal-x { position: absolute; top: 12px; right: 12px; z-index: 2; width: 40px; height: 40px; font-size: 1.4rem; }
+.emodal-count { position: absolute; left: 0; right: 0; bottom: 10px; z-index: 1; text-align: center; font-size: .8rem; color: rgba(255, 255, 255, .8); font-variant-numeric: tabular-nums; pointer-events: none; }
+/* 狭い画面では、‹ › をカードの下に並べる */
+@media (max-width: 700px) {
+  .emodal { grid-template-columns: 1fr 1fr; grid-template-areas: "card card" "prev next"; align-content: center; padding: 12px 12px 36px; row-gap: 12px; }
+  .emodal-card { max-height: calc(100vh - 140px); max-height: calc(100dvh - 140px); }
+  .emodal-prev { justify-self: end; margin-right: 16px; }
+  .emodal-next { justify-self: start; margin-left: 16px; }
 }
 mark { background: var(--mark); color: var(--mark-ink); padding: 0 1px; border-radius: 2px; }
 .status { min-height: 1.7em; margin: 12px 2px; font-size: .9rem; color: var(--muted); }
