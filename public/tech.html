@@ -135,7 +135,73 @@
     ご連絡は、<a href="https://karin-archive.com/">karin-archive</a>（同じ作者のサイト）のページ下にある「誤りの報告・追加のご要望」から送ってください。
   </p>
 
-  <p class="note">最終更新：2026年11月17日</p>
+  <h2>7. 技術の詳細</h2>
+  <p>
+    ここからは、作りを知りたい人向けの、細かい話です。このサイトが公開している範囲の説明で、鍵や合言葉は含みません。
+    このリポジトリの <code>docs/instagram.md</code> にも、投稿の取り方のまとめがあります。
+  </p>
+
+  <h3>構成</h3>
+  <ul>
+    <li><strong>画面</strong>：HTML・CSS・JavaScript のファイルを、Cloudflare Workers の Static Assets で配信しています。フレームワークは使っていません</li>
+    <li><strong>API</strong>：同じ Worker が、<code>/api/posts</code>（投稿の一覧）・<code>/api/calendar</code>（月・日ごとの件数）・<code>/api/accounts</code>（対象のアカウントと件数）・<code>/api/day</code>（その日の投稿）を返します。結果は、Cloudflare のキャッシュに5分置きます</li>
+    <li><strong>データ</strong>：Cloudflare D1（SQLite）です。<code>post</code>（投稿）、<code>account</code>（対象のアカウント）、<code>fetch_state</code>（アカウントごとの取得の進み）、<code>post_fts</code>（検索用の索引）の4つが中心です</li>
+    <li><strong>収録</strong>：GitHub Actions のワークフロー（Python）が、毎時起動して、Worker のクローラ用のAPIに結果を送ります。クローラ用のAPIは、合言葉（Bearer 認証）が無いと使えません</li>
+  </ul>
+
+  <h3>公式APIの呼び方</h3>
+  <p>
+    Instagram Graph API の Business Discovery を使います。自分のビジネスアカウントのIDで、相手のユーザー名を渡すと、相手の投稿が返ってきます。
+    1回の呼び出しは、おおむね次の形です（<code>&lt;…&gt;</code> は入れ替わる部分です）。
+  </p>
+  <pre><code>GET https://graph.facebook.com/v23.0/&lt;自分のアカウントのID&gt;
+  ?fields=business_discovery.username(&lt;相手のユーザー名&gt;){
+    media_count,
+    media.limit(50).after(&lt;続きの位置&gt;){
+      id,caption,timestamp,permalink,media_type,
+      like_count,comments_count,username,media_product_type
+    }
+  }</code></pre>
+  <ul>
+    <li><strong>1ページは50件</strong>です。返事に続きの位置（カーソル）が付いているので、それを <code>after</code> に入れて、古い方へ進みます</li>
+    <li>取るのは、投稿のID・文章・日時・リンク・種類・いいねとコメントの数・持ち主・リールかどうか、だけです。<strong>画像や動画のアドレス（<code>media_url</code>）は聞きません</strong></li>
+    <li>共同投稿は、持ち主（<code>username</code>）も一緒に聞きます。持ち主が収録している人なら、その人の投稿にします</li>
+    <li>聞いた項目のどれかが使えない（Meta が返さない）ときは、その項目を外して、頼み直します</li>
+  </ul>
+
+  <h3>利用の上限と、取る順番</h3>
+  <ul>
+    <li>Meta の利用上限に当たったら（<code>Application request limit reached</code>）、その回は終わりにして、続きは次の回に回します。「頼むデータが多すぎる」（エラーコード1）と断られたら、1回に頼む件数と項目を減らして頼み直し、それでもだめなら、その人の遡りは打ち切ります</li>
+    <li>1回の収録は、<strong>新着 → 遡り → 周回</strong>の順で、回数を使います</li>
+    <li><strong>新着</strong>：各アカウントの最新の50件を、1日1回確かめます。全員が同じ時刻に頼むと、上限に当たるので、アカウント名から決まる順番に並べて、1日を等分した「自分の時刻」を、1人ずつ割り当てて、散らしています。優先するアカウントだけは、3時間ごとに確かめます</li>
+    <li><strong>遡り</strong>：新着で使わなかった分の回数で、過去の投稿を、50件ずつ、古い方へたどります。端まで届いたら、完了です</li>
+    <li><strong>周回</strong>：遡りが終わった人の投稿を、別のカーソルで、新しい方から最後まで読み直します。1人7日に1回ほどで、1回の収録で使う回数には上限があります（新着が止まらないようにするためです）</li>
+  </ul>
+
+  <h3>消えたかもしれない投稿の見つけ方</h3>
+  <ul>
+    <li>公式APIの返事に入った投稿は、そのたびに <code>post.seen_at</code>（最後に見えた日時）を更新します</li>
+    <li>周回を読み終えた人で、<strong>その周回のあいだに返ってこなかった投稿</strong>を、「消えたかもしれない」とします。ただし、周回で返った一番古い投稿より古いものと、周回を始めたあとの投稿は、数えません</li>
+    <li>年齢制限のかかった投稿など、消えていなくても、APIが返さない投稿があります。そのため、<strong>自動では消しません</strong>。管理者が、元の投稿を開いて確かめて、「消す」か「残す」を決めます（残したものは、<code>post.keep</code> に印を付けて、次から数えません）</li>
+  </ul>
+
+  <h3>保存と、検索の索引</h3>
+  <ul>
+    <li>投稿は、公式APIのものはインスタのメディアID、個人アカウントのものは <code>web:&lt;shortcode&gt;</code> を、IDにします。同じ投稿は1件にまとまり、個人アカウントの人がプロに切り替えたときは、公式APIの分に置き換わります</li>
+    <li>一覧に出す文章は、先頭の一部だけ（<code>excerpt</code>）です。検索用の索引（<code>post_fts</code>、SQLite の FTS5）には、文章を<strong>2文字ずつに区切ったもの（bigram）</strong>を入れます。語は、2文字ずつのフレーズにして、<code>MATCH</code> で引きます</li>
+    <li>空白で区切った語は <code>AND</code>、「-」を付けた語は <code>NOT</code> で組み合わせます（例：<code>ライブ -リハーサル</code> は <code>("ライ イブ") NOT ("リハ ハー ーサ サル")</code>）</li>
+    <li>本文が前と同じ投稿は、重い索引を書き直しません（本文の指紋 <code>cap_hash</code> で比べます）</li>
+    <li>日時は、日本時間の「分」までの文字列で持ちます。日付の絞り込みは、その文字列の大小比較です</li>
+  </ul>
+
+  <h3>表示</h3>
+  <ul>
+    <li>投稿を見るときは、<strong>インスタ公式の埋め込み</strong>（<code>blockquote</code> と、インスタの <code>embed.js</code>）をそのまま使います。「▶ ここで見る」を押したときにだけ読み込みます</li>
+    <li>前後の投稿は、開いた投稿が出たあとに、裏で1つずつ、先に読み込んでおきます。離れたものは捨てるので、読み込んだままの埋め込みは、いつも最大3つです</li>
+    <li>埋め込みの規約は、「埋め込み以外の目的で、返ってくる内容を使わない」というものなので、埋め込みのAPI（oEmbed）は、サーバーからは使っていません</li>
+  </ul>
+
+  <p class="note">最終更新：2026年11月20日　<a href="/changes">更新履歴</a></p>
 </main>
 
 <footer class="site-foot">
