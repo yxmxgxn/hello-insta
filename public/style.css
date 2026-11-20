@@ -278,7 +278,7 @@ select {
 .emodal-card > blockquote > a { display: none; }
 .emodal-card:not(:has(iframe))::before {
   content: "読み込み中…"; display: flex; align-items: center; justify-content: center;
-  min-height: 320px; color: var(--muted); font-size: .9rem;
+  min-height: inherit; color: var(--muted); font-size: .9rem;
 }
 .emodal-card.fail:not(:has(iframe))::before { content: "埋め込みを表示できませんでした。右下の「Instagram で開く ↗」から見てください。"; padding: 24px; text-align: center; line-height: 1.7; }
 /* スマホ(タッチ)では、スクロールの細い線がカードの右端に出て、幅がはみ出して見えるので、出さない */

@@ -87,9 +87,19 @@
     }, 1500);
   }
 
+  // 枠の高さを、読み込む前から確保しておく(右下の「Instagram で開く ↗」の縦の位置が動かないように)。
+  // 埋め込みの高さは投稿ごとに違うので、よくある縦長の写真(4:5)とその下の分(約200px)を見込む。画面に収まる高さまで
+  function reserve(el) {
+    var stage = el.parentNode, w = stage.clientWidth;
+    var max = parseFloat(getComputedStyle(el).maxHeight) || 0;
+    var h = Math.round(1.25 * w + 200);
+    el.style.minHeight = (max ? Math.min(h, max) : h) + "px";
+  }
+
   function show(li) {
     current = li;
     var el = ensure(li);
+    reserve(el);
     cards.forEach(function (c) { c.el.classList.toggle("on", c.el === el); });
     el.scrollTop = 0;
     // 前後の投稿(なければ「‹」「›」は押せない)。後ろの投稿が無くても、「さらに古い投稿」があれば押して読み込む
