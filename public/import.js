@@ -647,13 +647,21 @@
   function loadGone() {
     var box = document.getElementById("goneBox");
     var tbody = document.getElementById("gone");
-    if (!token) { box.hidden = true; return; }
+    if (!token) { box.hidden = true; return; }   // 合言葉(token)が無いときは出さない
     fetch("/api/crawl/gone", { headers: { authorization: "Bearer " + token }, cache: "no-store" })
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (d) {
-        if (!d || !d.posts.length) { box.hidden = true; return; }
         box.hidden = false;
         tbody.textContent = "";
+        // 0件・読み込めなかったときも、欄は出して理由を書く(「何も出ない」だけだと、0件なのか失敗なのか分からないため)
+        if (!d || !d.posts.length) {
+          var er = document.createElement("tr");
+          var ec = document.createElement("td");
+          ec.textContent = d ? "いま、消えたかもしれない投稿は 0 件です。" : "一覧を読み込めませんでした(合言葉が違うか、通信の失敗です)。";
+          er.appendChild(ec);
+          tbody.appendChild(er);
+          return;
+        }
         d.posts.forEach(function (p) {
           var tr = document.createElement("tr");
           var td = document.createElement("td");

@@ -785,11 +785,22 @@ async function dailyReport(env) {
     console.log("gone", e.message);
   }
 
+  // 内訳(どの人が多いか。上位5人)。何が原因で増減したかを見るため
+  let goneBy = "";
+  if (gone) {
+    try {
+      const { results } = await env.DB.prepare(`SELECT name, COUNT(*) AS n FROM (${GONE_SQL}) GROUP BY name ORDER BY n DESC LIMIT 5`).all();
+      goneBy = results.map((r) => `${r.name} ${r.n}`).join("、");
+    } catch (e) {
+      console.log("gone by", e.message);
+    }
+  }
+
   const head =
     `収録 **${total.toLocaleString()}** 件` +
     (diff == null ? "" : `（前回から ${diff >= 0 ? "+" : ""}${diff.toLocaleString()}）`) +
     `\n新着 **${fresh.length}** 件（${since.slice(5).replace("-", "/")} 〜 ${now.slice(5).replace("-", "/")}）` +
-    (gone ? `\n消えたかもしれない投稿 **${gone}** 件（[取り込みページ](${SITE}/import)で確かめる）` : "");
+    (gone ? `\n消えたかもしれない投稿 **${gone}** 件（[取り込みページ](${SITE}/import)で確かめる）` + (goneBy ? `\n　多い人: ${goneBy}` : "") : "");
 
   const res = await fetch(env.DISCORD_WEBHOOK, {
     method: "POST",
