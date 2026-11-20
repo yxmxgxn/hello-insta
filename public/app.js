@@ -659,19 +659,6 @@
 
   /* ---------- 起動 ---------- */
 
-  // 選んだ人のインスタを site: で絞って Google で探す。誰も選んでいなければ開かない(アメブロ検索と同じ)
-  var G_MAX = 8;   // site: を OR でつなぐ数の上限(Google は32語まで)
-  $("g-web").addEventListener("click", function () {
-    var note = $("g-note"), users = selected();
-    if (!users.length) { note.textContent = "メンバーを選んでください"; return; }
-    if (users.length > G_MAX) { note.textContent = "選んでいる人が多すぎます（" + G_MAX + "人まで。いま" + users.length + "人）"; return; }
-    note.textContent = "";
-    var site = users.map(function (u) { return "site:instagram.com/" + u; }).join(" OR ");
-    // 検索語を先に、site: はそのあと
-    var q = [$("q").value.trim(), users.length > 1 ? "(" + site + ")" : site].filter(Boolean).join(" ");
-    window.open("https://www.google.com/search?" + new URLSearchParams({ q: q }), "_blank", "noopener");
-  });
-
   // メンバー選択のパネル(開く・閉じる)。検索したら畳む(結果を見せるため)
   function panel(open) {
     $("panel").hidden = !open;

@@ -137,10 +137,6 @@ select {
 .chk input { accent-color: var(--accent); width: 16px; height: 16px; }
 #other option.off { color: var(--muted); }
 
-.gsearch { margin: 8px 0 0; font-size: .85rem; color: var(--muted); display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
-.gsearch .ghost { padding: 3px 10px; }
-.g-note { color: #b3261e; }
-
 /* ---- 検索欄の下の行・メンバー選択のパネル(アメブロ検索と同じ形) ---- */
 .opts { display: flex; flex-wrap: wrap; gap: 8px 16px; margin-top: 12px; align-items: center; font-size: .9rem; color: var(--muted); }
 .opts label { display: flex; align-items: center; gap: 6px; }
