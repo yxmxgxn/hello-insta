@@ -644,16 +644,53 @@
   loadTargets();
 
   // ---------- 消えたかもしれない投稿(周回で公式APIから返ってこなかったもの)。消すかどうかは管理人が決める ----------
-  function loadGone() {
+  // 候補が多すぎる人(APIの異常かも)の行。「全部残す」か「一覧を出す」
+  function suspectRow(s) {
+    var tr = document.createElement("tr");
+    var td = document.createElement("td");
+    td.textContent = "⚠ " + s.name + " の候補が " + s.n + " 件あります。多すぎるので、Meta が期間ごと飛ばして返しただけかもしれません（一覧には出していません）。";
+    tr.appendChild(td);
+    var act = document.createElement("td");
+    [["全部残す", "keep_all", ""], ["一覧を出す", "show", "ghost"]].forEach(function (b) {
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.textContent = b[0];
+      if (b[2]) btn.className = b[2];
+      btn.onclick = function () {
+        if (b[1] === "show") { loadGone(s.account); return; }
+        if (!confirm(s.name + " の候補 " + s.n + " 件を、全部「残す」にします")) return;
+        act.querySelectorAll("button").forEach(function (x) { x.disabled = true; });
+        fetch("/api/crawl/gone", {
+          method: "POST",
+          headers: { "content-type": "application/json", authorization: "Bearer " + token },
+          body: JSON.stringify({ action: "keep_all", account: s.account }),
+        }).then(function (r) {
+          if (!r.ok) throw new Error("HTTP " + r.status);
+          act.textContent = "残します";
+        }).catch(function (e) {
+          act.querySelectorAll("button").forEach(function (x) { x.disabled = false; });
+          alert("できませんでした: " + e.message);
+        });
+      };
+      act.appendChild(btn);
+    });
+    tr.appendChild(act);
+    return tr;
+  }
+
+  // account を渡すと、その人の候補だけを(多くても)出す
+  function loadGone(account) {
     var box = document.getElementById("goneBox");
     var tbody = document.getElementById("gone");
     if (!token) { box.hidden = true; return; }   // 合言葉(token)が無いときは出さない
-    fetch("/api/crawl/gone", { headers: { authorization: "Bearer " + token }, cache: "no-store" })
+    fetch("/api/crawl/gone" + (account ? "?account=" + encodeURIComponent(account) : ""), { headers: { authorization: "Bearer " + token }, cache: "no-store" })
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (d) {
         box.hidden = false;
         tbody.textContent = "";
+        (d && d.suspects || []).forEach(function (s) { tbody.appendChild(suspectRow(s)); });
         // 0件・読み込めなかったときも、欄は出して理由を書く(「何も出ない」だけだと、0件なのか失敗なのか分からないため)
+        if (d && !d.posts.length && d.suspects && d.suspects.length) return;
         if (!d || !d.posts.length) {
           var er = document.createElement("tr");
           var ec = document.createElement("td");
