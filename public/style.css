@@ -259,6 +259,18 @@ select {
 /* 公式の埋め込みは幅 326〜540px。スマホでは画面いっぱいまで */
 .embed { margin-top: 8px; max-width: 540px; }
 .embed .instagram-media { margin: 0 !important; min-width: 0 !important; width: 100% !important; }
+/* パソコンの幅では、埋め込みを投稿の文章の右横に出す(下に出すと縦に長く、スクロールが増えるため)。
+   スマホ・狭い画面は、いままでどおり文章の下 */
+@media (min-width: 900px) {
+  .list li:has(> .embed), .results li:has(> .embed) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 340px;   /* 公式の埋め込みの最小の幅(326px)に近い幅。文章の列を広く残す */
+    column-gap: 20px;
+    align-items: start;
+  }
+  .list li:has(> .embed) > .body, .results li:has(> .embed) > .body { grid-column: 1; min-width: 0; }
+  .list li:has(> .embed) > .embed, .results li:has(> .embed) > .embed { grid-column: 2; grid-row: 1; margin-top: 0; width: 100%; max-width: 340px; }
+}
 mark { background: var(--mark); color: var(--mark-ink); padding: 0 1px; border-radius: 2px; }
 .status { min-height: 1.7em; margin: 12px 2px; font-size: .9rem; color: var(--muted); }
 .more { display: block; margin: 8px auto 24px; background: transparent; color: var(--accent); border: 1px solid var(--accent); }

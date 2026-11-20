@@ -31,6 +31,13 @@
       btn.textContent = "▶ ここで見る";
       return;
     }
+    // 文章・操作の行を .body にまとめておく(パソコンの幅で、埋め込みをその右横に並べるため)
+    if (!li.querySelector(":scope > .body")) {
+      var body = document.createElement("div");
+      body.className = "body";
+      while (li.firstChild) body.appendChild(li.firstChild);
+      li.appendChild(body);
+    }
     var box = document.createElement("div");
     box.className = "embed";
     var bq = document.createElement("blockquote");
