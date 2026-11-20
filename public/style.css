@@ -263,13 +263,16 @@ select {
   position: fixed; inset: 0; z-index: 100;
   display: grid; grid-template-columns: auto minmax(0, 540px) auto; align-items: center; justify-content: center;
   grid-template-areas: "prev card next" ". link ."; gap: 12px; padding: 16px; align-content: center;
-  touch-action: none;
 }
 .emodal-bg { position: absolute; inset: 0; background: rgba(0, 0, 0, .86); }
+/* 表の枠。前後の投稿のカードも、見えない状態で同じ場所に重ねて、先に読み込んでおく */
+.emodal-stage { grid-area: card; position: relative; z-index: 1; min-width: 0; }
 .emodal-card {
-  grid-area: card; position: relative; z-index: 1; max-height: calc(100vh - 110px); max-height: calc(100dvh - 110px);
+  position: absolute; top: 0; left: 0; width: 100%; visibility: hidden; pointer-events: none;
+  max-height: calc(100vh - 110px); max-height: calc(100dvh - 110px);
   overflow-y: auto; overscroll-behavior: contain; background: #fff; border-radius: 12px;
 }
+.emodal-card.on { position: relative; visibility: visible; pointer-events: auto; }
 .emodal-card .instagram-media { margin: 0 !important; min-width: 0 !important; width: 100% !important; max-width: none !important; }
 .emodal-prev, .emodal-next, .emodal-x {
   position: relative; z-index: 1; width: 44px; height: 44px; padding: 0; border-radius: 50%;
