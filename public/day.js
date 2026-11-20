@@ -72,7 +72,7 @@
       meta.appendChild(el("span", "who", names[r.account] || r.account));
       if (TYPE[r.media_type]) meta.appendChild(el("span", "type", TYPE[r.media_type]));
       li.appendChild(meta);
-      // 本文の抜粋は黒い文字で、リンクにしない。元の投稿へは下の「Instagram で開く ↗」
+      // 本文の抜粋は黒い文字で、リンクにしない。元の投稿へは下の「Instagram で見る ↗」
       li.appendChild(el("p", "text", clean(r.excerpt) || "（本文なし）"));
       li.appendChild(window.postActions(li, r.permalink));
       list.appendChild(li);
