@@ -457,15 +457,44 @@ const GONE_SQL =
   "LEFT JOIN account a ON a.username = p.account " +
   "WHERE p.id NOT LIKE 'web:%' AND p.keep IS NULL AND (p.seen_at IS NULL OR p.seen_at < r.round_start)";
 const GONE_MAX = 500;
+// 1人の候補が、これを超えたら「APIの異常かも」とみて、一覧に出さず、人ごとにまとめて知らせる。
+// 本当に何十件も消えることはまずなく、周回で Meta が期間ごと飛ばして返したときに、まとめて誤検出されるため(石田亜佑美で約2年分が出た。2026-11-20)
+const GONE_SUSPECT = 50;
 
-async function crawlGone(env) {
-  const { results } = await env.DB.prepare(`${GONE_SQL} ORDER BY p.account, p.ts DESC LIMIT ${GONE_MAX + 1}`).all();
-  return json({ posts: results.slice(0, GONE_MAX), more: results.length > GONE_MAX });
+// 候補が多すぎる人 [{account, name, n}]
+async function goneSuspects(env) {
+  const { results } = await env.DB
+    .prepare(`SELECT account, name, COUNT(*) AS n FROM (${GONE_SQL}) GROUP BY account HAVING COUNT(*) > ${GONE_SUSPECT} ORDER BY n DESC`)
+    .all();
+  return results;
+}
+
+// ?account=ユーザー名 を付けると、その人の候補を(多くても)出す
+async function crawlGone(env, url) {
+  const only = url ? url.searchParams.get("account") || "" : "";
+  if (only) {
+    const { results } = await env.DB
+      .prepare(`SELECT * FROM (${GONE_SQL}) WHERE account = ? ORDER BY ts DESC LIMIT ${GONE_MAX + 1}`)
+      .bind(only).all();
+    return json({ posts: results.slice(0, GONE_MAX), more: results.length > GONE_MAX, suspects: [] });
+  }
+  const suspects = await goneSuspects(env);
+  const skip = suspects.map((s) => s.account);
+  const where = skip.length ? ` WHERE account NOT IN (${skip.map(() => "?").join(",")})` : "";
+  const { results } = await env.DB
+    .prepare(`SELECT * FROM (${GONE_SQL})${where} ORDER BY account, ts DESC LIMIT ${GONE_MAX + 1}`)
+    .bind(...skip).all();
+  return json({ posts: results.slice(0, GONE_MAX), more: results.length > GONE_MAX, suspects });
 }
 
 // { id, action: "delete" | "keep" }。消えたかもしれない投稿を、管理人が確かめて消す・残す
 async function crawlGoneDecide(request, env) {
-  const { id, action } = await request.json();
+  const { id, action, account } = await request.json();
+  // その人の候補を、全部残す(周回の飛ばしで、まとめて候補に入ったとき)
+  if (action === "keep_all" && account) {
+    await env.DB.prepare(`UPDATE post SET keep = 1 WHERE id IN (SELECT id FROM (${GONE_SQL}) WHERE account = ?)`).bind(String(account)).run();
+    return json({ ok: true });
+  }
   if (!id || String(id).startsWith(WEB_ID)) return json({ error: "bad_request" }, 400);
   if (action === "delete") {
     await env.DB.batch([
@@ -778,9 +807,12 @@ async function dailyReport(env) {
   if (fresh.length > REPORT_LIST_MAX) lines.push(`ほか ${fresh.length - REPORT_LIST_MAX} 件は[サイト](${SITE}/)で`);
 
   // 消えたかもしれない投稿の数(数えられなくても報告は送る)
-  let gone = 0;
+  let gone = 0, suspects = [];
   try {
     gone = (await env.DB.prepare(`SELECT COUNT(*) AS n FROM (${GONE_SQL})`).first()).n;
+    // 候補が多すぎる人は「APIの異常かも」として、別に知らせる(数にも内訳にも入れない)
+    suspects = await goneSuspects(env);
+    gone -= suspects.reduce((s, x) => s + x.n, 0);
   } catch (e) {
     console.log("gone", e.message);
   }
@@ -789,7 +821,9 @@ async function dailyReport(env) {
   let goneBy = "";
   if (gone) {
     try {
-      const { results } = await env.DB.prepare(`SELECT name, COUNT(*) AS n FROM (${GONE_SQL}) GROUP BY name ORDER BY n DESC LIMIT 5`).all();
+      const skip = suspects.map((s) => s.account);
+      const where = skip.length ? ` WHERE account NOT IN (${skip.map(() => "?").join(",")})` : "";
+      const { results } = await env.DB.prepare(`SELECT name, COUNT(*) AS n FROM (${GONE_SQL})${where} GROUP BY name ORDER BY n DESC LIMIT 5`).bind(...skip).all();
       goneBy = results.map((r) => `${r.name} ${r.n}`).join("、");
     } catch (e) {
       console.log("gone by", e.message);
@@ -800,7 +834,8 @@ async function dailyReport(env) {
     `収録 **${total.toLocaleString()}** 件` +
     (diff == null ? "" : `（前回から ${diff >= 0 ? "+" : ""}${diff.toLocaleString()}）`) +
     `\n新着 **${fresh.length}** 件（${since.slice(5).replace("-", "/")} 〜 ${now.slice(5).replace("-", "/")}）` +
-    (gone ? `\n消えたかもしれない投稿 **${gone}** 件（[取り込みページ](${SITE}/import)で確かめる）` + (goneBy ? `\n　多い人: ${goneBy}` : "") : "");
+    (gone ? `\n消えたかもしれない投稿 **${gone}** 件（[取り込みページ](${SITE}/import)で確かめる）` + (goneBy ? `\n　多い人: ${goneBy}` : "") : "") +
+    (suspects.length ? `\n候補が多すぎる人（APIが期間ごと飛ばした疑い。一覧には出していない。[取り込みページ](${SITE}/import)で確かめる）: ${suspects.map((s) => `${s.name} ${s.n}`).join("、")}` : "");
 
   const res = await fetch(env.DISCORD_WEBHOOK, {
     method: "POST",
@@ -933,7 +968,7 @@ export default {
         if (route === "POST error") return await crawlError(request, env);
         if (route === "POST paste") return await crawlPaste(request, env);
         if (route === "POST apify") return await crawlApify(request, env);
-        if (route === "GET gone") return await crawlGone(env);
+        if (route === "GET gone") return await crawlGone(env, url);
         if (route === "POST gone") return await crawlGoneDecide(request, env);
         return new Response("Not found", { status: 404 });
       } catch (e) {
