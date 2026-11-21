@@ -7,7 +7,7 @@
   --surface: #ffffff;
   --text: #1f1f1f;
   --muted: #6b6b6b;
-  --line: #e4e2dd;
+  --line: #e3e3e3;
   /* 初代(2010年)の Instagram のアイコンの色。画像の上半分の茶色・下半分のベージュの、平らなところの中央値。
      茶色は白に対して 7.26:1 で、文字にもそのまま使える(アメブロ検索がアメブロの緑をそのまま使うのと同じ考え) */
   --accent: #695245;        /* アイコンの茶色 */
@@ -217,7 +217,7 @@ select {
   padding: 14px 16px;
   margin-bottom: 10px;
   background: var(--surface);
-  border: 1px solid #1b1b1b;
+  border: 1px solid var(--line);
   border-radius: 10px;
 }
 .meta { font-size: .8rem; color: var(--muted); margin-right: 6px; }
@@ -268,7 +268,8 @@ main.doc pre code { background: none; padding: 0; overflow-wrap: normal; }
 .emodal-card {
   position: absolute; top: 0; left: 0; width: 100%; visibility: hidden; pointer-events: none;
   max-height: calc(100vh - 110px); max-height: calc(100dvh - 110px);
-  overflow-y: auto; overscroll-behavior: contain; background: #fff; border-radius: 12px;
+  overflow-y: auto; scrollbar-gutter: stable; overscroll-behavior: contain; background: #fff;   /* 縦の線の分の幅は、出ていなくても空けておく(出入りで埋め込みの幅が変わり、高さも変わって、ぴくぴく動くのを防ぐ) */
+  border-radius: 12px;
 }
 .emodal-card.on { position: relative; visibility: visible; pointer-events: auto; }
 /* 埋め込みになる前の、素の「Instagram で見る」のリンク(青い字で左に一瞬出て、動いて見える)は出さない。
@@ -277,7 +278,7 @@ main.doc pre code { background: none; padding: 0; overflow-wrap: normal; }
 /* 読み込み中(埋め込みが出来上がるまで)は、枠の真ん中に「くるくる」。枠の高さは変えない */
 .emodal-card:not(:has(iframe.instagram-media-rendered)) { display: flex; align-items: center; justify-content: center; }
 .emodal-card:not(:has(iframe.instagram-media-rendered))::before {
-  content: ""; width: 30px; height: 30px; border: 3px solid #e2e2e2; border-top-color: var(--accent); border-radius: 50%;
+  content: ""; width: 30px; height: 30px; border: 3px solid var(--line); border-top-color: var(--accent); border-radius: 50%;
   animation: emspin .8s linear infinite;
 }
 @keyframes emspin { to { transform: rotate(360deg); } }
