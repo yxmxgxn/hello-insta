@@ -1,3 +1,4 @@
+@charset "UTF-8";
 /* 余白・文字の大きさ・部品の形は、アメブロ検索(ameblo.karin-archive.com)の style.css にそろえる。
    違うのは色だけ。色は --accent の1色から作り(下の --cell* も)、--accent を変えれば全体が変わる */
 :root {
