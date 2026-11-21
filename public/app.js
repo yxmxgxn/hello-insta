@@ -126,9 +126,24 @@
         groups[a.section].appendChild(o);
         count++;
       });
-      order.forEach(function (s) { other.appendChild(groups[s]); });
+      // 並び: 「OG」「グループ」(見出し付き) → 線 → 公式・その他(見出しなし) → 線 → 以前の対象
+      // (「その他のアカウント」の中に「その他の…」の見出しが重ならないよう、「その他のOG」は「OG」、「その他のグループ」は「グループ」と出す)
+      var HEAD = { "その他のOG": "OG", "その他のグループ": "グループ" };
+      function line() { if (other.lastChild && other.lastChild.tagName !== "HR") other.appendChild(document.createElement("hr")); }
+      ["その他のOG", "その他のグループ"].forEach(function (s) {
+        if (!groups[s]) return;
+        groups[s].label = HEAD[s];
+        other.appendChild(groups[s]);
+      });
+      var rest = order.filter(function (s) { return !HEAD[s] && s !== "以前の対象"; });
+      if (rest.length) {
+        line();
+        rest.forEach(function (s) { while (groups[s].firstChild) other.appendChild(groups[s].firstChild); });
+      }
+      if (groups["以前の対象"]) { line(); other.appendChild(groups["以前の対象"]); }
       var bl = blocked.filter(inG);
       if (bl.length) {
+        line();
         var g = document.createElement("optgroup");
         g.label = "取得不可（" + bl.length + "）";
         bl.forEach(function (a) {
