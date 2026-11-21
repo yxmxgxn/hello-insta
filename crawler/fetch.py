@@ -113,7 +113,7 @@ GROUP_NAMES: dict[int, str] = {
     16: "BEYOOOOONDS", 17: "OCHA NORMA", 18: "ロージークロニクル",
 }
 
-# グループの公式アカウント(affiliation slug → ユーザー名)。各グループの見出しの一番上に、グループの名前そのままで並べる
+# グループの公式アカウント(affiliation slug → ユーザー名)。各グループの見出しの一番上に、グループの名前で並べる(モーニング娘。'26 は、年を外して「モーニング娘。」)
 GROUP_OFFICIAL: dict[str, str] = {
     "morningmusume":  "morningmusume_official",
     "angerme":        "angerme_official",
@@ -234,7 +234,7 @@ def load_targets() -> list[dict]:
         picked.append(((1, OG_SECTIONS.index(sec), pos), m, sec))
     # グループ公式は、そのグループのメンバーより前(加入順の番号 -1)に置く
     for slug, user in GROUP_OFFICIAL.items():
-        picked.append(((0, group_order.index(slug), -1), {"name": GROUPS[slug], "ig": [user]}, GROUPS[slug]))
+        picked.append(((0, group_order.index(slug), -1), {"name": re.sub(r"'\d+$", "", GROUPS[slug]), "ig": [user]}, GROUPS[slug]))
 
     out: dict[str, dict] = {}
     for _, m, sec in sorted(picked, key=lambda t: t[0]):
