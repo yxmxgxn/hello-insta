@@ -3,7 +3,7 @@
 :root {
   /* 端末がダークモードでも常に明るい配色で出す(ブラウザの自動ダーク化も止める) */
   color-scheme: only light;
-  --bg: #fafaf8;
+  --bg: #ffffff;
   --surface: #ffffff;
   --text: #1f1f1f;
   --muted: #6b6b6b;
@@ -217,7 +217,7 @@ select {
   padding: 14px 16px;
   margin-bottom: 10px;
   background: var(--surface);
-  border: 1px solid var(--line);
+  border: 1px solid #1b1b1b;
   border-radius: 10px;
 }
 .meta { font-size: .8rem; color: var(--muted); margin-right: 6px; }
@@ -262,7 +262,7 @@ main.doc pre code { background: none; padding: 0; overflow-wrap: normal; }
   display: grid; grid-template-columns: auto minmax(0, 540px) auto; align-items: center; justify-content: center;
   grid-template-areas: "prev card next" ". link ."; gap: 12px; padding: 16px; align-content: center;
 }
-.emodal-bg { position: absolute; inset: 0; background: rgba(0, 0, 0, .86); }
+.emodal-bg { position: absolute; inset: 0; background: rgb(84, 87, 90); }
 /* 表の枠。前後の投稿のカードも、見えない状態で同じ場所に重ねて、先に読み込んでおく */
 .emodal-stage { grid-area: card; position: relative; z-index: 1; min-width: 0; }
 .emodal-card {
@@ -303,6 +303,14 @@ main.doc pre code { background: none; padding: 0; overflow-wrap: normal; }
   position: relative; z-index: 1; width: 44px; height: 44px; padding: 0; border-radius: 50%;
   background: rgba(255, 255, 255, .92); color: #1f1f1f; font-size: 1.5rem; line-height: 1; font-weight: 400;
 }
+/* ‹ › は Instagram の埋め込みに近づける: 小さな白い丸に、細い矢印 */
+.emodal-prev, .emodal-next { width: 32px; height: 32px; background: #fff; font-size: 0; }
+.emodal-prev::before, .emodal-next::before {
+  content: ""; display: block; width: 8px; height: 8px; margin: 0 auto;
+  border-top: 1.5px solid #262626; border-right: 1.5px solid #262626;
+}
+.emodal-next::before { transform: translateX(-2px) rotate(45deg); }
+.emodal-prev::before { transform: translateX(2px) rotate(-135deg); }
 .emodal-link {
   grid-area: link; justify-self: end; position: relative; z-index: 1; margin-top: -4px;
   padding: 7px 14px; border-radius: 999px; background: rgba(255, 255, 255, .92); color: #1f1f1f;
