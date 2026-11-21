@@ -121,37 +121,36 @@
       accs.forEach(function (a) {
         if (a.group || !inG(a)) return;
         if (!groups[a.section]) { groups[a.section] = []; order.push(a.section); }
-        var o = el("option", "in" + (a.off ? " off" : ""), a.text);
+        var o = el("option", a.off ? "off" : "", a.text);
         o.value = a.username;
         groups[a.section].push(o);
         count++;
       });
-      // 並び: 「OG」「グループ」(見出し付き) → 線 → 公式・その他(見出しなし) → 線 → 以前の対象 → 線 → 取得不可
-      // (「その他のアカウント」の中に「その他の…」の見出しが重ならないよう、「その他のOG」は「OG」、「その他のグループ」は「グループ」と出す)
-      // 見出しは、選べない選択肢(class hd)。見出しの下も、見出しなしの選択肢も、同じ class in で同じだけ下げる(optgroup だと、見出しなしの選択肢だけ下がらない)
+      // 並び: OG → グループ → その他(公式・オデッセー出版など。線は入れず、見出し「その他」の下に並べる) → 以前の対象 → 取得不可
+      // 見出しは optgroup(ブラウザの標準の見出し。太字で、選べない。スマホでも丸い印は出ない)。
+      // 「その他のアカウント」の中に「その他の…」が重ならないよう、「その他のOG」は「OG」、「その他のグループ」は「グループ」と出す
       var HEAD = { "その他のOG": "OG", "その他のグループ": "グループ" };
-      function line() { if (other.lastChild && other.lastChild.tagName !== "HR") other.appendChild(document.createElement("hr")); }
-      function heading(t) { var h = el("option", "hd", t); h.disabled = true; other.appendChild(h); }
-      ["その他のOG", "その他のグループ"].forEach(function (s) {
-        if (!groups[s]) return;
-        heading(HEAD[s]);
-        groups[s].forEach(function (o) { other.appendChild(o); });
-      });
-      var rest = order.filter(function (s) { return !HEAD[s] && s !== "以前の対象"; });
-      if (rest.length) {
-        line();
-        rest.forEach(function (s) { groups[s].forEach(function (o) { other.appendChild(o); }); });
+      function addGroup(label, opts) {
+        if (!opts.length) return;
+        var g = document.createElement("optgroup");
+        g.label = label;
+        opts.forEach(function (o) { g.appendChild(o); });
+        other.appendChild(g);
       }
-      if (groups["以前の対象"]) { line(); heading("以前の対象"); groups["以前の対象"].forEach(function (o) { other.appendChild(o); }); }
+      addGroup("OG", groups["その他のOG"] || []);
+      addGroup("グループ", groups["その他のグループ"] || []);
+      var rest = [];
+      order.forEach(function (s) { if (!HEAD[s] && s !== "以前の対象") rest = rest.concat(groups[s]); });
+      addGroup("その他", rest);
+      addGroup("以前の対象", groups["以前の対象"] || []);
       var bl = blocked.filter(inG);
       if (bl.length) {
-        line();
-        heading("取得不可（" + bl.length + "）");
-        bl.forEach(function (a) {
-          var o = el("option", "in", label(a) + "（" + reason(a.error) + "）");
+        var bo = bl.map(function (a) {
+          var o = el("option", "", label(a) + "（" + reason(a.error) + "）");
           o.disabled = true;
-          other.appendChild(o);
+          return o;
         });
+        addGroup("取得不可（" + bl.length + "）", bo);
         count += bl.length;
       }
       otherCount = count;

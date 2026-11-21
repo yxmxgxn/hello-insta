@@ -113,7 +113,7 @@ GROUP_NAMES: dict[int, str] = {
     16: "BEYOOOOONDS", 17: "OCHA NORMA", 18: "ロージークロニクル",
 }
 
-# グループの公式アカウント(affiliation slug → ユーザー名)。各グループの見出しの一番上に「○○ 公式」で並べる
+# グループの公式アカウント(affiliation slug → ユーザー名)。各グループの見出しの一番上に、グループの名前そのままで並べる
 GROUP_OFFICIAL: dict[str, str] = {
     "morningmusume":  "morningmusume_official",
     "angerme":        "angerme_official",
@@ -165,9 +165,9 @@ EXTRA_ACCOUNTS: dict[str, tuple[str, str]] = {
     "mlinesp.official": ("M-line Specialの楽屋", "その他"),
     # 現役のグループではなくなった(解散・活動休止の)グループの公式アカウント
     # 並びは、このとおり(太陽とシスコムーン → カントリー・ガールズ → こぶしファクトリー)
-    "taiyo_and_ciscomoon": ("太陽とシスコムーン 公式", "その他のグループ"),
-    "countrygirls_official": ("カントリー・ガールズ 公式", "その他のグループ"),
-    "kobushifactory_official": ("こぶしファクトリー 公式", "その他のグループ"),
+    "taiyo_and_ciscomoon": ("太陽とシスコムーン", "その他のグループ"),
+    "countrygirls_official": ("カントリー・ガールズ", "その他のグループ"),
+    "kobushifactory_official": ("こぶしファクトリー", "その他のグループ"),
 }
 
 
@@ -234,13 +234,15 @@ def load_targets() -> list[dict]:
         picked.append(((1, OG_SECTIONS.index(sec), pos), m, sec))
     # グループ公式は、そのグループのメンバーより前(加入順の番号 -1)に置く
     for slug, user in GROUP_OFFICIAL.items():
-        picked.append(((0, group_order.index(slug), -1), {"name": f"{GROUPS[slug]} 公式", "ig": [user]}, GROUPS[slug]))
+        picked.append(((0, group_order.index(slug), -1), {"name": GROUPS[slug], "ig": [user]}, GROUPS[slug]))
 
     out: dict[str, dict] = {}
     for _, m, sec in sorted(picked, key=lambda t: t[0]):
+        # 載せないアカウント(EXCLUDED)は、数えない(福田花音のように、片方を載せない人は、名前にユーザー名を添えない)
+        shown = [u for u in m["ig"] if u not in EXCLUDED]
         for user in m["ig"]:
-            # 複数アカウントを持つ人(例: 書道用の別アカウント)はユーザー名を添えて区別する
-            name = m["name"] if len(m["ig"]) == 1 else f"{m['name']}（@{user}）"
+            # 載せるアカウントを複数持つ人(例: 書道用の別アカウント)は、ユーザー名を添えて区別する
+            name = m["name"] if len(shown) <= 1 else f"{m['name']}（@{user}）"
             out.setdefault(user, {"username": user, "name": name, "section": sec,
                                   "groups": ("," + ",".join(m.get("groups", [])) + ",") if m.get("groups") else ""})
     for user, (name, sec) in EXTRA_ACCOUNTS.items():
