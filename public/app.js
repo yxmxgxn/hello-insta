@@ -120,38 +120,38 @@
       other.firstChild.value = "";
       accs.forEach(function (a) {
         if (a.group || !inG(a)) return;
-        if (!groups[a.section]) { groups[a.section] = document.createElement("optgroup"); groups[a.section].label = a.section; order.push(a.section); }
-        var o = el("option", a.off ? "off" : "", a.text);
+        if (!groups[a.section]) { groups[a.section] = []; order.push(a.section); }
+        var o = el("option", "in" + (a.off ? " off" : ""), a.text);
         o.value = a.username;
-        groups[a.section].appendChild(o);
+        groups[a.section].push(o);
         count++;
       });
-      // 並び: 「OG」「グループ」(見出し付き) → 線 → 公式・その他(見出しなし) → 線 → 以前の対象
+      // 並び: 「OG」「グループ」(見出し付き) → 線 → 公式・その他(見出しなし) → 線 → 以前の対象 → 線 → 取得不可
       // (「その他のアカウント」の中に「その他の…」の見出しが重ならないよう、「その他のOG」は「OG」、「その他のグループ」は「グループ」と出す)
+      // 見出しは、選べない選択肢(class hd)。見出しの下も、見出しなしの選択肢も、同じ class in で同じだけ下げる(optgroup だと、見出しなしの選択肢だけ下がらない)
       var HEAD = { "その他のOG": "OG", "その他のグループ": "グループ" };
       function line() { if (other.lastChild && other.lastChild.tagName !== "HR") other.appendChild(document.createElement("hr")); }
+      function heading(t) { var h = el("option", "hd", t); h.disabled = true; other.appendChild(h); }
       ["その他のOG", "その他のグループ"].forEach(function (s) {
         if (!groups[s]) return;
-        groups[s].label = HEAD[s];
-        other.appendChild(groups[s]);
+        heading(HEAD[s]);
+        groups[s].forEach(function (o) { other.appendChild(o); });
       });
       var rest = order.filter(function (s) { return !HEAD[s] && s !== "以前の対象"; });
       if (rest.length) {
         line();
-        rest.forEach(function (s) { while (groups[s].firstChild) other.appendChild(groups[s].firstChild); });
+        rest.forEach(function (s) { groups[s].forEach(function (o) { other.appendChild(o); }); });
       }
-      if (groups["以前の対象"]) { line(); other.appendChild(groups["以前の対象"]); }
+      if (groups["以前の対象"]) { line(); heading("以前の対象"); groups["以前の対象"].forEach(function (o) { other.appendChild(o); }); }
       var bl = blocked.filter(inG);
       if (bl.length) {
         line();
-        var g = document.createElement("optgroup");
-        g.label = "取得不可（" + bl.length + "）";
+        heading("取得不可（" + bl.length + "）");
         bl.forEach(function (a) {
-          var o = el("option", "", label(a) + "（" + reason(a.error) + "）");
+          var o = el("option", "in", label(a) + "（" + reason(a.error) + "）");
           o.disabled = true;
-          g.appendChild(o);
+          other.appendChild(o);
         });
-        other.appendChild(g);
         count += bl.length;
       }
       otherCount = count;
