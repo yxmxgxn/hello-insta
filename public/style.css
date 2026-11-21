@@ -220,7 +220,7 @@ select {
   border: 1px solid var(--line);
   border-radius: 10px;
 }
-.meta { font-size: .8rem; color: var(--muted); margin-right: 6px; }
+.meta { font-size: .8rem; color: var(--muted); margin-right: 6px; font-variant-numeric: tabular-nums; }   /* 数字の幅をそろえる(名前の位置が、時刻によってずれない) */
 .name {
   padding: 0; margin-right: 8px; border: 0; background: none; color: var(--text);
   font-size: .8rem; font-weight: 600; text-decoration: underline dotted; cursor: pointer;
