@@ -247,8 +247,9 @@
     };
 
     // ---------- 一つ一つ(MODE が step のとき): 開いている投稿から「次へ」を1件ずつ押し、数十件ずつ送る ----------
-    // 人が眺めるくらいゆっくり(1件 3〜7秒、ときどき10〜20秒の休み)。Instagram が制限のような表示を出したら、すぐ止める
+    // 人が眺めるくらいの速さ(1件 2〜4.5秒、ときどき6〜12秒の休み)。Instagram が制限のような表示を出したら、すぐ止める
     var BATCH = 40, MAX_RUN = 300;
+    var DWELL_MIN = 2000, DWELL_SPAN = 2500, LONG_P = 0.06, LONG_MIN = 6000, LONG_SPAN = 6000, NOCAP_WAIT = 3500;
     var prevCaption = null;
     var stepOn = false, stepTimer = null, stepCode = "", stepSince = 0, dwell = 0, stepCount = 0, stuck = 0, noBtn = 0, clickedAt = 0, counted = {};
     function nextButton() {
@@ -280,14 +281,14 @@
         stepSince = Date.now();
         stuck = 0;
         clickedAt = 0;
-        dwell = 3000 + Math.random() * 4000 + (Math.random() < 0.08 ? 10000 + Math.random() * 10000 : 0);
+        dwell = DWELL_MIN + Math.random() * DWELL_SPAN + (Math.random() < LONG_P ? LONG_MIN + Math.random() * LONG_SPAN : 0);
       }
       scan();
       var it = items.get(stepCode);
       var waited = Date.now() - stepSince;
-      var stale = it && it.caption != null && prevCaption != null && it.caption === prevCaption && waited < 4500;
-      var ready = !stale && ((it && it.caption != null && waited >= dwell) || waited >= Math.max(dwell, 4500));
-      if (!ready) { stepTimer = setTimeout(stepTick, 700); return; }
+      var stale = it && it.caption != null && prevCaption != null && it.caption === prevCaption && waited < NOCAP_WAIT;
+      var ready = !stale && ((it && it.caption != null && waited >= dwell) || waited >= Math.max(dwell, NOCAP_WAIT));
+      if (!ready) { stepTimer = setTimeout(stepTick, 400); return; }
       if (!counted[stepCode]) { counted[stepCode] = true; stepCount++; }
       prevCaption = it ? it.caption : null;
       msg("自動で進めています… " + stepCount + "件目（本文を読んだ " + (sentTotal + Array.from(items.values()).filter(function (p) { return p.caption != null; }).length) + "）");
@@ -311,12 +312,13 @@
         clickedAt = Date.now();
         btn.click();
       }
-      stepTimer = setTimeout(stepTick, 700);
+      stepTimer = setTimeout(stepTick, 400);
     }
     bStep.onclick = function () {
       if (stepOn) { stepStop("止めました", true); return; }
       if (!LINK.test(location.pathname)) { msg("投稿を1つ開いてから、押す"); return; }
       // 押した操作のうちに、取り込みページの窓を用意しておく(あとの自動の送りは、開いてある窓へ渡す)
+      msg("取り込みページが前に出ます。Instagram のタブに戻ってください(最初の1回だけ)");
       var w = window.open("", "hello-insta-import");
       if (!w) { msg("窓が止められました。ポップアップを許可してください"); return; }
       try { if (w.location.href === "about:blank") w.location.href = SITE + "/import"; } catch (e) { /* 開いている取り込みページ */ }
