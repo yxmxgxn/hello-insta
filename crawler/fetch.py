@@ -153,6 +153,7 @@ PERSONAL_OG_KEEP = {
     "ishiguroaya.official",         # 石黒彩
     "kobushifactory_official",      # こぶしファクトリー公式
     "countrygirls_official",        # カントリー・ガールズ公式
+    "taiyo_and_ciscomoon",          # 太陽とシスコムーン公式
 }
 
 # スプシの判定に乗らないが対象にするアカウント: ユーザー名 → (表示名, 見出し)。一覧の一番下に並ぶ
@@ -163,8 +164,10 @@ EXTRA_ACCOUNTS: dict[str, tuple[str, str]] = {
     "odybooks": ("オデッセー出版", "その他"),
     "mlinesp.official": ("M-line Specialの楽屋", "その他"),
     # 現役のグループではなくなった(解散・活動休止の)グループの公式アカウント
-    "kobushifactory_official": ("こぶしファクトリー 公式", "その他のグループ"),
+    # 並びは、このとおり(太陽とシスコムーン → カントリー・ガールズ → こぶしファクトリー)
+    "taiyo_and_ciscomoon": ("太陽とシスコムーン 公式", "その他のグループ"),
     "countrygirls_official": ("カントリー・ガールズ 公式", "その他のグループ"),
+    "kobushifactory_official": ("こぶしファクトリー 公式", "その他のグループ"),
 }
 
 
