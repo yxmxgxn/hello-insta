@@ -13,6 +13,8 @@
     var setInterval = W.setInterval.bind(W), clearInterval = W.clearInterval.bind(W);
     var setTimeout = W.setTimeout.bind(W), clearTimeout = W.clearTimeout.bind(W);
     var SITE = "__SITE__";
+    // "scroll"(ふつうの IG取得: 一覧を Scroll で下まで)か "step"(投稿を開いて、次へを1件ずつ押し、数十件ずつ送る)
+    var MODE = "__MODE__";
     // 拾ってよい人(対象アカウント全員。公式APIで取れる人も遡りの先回りに入れてよい)。取り込みページがリンクを作るときに埋め込む。ほかの人の投稿は画面にあっても数えもしない
     // ユーザー名(小文字) → 表示名。パネルの見出しにも使う
     var NAMES = __NAMES__;
@@ -55,13 +57,15 @@
       return alt.trim() || null;
     }
 
-    function put(code, account, kind, caption) {
+    function put(code, account, kind, caption, force) {
       if (!code || !account) return;
       account = account.toLowerCase();
       if (!ALLOW[account]) return;
       var old = items.get(code);
-      // 本文は、取れているものを null で消さない。両方あれば長い方(途中で切れた表示より全文)
-      if (old && old.caption != null && (caption == null || old.caption.length >= caption.length)) caption = old.caption;
+      // 本文は、取れているものを null で消さない。両方あれば長い方(途中で切れた表示より全文)。
+      // 一つ一つのときは、開いている投稿の本文だけを読むので、新しく読めた本文を使う(前の投稿の本文が残っていたときの取り違えを避ける)
+      // force(一つ一つで、いま開いている投稿)のときは、画面にいま出ているとおりにする(本文のない投稿で、前の投稿の本文が残らないように)
+      if (!force && old && old.caption != null && (caption == null || (MODE !== "step" && old.caption.length >= caption.length))) caption = old.caption;
       items.set(code, { code: code, account: account, kind: (old && old.kind === "reel") ? "reel" : kind, caption: caption });
     }
 
@@ -87,7 +91,7 @@
       // 投稿タブ・リールタブなら、持ち主が対象外の人の共同投稿(リンクが /持ち主/p/…)は、開いている人の投稿として拾う
       // (その人も連名で出ている投稿なので、サイトに無いと困る)。タグ付け・リポストのタブは他の人の投稿なのでしない
       var grid = profile && ALLOW[profile.toLowerCase()] && /^\/[^/]+(\/reels)?\/?$/.test(location.pathname);
-      document.querySelectorAll('a[href*="/p/"], a[href*="/reel/"]').forEach(function (a) {
+      Array.prototype.slice.call(MODE === "step" ? [] : document.querySelectorAll('a[href*="/p/"], a[href*="/reel/"]')).forEach(function (a) {
         var m = (a.getAttribute("href") || "").match(LINK);
         if (!m) return;
         var img = a.querySelector("img[alt]");
@@ -104,7 +108,7 @@
           var a = root.querySelector('header a[href^="/"]');
           owner = a && (a.getAttribute("href").match(/^\/([A-Za-z0-9._]+)\/?$/) || [])[1];
         }
-        put(here[3], owner || profile, here[2], h1 ? text(h1) : null);
+        put(here[3], owner || profile, here[2], h1 ? text(h1) : null, MODE === "step");
       }
       readCount();
       render();
@@ -136,7 +140,9 @@
       row.appendChild(b);
       return b;
     }
-    var bSend = button("送る", true), bScroll = button("Scroll"), bCopy = button("コピー"), bClose = button("×");
+    var bSend = button("送る", true), bScroll = button("Scroll"), bStep = button("次へ自動"), bCopy = button("コピー"), bClose = button("×");
+    bStep.style.display = MODE === "step" ? "" : "none";
+    bScroll.style.display = MODE === "step" ? "none" : "";
     bClose.title = "閉じる";
     // 件数を3で割った行数と余り。グリッドは3列なので、余り1なら一番下の行が左に1枚だけで終わり
     var by3 = el("span", "margin-left:auto;color:#6b6b6b;white-space:nowrap");
@@ -167,16 +173,21 @@
     // 送る: 取り込みページへ、受け取ったと返事が来るまで渡し続ける。受け取られたらこの窓のパネルは閉じる
     // (ほかの窓のパネルはそのまま)。渡せなかったときのために、先にクリップボードにも写しておく
     var sending = null;
+    var sentTotal = 0, batchWait = false;
     function push() {
       if (!sending) return;
       if (++sending.tries > 40) { sending = null; msg("渡せませんでした。コピー済みなので欄に貼る"); return; }
-      try { sending.win.postMessage({ type: "hello-insta-posts", id: sending.id, posts: list(), counts: counts }, SITE); } catch (e) { /* 読み込み中 */ }
+      try { sending.win.postMessage({ type: "hello-insta-posts", id: sending.id, posts: list(), counts: counts, auto: sending.auto === true }, SITE); } catch (e) { /* 読み込み中 */ }
       sending.timer = setTimeout(push, 500);
     }
     function onMessage(e) {
       if (e.origin !== SITE || !e.data || !e.source || !sending) return;
       if (e.data.type === "hello-insta-ready") { sending.win = e.source; push(); }
-      if (e.data.type === "hello-insta-got" && (e.data.id == null || e.data.id === sending.id)) { clearTimeout(sending.timer); sending = null; close(); }
+      if (e.data.type === "hello-insta-got" && (e.data.id == null || e.data.id === sending.id)) {
+        clearTimeout(sending.timer);
+        sending = null;
+        if (MODE === "step") { sentTotal += e.data.n || 0; items.clear(); batchWait = false; msg("送りました（計 " + sentTotal + " 件）。続けます"); } else close();
+      }
     }
     window.addEventListener("message", onMessage);
 
@@ -185,18 +196,20 @@
         .then(function () { return true; }, function () { return false; });
     }
 
-    bSend.onclick = function () {
-      if (!items.size) { msg("まだ何も拾えていません"); return; }
-      copy();
+    function doSend(auto) {
+      if (!items.size) { msg("まだ何も拾えていません"); return false; }
+      if (!auto) copy();
       // 取り込みページがもう開いていれば読み込み直さない(まだ登録していない分が消えるので)。無ければ開く
       var win = window.open("", "hello-insta-import");
-      if (!win) { msg("窓が止められました。コピー済みなので欄に貼る"); return; }
+      if (!win) { msg("窓が止められました。取り込みページを開いてから、もう一度"); return false; }
       try { if (win.location.href === "about:blank") win.location.href = SITE + "/import"; } catch (e) { /* 開いている取り込みページ */ }
       if (sending) clearTimeout(sending.timer);
-      sending = { win: win, id: String(Date.now()) + Math.random(), tries: 0 };
+      sending = { win: win, id: String(Date.now()) + Math.random(), tries: 0, auto: !!auto };
       msg("取り込みページへ渡しています…");
       push();
-    };
+      return true;
+    }
+    bSend.onclick = function () { doSend(false); };
 
     bCopy.onclick = function () {
       copy().then(function (ok) { msg(ok ? "コピーしました。欄に貼る" : "コピーできませんでした"); });
@@ -233,9 +246,91 @@
       step();
     };
 
+    // ---------- 一つ一つ(MODE が step のとき): 開いている投稿から「次へ」を1件ずつ押し、数十件ずつ送る ----------
+    // 人が眺めるくらいゆっくり(1件 3〜7秒、ときどき10〜20秒の休み)。Instagram が制限のような表示を出したら、すぐ止める
+    var BATCH = 40, MAX_RUN = 300;
+    var prevCaption = null;
+    var stepOn = false, stepTimer = null, stepCode = "", stepSince = 0, dwell = 0, stepCount = 0, stuck = 0, noBtn = 0, clickedAt = 0, counted = {};
+    function nextButton() {
+      var scope = document.querySelector('div[role="dialog"]') || document;
+      var el = scope.querySelector('[aria-label="次へ"], [aria-label="Next"]');
+      return el ? (el.closest('button, [role="button"], a') || el) : null;
+    }
+    function stepStop(s, sendRest) {
+      stepOn = false;
+      clearTimeout(stepTimer); stepTimer = null;
+      bStep.textContent = "次へ自動";
+      if (sendRest && items.size && !sending) doSend(true);
+      if (s) msg(s + "（" + stepCount + "件進みました）");
+    }
+    function stepTick() {
+      stepTimer = null;
+      if (!stepOn) return;
+      var here = location.pathname.match(LINK);
+      if (!here) { stepStop("投稿の画面ではなくなったので止めました", true); return; }
+      var body = ((document.body && document.body.innerText) || "").slice(0, 5000);
+      if (/しばらくしてからもう一度|Try again later|Action Blocked|アクションがブロック/i.test(body)) { stepStop("Instagram が制限のような表示を出したので止めました。しばらく休んでください", true); return; }
+      if (batchWait) {
+        if (Date.now() - batchWait > 30000) { stepStop("取り込みページから返事がありません。取り込みページが開いているか見てください", false); return; }
+        stepTimer = setTimeout(stepTick, 700);
+        return;
+      }
+      if (here[3] !== stepCode) {
+        stepCode = here[3];
+        stepSince = Date.now();
+        stuck = 0;
+        clickedAt = 0;
+        dwell = 3000 + Math.random() * 4000 + (Math.random() < 0.08 ? 10000 + Math.random() * 10000 : 0);
+      }
+      scan();
+      var it = items.get(stepCode);
+      var waited = Date.now() - stepSince;
+      var stale = it && it.caption != null && prevCaption != null && it.caption === prevCaption && waited < 4500;
+      var ready = !stale && ((it && it.caption != null && waited >= dwell) || waited >= Math.max(dwell, 4500));
+      if (!ready) { stepTimer = setTimeout(stepTick, 700); return; }
+      if (!counted[stepCode]) { counted[stepCode] = true; stepCount++; }
+      prevCaption = it ? it.caption : null;
+      msg("自動で進めています… " + stepCount + "件目（本文を読んだ " + (sentTotal + Array.from(items.values()).filter(function (p) { return p.caption != null; }).length) + "）");
+      if (stepCount >= MAX_RUN) { stepStop(MAX_RUN + "件で止めました。しばらく休んでから、続けてください", true); return; }
+      if (items.size >= BATCH && !sending) {
+        batchWait = Date.now();
+        if (!doSend(true)) { batchWait = false; stepStop("送れませんでした", false); return; }
+        stepTimer = setTimeout(stepTick, 700);
+        return;
+      }
+      var btn = nextButton();
+      if (!btn) {
+        noBtn++;
+        if (noBtn >= 3) { stepStop("次の投稿がありません(最後まで来ました)", true); return; }
+        stepTimer = setTimeout(stepTick, 1500);
+        return;
+      }
+      noBtn = 0;
+      if (!clickedAt || Date.now() - clickedAt > 6000) {
+        if (clickedAt && ++stuck >= 3) { stepStop("次へ進めなくなったので止めました", true); return; }
+        clickedAt = Date.now();
+        btn.click();
+      }
+      stepTimer = setTimeout(stepTick, 700);
+    }
+    bStep.onclick = function () {
+      if (stepOn) { stepStop("止めました", true); return; }
+      if (!LINK.test(location.pathname)) { msg("投稿を1つ開いてから、押す"); return; }
+      // 押した操作のうちに、取り込みページの窓を用意しておく(あとの自動の送りは、開いてある窓へ渡す)
+      var w = window.open("", "hello-insta-import");
+      if (!w) { msg("窓が止められました。ポップアップを許可してください"); return; }
+      try { if (w.location.href === "about:blank") w.location.href = SITE + "/import"; } catch (e) { /* 開いている取り込みページ */ }
+      try { window.focus(); } catch (e) { /* 戻せなくてもよい */ }
+      stepOn = true; stepCount = 0; stuck = 0; noBtn = 0; clickedAt = 0; counted = {}; sentTotal = 0; batchWait = false; stepCode = "";
+      bStep.textContent = "止める";
+      msg("自動で進めます…");
+      stepTick();
+    };
+
     var timer = setInterval(scan, 800);
     function close() {
       stopScroll();
+      stepStop();
       clearInterval(timer);
       if (sending) clearTimeout(sending.timer);
       window.removeEventListener("message", onMessage);
@@ -246,8 +341,9 @@
 
     window.__helloInsta = { show: function () { panel.style.display = ""; scan(); }, msg: msg };
     scan();
-    // 対象の人のプロフィールで押したら、Scroll を押した状態で始める(ホームや対象外のページでは始めない)
-    if (profile && ALLOW[profile.toLowerCase()] && !LINK.test(location.pathname)) bScroll.onclick();
+    // 対象の人のプロフィールで押したら、Scroll を押した状態で始める(ホームや対象外のページでは始めない)。一つ一つのときは、案内だけ出す
+    if (MODE === "step") msg(LINK.test(location.pathname) ? "「次へ自動」を押すと、この投稿から1件ずつ進めます" : "投稿を1つ開いてから、「次へ自動」を押す");
+    else if (profile && ALLOW[profile.toLowerCase()] && !LINK.test(location.pathname)) bScroll.onclick();
   }
 
   // スマホの Chrome はアドレスバーから実行すると改行を消して1行にするので、// のコメントがあると後ろが全部コメントになる。
@@ -265,11 +361,14 @@
   }
   var bm = document.getElementById("bm");
   bm.onclick = function (e) { e.preventDefault(); };
+  var bmStep = document.getElementById("bmStep");
+  bmStep.onclick = function (e) { e.preventDefault(); };
   // names: ユーザー名(小文字) → 表示名
   function buildLink(names) {
     var users = Object.keys(names);
-    var fill = { __SITE__: location.origin, __NAMES__: JSON.stringify(names) };
+    var fill = { __SITE__: location.origin, __NAMES__: JSON.stringify(names), __MODE__: "scroll" };
     bm.href = toLink(grab, fill);
+    bmStep.href = toLink(grab, { __SITE__: location.origin, __NAMES__: JSON.stringify(names), __MODE__: "step" });
     // IG窓には、同じ中身の IG取得を埋め込む
     bmWin.href = toLink(popout, { __GRAB__: decodeURIComponent(bm.href.slice("javascript:(".length, -")()".length)) });
     bm.title = "対象 " + users.length + " 人: " + users.join(", ");
@@ -499,6 +598,8 @@
       var cs = Object.assign({}, groups && lastData && lastData.counts, e.data.counts);
       take({ posts: posts, counts: cs });
       if (e.source) e.source.postMessage({ type: "hello-insta-got", id: e.data.id, n: e.data.posts.length }, e.origin);
+      // 「一つ一つ」の自動の送りは、受け取ったらそのまま登録する(次の分が来て、前の分が入れ替わらないように)
+      if (e.data.auto) autoRegister();
     } catch (err) {
       preview.textContent = "受け取れませんでした: " + err.message;
     }
@@ -507,6 +608,12 @@
     try { window.opener.postMessage({ type: "hello-insta-ready" }, "https://www.instagram.com"); } catch (e) { /* 開き元と切れている */ }
   }
 
+  var pendingAuto = false;
+  function autoRegister() {
+    if (!token || !groups) return;
+    if (busy) { pendingAuto = true; return; }
+    send.click();
+  }
   send.addEventListener("click", async function () {
     if (!groups || busy) return;
     if (!token) { result.textContent = "下の「合言葉」を開いて CRAWL_TOKEN を入れ、覚えさせてください"; return; }
@@ -564,6 +671,8 @@
     draw();
     result.textContent += "\n（飛ばしたのは、公式APIで入っている投稿と、日時が読めないもの）";
     loadTargets();
+    // 登録しているあいだに、自動の送りが届いていたら、続けて登録する
+    if (pendingAuto) { pendingAuto = false; autoRegister(); }
   });
 
   // '2026-10-16 21:03' → 今年なら '10/16 21:03'、それ以外は '2025/10/16 21:03'
