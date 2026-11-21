@@ -135,6 +135,10 @@ select {
 .chk { display: flex; align-items: center; gap: 4px; font-size: .9rem; color: var(--muted); }
 .chk input { accent-color: var(--accent); width: 16px; height: 16px; }
 #other option.off { color: var(--muted); }
+/* 「その他のアカウント」の中: 見出し(OG・グループ・以前の対象・取得不可)は選べない行、その下の選択肢(class in)は、
+   見出しなしのもの(オデッセー出版など)も含めて、同じだけ1段下げる。先頭の「その他のアカウント」(題)は下げない */
+#other option.hd { font-weight: 600; color: var(--muted); }
+#other option.in { padding-inline-start: 1.3em; }
 
 /* ---- 検索欄の下の行・メンバー選択のパネル(アメブロ検索と同じ形) ---- */
 .opts { display: flex; flex-wrap: wrap; gap: 8px 16px; margin-top: 12px; align-items: center; font-size: .9rem; color: var(--muted); }
