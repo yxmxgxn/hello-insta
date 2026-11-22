@@ -275,6 +275,9 @@ async function handleAccounts(env) {
       "(SELECT COUNT(*) FROM post WHERE account = a.username) AS posts, " +
       "(SELECT COUNT(*) FROM post WHERE account = a.username AND id LIKE 'web:%') AS posts_web, " +
       "(SELECT COUNT(*) FROM post WHERE account = a.username AND ifnull(excerpt, '') = '') AS nocap, " +
+      // 本文なしのうち、画面から拾った分(web:)。本当に本文がないのか、拾えなかったのかは分からない
+      "(SELECT COUNT(*) FROM post WHERE account = a.username AND ifnull(excerpt, '') = '' AND id LIKE 'web:%') AS nocap_web, " +
+      "(SELECT COUNT(*) FROM post WHERE account = a.username AND caption IS NOT NULL) AS withcap, " +
       "(SELECT MIN(ts) FROM post WHERE account = a.username) AS first, " +
       "(SELECT MAX(ts) FROM post WHERE account = a.username) AS last, " +
       "(SELECT permalink FROM post WHERE account = a.username ORDER BY ts DESC LIMIT 1) AS last_url, " +
