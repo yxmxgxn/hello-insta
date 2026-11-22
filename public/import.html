@@ -23,7 +23,7 @@
   .import table { border-collapse: collapse; font-size: .82rem; display: block; max-width: 100%; overflow-x: auto; }
   /* 細い窓でも数字が折り返さないように。名前と@アカウントの列だけ、長ければ … で切る */
   .import td { border-bottom: 1px solid var(--line); padding: 3px 5px; vertical-align: top; line-height: 1.4; white-space: nowrap; }
-  .import td:first-child { max-width: 100px; overflow: hidden; text-overflow: ellipsis; }
+  .import td:first-child { max-width: 140px; overflow: hidden; text-overflow: ellipsis; }
   .import td:first-child a { display: block; overflow: hidden; text-overflow: ellipsis; }
   .import td small { display: block; color: var(--muted); font-size: .74rem; }
   /* 開いてすぐ、貼る欄・登録・取り込む人の行まで見えるよう上の余白を詰める */
@@ -33,7 +33,33 @@
   .import #preview, .import #result { margin: 4px 0; }
   .import .extra ol { margin: 4px 0; padding-left: 2.5em; font-size: 0.85em; }
   .import .extra li { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .import h2.sub { font-size: .95rem; margin: 20px 0 4px; color: var(--muted); font-weight: 600; }
+  .import h2.sub { font-size: .95rem; margin: 0 0 6px; color: var(--text); font-weight: 600; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+  .import h2.sub small { font-weight: 400; color: var(--muted); font-size: .8rem; }
+  /* 区切りごとに枠で囲む */
+  .import .box { margin: 14px 0; padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+  .import details.box > summary { list-style: none; }
+  .import details.box > summary::-webkit-details-marker { display: none; }
+  .import details.box > summary h2.sub { margin: 0; cursor: pointer; }
+  .import details.box > summary h2.sub::before { content: "▸"; color: var(--muted); }
+  .import details.box[open] > summary h2.sub::before { content: "▾"; }
+  .import details.box[open] > summary { margin-bottom: 6px; }
+  /* いちばん上のまとめ。押すとその欄へ */
+  .import .sum { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 4px; padding: 0; list-style: none; }
+  .import .sum li a { display: inline-block; padding: 4px 10px; border: 1px solid var(--line); border-radius: 999px; font-size: .82rem; color: var(--text); text-decoration: none; white-space: nowrap; }
+  .import .sum li a b { font-variant-numeric: tabular-nums; }
+  .import .sum li.warn a { border-color: var(--accent); color: var(--accent); }
+  .import .warnc { color: var(--accent); }
+  .import .box .msg { font-size: .85rem; color: var(--muted); margin: 0 0 6px; }
+  @media (max-width: 600px) { .import .box { padding: 10px; } .import td:first-child { max-width: 100px; } }
+  .import td, .import td small { font-variant-numeric: tabular-nums; }
+  /* 削除依頼 */
+  .import .tdl { list-style: none; margin: 0; padding: 0; }
+  .import .tdl li { padding: 8px 0; border-bottom: 1px solid var(--line); font-size: .88rem; }
+  .import .tdl li:last-child { border-bottom: 0; }
+  .import .tdl li.done { opacity: .5; }
+  .import .tdl p { margin: 2px 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .import .tdl .m { font-size: .78rem; color: var(--muted); }
+  .import .tdl button { font-size: .78rem; padding: 2px 10px; margin-right: 6px; }
 </style>
 </head>
 <body>
@@ -42,7 +68,10 @@
 </header>
 
 <main class="import">
-  <!-- 開いたらすぐ登録できるよう、貼る欄と登録を一番上に置く -->
+  <!-- いちばん上に、いま気にすることのまとめ(押すとその欄へ) -->
+  <ul class="sum" id="sum"><li><a href="#personal">読み込み中…</a></li></ul>
+
+  <!-- 開いたらすぐ登録できるよう、貼る欄と登録を上に置く -->
   <!-- 登録を押すと、未登録の行がそのまま下の「登録中」に移り、終わるとその行が結果に変わる -->
   <div class="go">
     <textarea id="data" autocomplete="off" placeholder="ここに貼る（IG取得の「送る」なら自動で入る）"></textarea>
@@ -52,19 +81,30 @@
   <div id="extra" class="extra"></div>
   <p id="result" class="msg"></p>
 
+  <!-- 削除・公開停止の依頼(about のフォーム)。未対応があるときだけ開いておく -->
+  <details class="box" id="tdBox" hidden>
+    <summary><h2 class="sub">削除・公開停止の依頼 <small id="tdCount"></small></h2></summary>
+    <ul class="tdl" id="tdList"></ul>
+  </details>
+
+  <!-- 個人アカウント(IG取得で入れる人)。いちばんよく見るので上に -->
+  <section class="box" id="personal">
+    <h2 class="sub">個人アカウント <small id="personalCount"></small></h2>
+    <table><tbody id="targets"><tr><td>読み込み中…</td></tr></tbody></table>
+  </section>
+
   <!-- 周回で公式APIから返ってこなかった投稿。開いて確かめ、消えていたら「消す」、あったら「残す」 -->
-  <section id="goneBox" hidden>
+  <section class="box" id="goneBox" hidden>
     <h2 class="sub">消えたかもしれない投稿</h2>
     <p class="msg">周回で公式APIから返ってこなかった投稿です。開いて確かめ、消えていたら「消す」、あったら「残す」（年齢制限などで API が返さない投稿もあります）。</p>
     <table><tbody id="gone"></tbody></table>
   </section>
 
-  <!-- 対象の表は常に出す。1人を2行(名前と@アカウント、件数と内訳…)にして横幅を詰める -->
-  <h2 class="sub">対象（公式APIで取れる人）</h2>
-  <table><tbody id="officials"><tr><td>読み込み中…</td></tr></tbody></table>
-
-  <h2 class="sub">対象（個人アカウント）</h2>
-  <table><tbody id="targets"><tr><td>読み込み中…</td></tr></tbody></table>
+  <!-- 公式APIで取れる人は自動で入るので、ふだんは閉じておく。1人を2行(名前と@アカウント、件数と内訳…)にして横幅を詰める -->
+  <details class="box" id="officialBox">
+    <summary><h2 class="sub">公式APIで取れる人 <small id="officialCount"></small></h2></summary>
+    <table><tbody id="officials"><tr><td>読み込み中…</td></tr></tbody></table>
+  </details>
 
   <!-- ブックマークレット・合言葉・使い方は、たまにしか触らないので下に置く -->
   <div class="tools">

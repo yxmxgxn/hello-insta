@@ -284,6 +284,33 @@ def crawl(method: str, path: str, body: dict | None = None) -> dict:
 
 # ---------- Graph API ----------
 
+def check_token() -> None:
+    """アクセストークンの期限を Meta の debug_token で調べ、Worker に送る(期限が近いと毎日の報告で知らせる)。
+    調べられなくても取得は続ける。URL にトークンが入るので、エラーの中身(URL)は出さない"""
+    tok = os.environ["IG_ACCESS_TOKEN"]
+    q = urllib.parse.urlencode({"input_token": tok, "access_token": tok})
+    try:
+        with urllib.request.urlopen(f"{GRAPH}/debug_token?{q}", timeout=30) as res:
+            d = json.loads(res.read().decode("utf-8")).get("data") or {}
+    except Exception as e:  # noqa: BLE001
+        print(f"アクセストークンの期限を調べられませんでした({type(e).__name__})")
+        return
+    # expires_at: トークンそのものの期限。data_access_expires_at: データを読める期限。0 は「期限なし」。早いほうを使う
+    times = [int(d.get(k) or 0) for k in ("expires_at", "data_access_expires_at")]
+    times = [t for t in times if t > 0]
+    exp = min(times) if times else 0
+    try:
+        crawl("POST", "token", {"expires_at": exp})
+    except Exception as e:  # noqa: BLE001
+        print(f"アクセストークンの期限を送れませんでした({e})")
+        return
+    if exp:
+        left = (exp - time.time()) / 86400
+        print(f"アクセストークンの期限: あと {left:.1f} 日")
+    else:
+        print("アクセストークンの期限: なし")
+
+
 # 必ず要るわけではないが聞いておく項目。API が受け付けなかったら、その回はその項目だけ聞かずに続ける
 #   username: 投稿の持ち主。共同投稿は持ち主と共同投稿者の両方の一覧に出てくるので、Worker 側で持ち主に固定する
 #   media_product_type: 通常の投稿(FEED)かリール(REELS)か。media_type(写真・動画・複数枚)とは別
@@ -381,6 +408,7 @@ def main() -> int:
             return 1
     max_calls = int(os.environ.get("MAX_CALLS") or 150)
 
+    check_token()
     targets = load_targets()
     state = {s["username"]: s for s in crawl("GET", "state")["state"]}
     # 個人アカウントと分かっている OG(現役のグループにいない人)は、PERSONAL_OG_KEEP の人だけ残す
