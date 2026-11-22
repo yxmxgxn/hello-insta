@@ -703,7 +703,7 @@
       chip("#tokenBox", sum.tokenDays < 0 ? "⚠ アクセストークンの期限切れ" : "⚠ アクセストークン あと " + n(sum.tokenDays) + " 日", true);
     }
     if (sum.td) chip("#tdBox", "削除依頼 未対応 " + n(sum.td), true);
-    if (sum.personal != null) chip("#personal", "個人 " + n(sum.personal) + "人" + (sum.nocap ? "・本文なし " + n(sum.nocap) + "件" : ""), false);
+    if (sum.personal != null) chip("#personal", "個人 " + n(sum.personal) + "人" + (sum.nocap ? "・本文未取得 " + n(sum.nocap) + "件" : ""), false);
     if (sum.gone != null) chip("#goneBox", "消えたかも <b>" + sum.gone + "</b>件" + (sum.suspects ? "（ほかに要確認 " + n(sum.suspects) + "人）" : ""), sum.gone !== "0");
     // 本文(検索で当たった箇所の前後を出すのに使う)を持っている件数。本文なしの投稿は数えない
     if (sum.cap != null) chip("#officialBox", "本文の保存 " + n(sum.cap) + (sum.capLeft ? "・残り " + n(sum.capLeft) + "件" : "件 ✓"), false);
@@ -743,12 +743,12 @@
       fillTable(document.getElementById("targets"), personal);
       fillTable(document.getElementById("officials"), officials);
       sum.personal = personal.length;
-      sum.nocap = personal.reduce(function (s, a) { return s + (a.nocap || 0); }, 0);
+      sum.nocap = personal.reduce(function (s, a) { return s + (a.nocap_web || 0); }, 0);
       sum.official = officials.length;
       sum.cap = active.reduce(function (s, a) { return s + (a.withcap || 0); }, 0);
       sum.capLeft = active.reduce(function (s, a) { return s + Math.max(0, a.posts - (a.nocap || 0) - (a.withcap || 0)); }, 0);
       sum.err = officials.filter(function (a) { return a.error; }).length;
-      document.getElementById("personalCount").textContent = personal.length + "人" + (sum.nocap ? "・本文なし " + sum.nocap + "件" : "");
+      document.getElementById("personalCount").textContent = personal.length + "人" + (sum.nocap ? "・本文未取得 " + sum.nocap + "件" : "");
       document.getElementById("officialCount").textContent = officials.length + "人" + (sum.err ? "・エラー " + sum.err + "人" : "");
       drawSum();
       // 対象の読み込みより先に投稿が渡ってきていたら、絞り直す
@@ -793,10 +793,20 @@
           cnt.appendChild(cl);
         }
         // 本文が入っていない投稿の数(IG取得（一つ一つ）で埋める目安)
-        if (a.nocap) {
+        // 公式APIで本文が空だった投稿は「本文なし」(本当にない)。画面から拾って本文が空の投稿は「本文未取得」
+        // (本当にないのか、拾えなかったのかは分からない。IG取得（一つ一つ）で開き直すと分かる)
+        var ncWeb = a.nocap_web || 0, ncApi = (a.nocap || 0) - ncWeb;
+        if (ncWeb) {
+          var nw = document.createElement("small");
+          nw.className = "warnc";
+          nw.textContent = "本文未取得 " + ncWeb;
+          nw.title = "IG取得で拾った投稿のうち、本文が入っていないもの（本当に本文がないものも含む）";
+          cnt.appendChild(nw);
+        }
+        if (ncApi) {
           var nc = document.createElement("small");
-          nc.className = "warnc";
-          nc.textContent = "本文なし " + a.nocap;
+          nc.textContent = "本文なし " + ncApi;
+          nc.title = "公式APIで本文が空だった投稿（本当に本文がない）";
           cnt.appendChild(nc);
         }
         tr.appendChild(cnt);
