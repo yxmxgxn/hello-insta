@@ -160,7 +160,7 @@ PERSONAL_OG_KEEP = {
 EXTRA_ACCOUNTS: dict[str, tuple[str, str]] = {
     # スプシでは引退(retirement)扱いなどで外れるが、入れておきたいOG
     "kanon_fukuda": ("福田花音", "その他のOG"),
-    "hp_officialfanclub": ("hp_officialfanclub", "その他"),
+    "hp_officialfanclub": ("Hello! Projectオフィシャルファンクラブ", "その他"),
     "odybooks": ("オデッセー出版", "その他"),
     "mlinesp.official": ("M-line Specialの楽屋", "その他"),
     # 現役のグループではなくなった(解散・活動休止の)グループの公式アカウント
