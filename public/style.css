@@ -416,3 +416,10 @@ main.wide, .site-head.wide, .site-foot.wide { max-width: 1040px; }
 .td button:disabled { opacity: .5; }
 .td .note { margin: 0; }
 .hp { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
+
+/* 仕組み(tech)の、APIの項目の表 */
+.spec { border-collapse: collapse; width: 100%; font-size: .85rem; margin: 8px 0; }
+.spec th, .spec td { border-bottom: 1px solid var(--line); padding: 6px 8px; text-align: left; vertical-align: top; line-height: 1.5; }
+.spec th { color: var(--muted); font-weight: 600; }
+.spec code { white-space: nowrap; }
+@media (max-width: 600px) { .spec, .spec tbody, .spec tr, .spec td { display: block; width: 100%; } .spec thead { display: none; } .spec tr { padding: 6px 0; border-bottom: 1px solid var(--line); } .spec td { border: 0; padding: 1px 0; } .spec td:nth-child(3) { color: var(--muted); } }

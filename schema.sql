@@ -12,8 +12,8 @@ CREATE TABLE IF NOT EXISTS post (
   media_type TEXT,              -- IMAGE / VIDEO / CAROUSEL_ALBUM
   excerpt    TEXT,              -- 本文の先頭(一覧表示用)
   added_at   TEXT,              -- このDBに初めて入った日時(JST)。毎日の報告の「新着」に使う
-  like_count     INTEGER,       -- 最後に取ったときのいいね数(非表示の投稿は NULL)。公開画面には出さない
-  comments_count INTEGER,       -- 最後に取ったときのコメント数。公開画面には出さない
+  like_count     INTEGER,       -- (使っていない。取らないことにした。古い列を残してあるだけで、値は消してある)
+  comments_count INTEGER,       -- (同上)
   cap_hash   TEXT,              -- 本文の指紋。本文が前と同じなら索引(post_fts)を書き直さないのに使う
   product_type TEXT,            -- 公式APIの media_product_type。通常の投稿(FEED)かリール(REELS)か
   seen_at    TEXT,              -- 最後に公式APIの返事に入っていた日時(JST)。周回で返ってこなかった投稿を「消えたかも」と出すのに使う

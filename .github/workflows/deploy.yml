@@ -162,6 +162,16 @@ jobs:
           wranglerVersion: '4'
           command: d1 execute hello-insta --remote --command "ALTER TABLE post ADD COLUMN caption TEXT"
 
+      # いいね数・コメント数は取らないことにしたので、前に入った値を消す(値があるときだけ書くので、2回目以降は何も変わらない)
+      - name: Clear like/comment counts
+        continue-on-error: true
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: '4'
+          command: d1 execute hello-insta --remote --command "UPDATE post SET like_count = NULL, comments_count = NULL WHERE like_count IS NOT NULL OR comments_count IS NOT NULL"
+
       - name: Deploy to Cloudflare Workers
         uses: cloudflare/wrangler-action@v3
         with:

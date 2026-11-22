@@ -15,6 +15,27 @@
 どの取り方で入っても、同じ投稿は1件にまとまる(公式APIは Instagram のメディアID、それ以外は `web:<shortcode>`)。
 個人アカウントの人がプロに切り替えたら、公式APIの分が `web:` の分を置き換える(最初に入った日時は引き継ぐ)。
 
+## 公式APIで取れるもの、使っているもの
+
+Business Discovery(`business_discovery.username(X){...}`)で、ほかの人の投稿について取れる主な項目。使うのは、検索と表示に要るものだけ。
+
+| 項目 | 中身 | このサイト |
+|---|---|---|
+| `id` | 投稿のID | 使う(同じ投稿を1件にまとめる) |
+| `caption` | 本文 | 使う(検索と、当たった箇所の前後の表示) |
+| `timestamp` | 投稿日時 | 使う |
+| `permalink` | 投稿のリンク | 使う(埋め込みと、元の投稿へのリンク) |
+| `media_type` | 画像・動画・複数枚 | 使う |
+| `media_product_type` | 通常の投稿かリールか | 使う |
+| `username` | 投稿の持ち主(共同投稿の判別) | 使う |
+| `media_count`(アカウント) | 投稿の総数 | 使う(追いついたかの確認) |
+| `like_count` | いいね数 | 取れるが、使わない(聞かない) |
+| `comments_count` | コメント数 | 取れるが、使わない(聞かない) |
+| `media_url`・`thumbnail_url`・`children` | 画像・動画のアドレス、複数枚の中身 | 取れるが、聞かない(画像・動画は保存しない) |
+| アカウントの `followers_count` など | フォロワー数・プロフィール | 取れるが、聞かない(投稿以外は取らない) |
+
+コメントの中身は、Business Discovery では取れない。
+
 ## 対象
 
 - karin-archive の SNS一覧の表で instagram がある人(現役 → J.P ROOM → UP-FRONT CREATE → UP-FRONT PROMOTION → その他のOG)。
