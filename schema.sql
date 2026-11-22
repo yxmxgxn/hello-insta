@@ -17,10 +17,20 @@ CREATE TABLE IF NOT EXISTS post (
   cap_hash   TEXT,              -- 本文の指紋。本文が前と同じなら索引(post_fts)を書き直さないのに使う
   product_type TEXT,            -- 公式APIの media_product_type。通常の投稿(FEED)かリール(REELS)か
   seen_at    TEXT,              -- 最後に公式APIの返事に入っていた日時(JST)。周回で返ってこなかった投稿を「消えたかも」と出すのに使う
-  keep       INTEGER            -- 1=管理人が「消えていない」と確かめた(年齢制限などで API が返さない投稿)。消えたかもに出さない
+  keep       INTEGER,           -- 1=管理人が「消えていない」と確かめた(年齢制限などで API が返さない投稿)。消えたかもに出さない
+  caption    TEXT               -- 本文(Instagram に書かれたとおり)。画面には出さない。検索で当たった箇所の前後(excerpt と同じ長さ)を切り出すのにだけ使う
 );
 CREATE INDEX IF NOT EXISTS post_ts ON post(ts);
 CREATE INDEX IF NOT EXISTS post_account_ts ON post(account, ts);
+
+-- 共同投稿の、持ち主(post.account)以外の対象アカウント。公式APIは共同投稿を共同投稿者の一覧にも返すので、
+-- 持ち主以外の人の一覧で返ってきたら、ここに書く。その人を選んだときにも出す
+CREATE TABLE IF NOT EXISTS post_collab (
+  post_id TEXT NOT NULL,
+  account TEXT NOT NULL,
+  PRIMARY KEY (post_id, account)
+);
+CREATE INDEX IF NOT EXISTS post_collab_account ON post_collab(account);
 
 CREATE VIRTUAL TABLE IF NOT EXISTS post_fts USING fts5(
   id UNINDEXED,
