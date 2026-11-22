@@ -26,7 +26,7 @@ MAX_CALLS に抑え、遡りきれなかった分は D1 の fetch_state に残�
   IG_USER_ID       自分のプロアカウントの Instagram ユーザーID(数字)
   IG_ACCESS_TOKEN  そのアカウントのアクセストークン
   MAX_CALLS        1回の実行で使う Graph API の呼び出し上限(既定 150)
-  ROUND_CALLS      1回の実行で周回に使う上限(既定 10)
+  ROUND_CALLS      1回の実行で周回に使う上限(既定 10)。Meta の回数制限の使用率が 50% を超えたら、上限前でも周回をやめる
   ROUND_EVERY_DAYS 1人を周回し直す間隔(日。既定 7)
 """
 
@@ -318,6 +318,34 @@ OPTIONAL = {"username": "投稿の持ち主", "media_product_type": "投稿の�
 asking = list(OPTIONAL)
 
 
+# Meta が返事のヘッダーで知らせる、回数制限の使用率(%)。この回で見た一番大きい値。
+# 制限に当たる前に自分から控える: 周回は ROUND_STOP_PCT、遡りは BACKFILL_STOP_PCT を超えたら、その回はやめる
+# (新着、とくに宮本さんの分は止めない)。ROUND_CALLS を上げても、ここで頭打ちになる
+usage_pct = 0
+ROUND_STOP_PCT = 50
+BACKFILL_STOP_PCT = 70
+
+
+def note_usage(headers) -> None:
+    """x-app-usage / x-business-use-case-usage のうち、一番大きい % を覚える"""
+    global usage_pct
+    for h in ("x-app-usage", "x-business-use-case-usage"):
+        raw = headers.get(h)
+        if not raw:
+            continue
+        try:
+            d = json.loads(raw)
+        except ValueError:
+            continue
+        # x-app-usage は {"call_count": 3, ...}、x-business-use-case-usage は {"<id>": [{"call_count": 3, ...}]}
+        items = [d] if h == "x-app-usage" else [x for v in d.values() for x in (v if isinstance(v, list) else [v])]
+        for it in items:
+            for k in ("call_count", "total_cputime", "total_time"):
+                v = it.get(k) if isinstance(it, dict) else None
+                if isinstance(v, (int, float)):
+                    usage_pct = max(usage_pct, v)
+
+
 def fetch_page(username: str, after: str | None, limit: int = PAGE_SIZE, items: str = "full") -> dict:
     media = f"media.limit({limit})" + (f".after({after})" if after else "")
     want = "id,caption,timestamp,permalink,media_type"
@@ -327,8 +355,10 @@ def fetch_page(username: str, after: str | None, limit: int = PAGE_SIZE, items: 
     q = urllib.parse.urlencode({"fields": fields, "access_token": os.environ["IG_ACCESS_TOKEN"]})
     try:
         with urllib.request.urlopen(f"{GRAPH}/{os.environ['IG_USER_ID']}?{q}", timeout=60) as res:
+            note_usage(res.headers)
             text = res.read().decode("utf-8", "replace")
     except urllib.error.HTTPError as e:
+        note_usage(e.headers)
         body = e.read()
         try:
             err = json.loads(body.decode("utf-8")).get("error", {})
@@ -549,7 +579,7 @@ def main() -> int:
             st = state.get(user)
             if st and st.get("last_error") == PERSONAL:
                 continue
-            while st and not st["done"] and st["after"] and calls < max_calls:
+            while st and not st["done"] and st["after"] and calls < max_calls and usage_pct < BACKFILL_STOP_PCT:
                 media = get(user, st["after"])
                 if media is None:
                     break
@@ -579,7 +609,7 @@ def main() -> int:
         for t in rounds:
             user = t["username"]
             st = state[user]
-            while calls < round_limit:
+            while calls < round_limit and usage_pct < ROUND_STOP_PCT:
                 cursor = st.get("round_after")
                 media = get(user, cursor, "round")
                 if media is None:
@@ -594,7 +624,7 @@ def main() -> int:
                 if nxt["done"]:
                     finished.append(user)
                     break
-            if calls >= round_limit:
+            if calls >= round_limit or usage_pct >= ROUND_STOP_PCT:
                 break
     except RateLimited as e:
         # 失敗にはしない(次の回が続きから取る)。ここまでに取った分は保存済み
@@ -611,6 +641,8 @@ def main() -> int:
     round_calls = calls - round_from if round_from is not None else 0
     print(f"対象 {len(targets)} / 新着を見る番 {len(due)} / API {calls}回(うち周回 {round_calls}回) / 保存 {saved}件 / "
           f"遡り未完了 {pending}アカウント")
+    print(f"回数制限の使用率(Meta の返事のヘッダー): 最大 {usage_pct}%"
+          + (f"。{ROUND_STOP_PCT}% を超えたので周回を控えました" if usage_pct >= ROUND_STOP_PCT else ""))
     if rounded:
         print(f"周回: {', '.join(sorted(rounded))}" + (f"(読みきった: {', '.join(finished)})" if finished else ""))
     if failed:
