@@ -683,6 +683,45 @@
     return ts.slice(0, 4) === String(new Date().getFullYear()) ? s.slice(5) : s;
   }
 
+  // ---------- いちばん上のまとめ(押すとその欄へ) ----------
+  // 各欄が読み込めたら、その分を埋めて描き直す。null はまだ分からない(出さない)
+  var sum = { personal: null, nocap: null, official: null, err: null, gone: null, suspects: null, td: null, tokenDays: null };
+  function drawSum() {
+    var ul = document.getElementById("sum");
+    ul.textContent = "";
+    function chip(href, html, warn) {
+      var li = document.createElement("li");
+      if (warn) li.className = "warn";
+      var a = document.createElement("a");
+      a.href = href;
+      a.innerHTML = html;
+      li.appendChild(a);
+      ul.appendChild(li);
+    }
+    var n = function (x) { return "<b>" + Number(x).toLocaleString("ja-JP") + "</b>"; };
+    if (sum.tokenDays != null && sum.tokenDays <= 14) {
+      chip("#tokenBox", sum.tokenDays < 0 ? "⚠ アクセストークンの期限切れ" : "⚠ アクセストークン あと " + n(sum.tokenDays) + " 日", true);
+    }
+    if (sum.td) chip("#tdBox", "削除依頼 未対応 " + n(sum.td), true);
+    if (sum.personal != null) chip("#personal", "個人 " + n(sum.personal) + "人" + (sum.nocap ? "・本文なし " + n(sum.nocap) + "件" : ""), false);
+    if (sum.gone != null) chip("#goneBox", "消えたかも <b>" + sum.gone + "</b>件" + (sum.suspects ? "（ほかに要確認 " + n(sum.suspects) + "人）" : ""), sum.gone !== "0");
+    if (sum.official != null) chip("#officialBox", "公式 " + n(sum.official) + "人" + (sum.err ? "・エラー " + n(sum.err) + "人" : ""), sum.err > 0);
+    if (sum.tokenDays != null && sum.tokenDays > 14) chip("#tokenBox", "トークン あと " + n(sum.tokenDays) + " 日", false);
+    if (!ul.children.length) chip("#personal", "読み込み中…", false);
+  }
+  // 閉じた欄へ飛ぶときは開く
+  document.getElementById("sum").addEventListener("click", function (e) {
+    var a = e.target.closest("a");
+    var box = a && document.querySelector(a.getAttribute("href"));
+    if (box && box.tagName === "DETAILS") box.open = true;
+  });
+  // 「公式APIで取れる人」を開いたか閉じたかを覚えておく
+  var officialBox = document.getElementById("officialBox");
+  try { officialBox.open = localStorage.getItem("officialOpen") === "1"; } catch (e) { /* 覚えられなくてもよい */ }
+  officialBox.addEventListener("toggle", function () {
+    try { localStorage.setItem("officialOpen", officialBox.open ? "1" : "0"); } catch (e) { /* 覚えられなくてもよい */ }
+  });
+
   // ---------- 対象の一覧(公開APIの accounts から、個人アカウントの人だけ) ----------
   function loadTargets() {
     // サイト側(Worker)のキャッシュは URL ごとなので、毎回違う URL にして最新の件数を取る
@@ -697,8 +736,17 @@
       });
       buildLink(names);
       var active = (d.accounts || []).filter(function (a) { return a.active; });
-      fillTable(document.getElementById("targets"), active.filter(function (a) { return /個人アカウント/.test(a.error || ""); }));
-      fillTable(document.getElementById("officials"), active.filter(function (a) { return !/個人アカウント/.test(a.error || ""); }));
+      var personal = active.filter(function (a) { return /個人アカウント/.test(a.error || ""); });
+      var officials = active.filter(function (a) { return !/個人アカウント/.test(a.error || ""); });
+      fillTable(document.getElementById("targets"), personal);
+      fillTable(document.getElementById("officials"), officials);
+      sum.personal = personal.length;
+      sum.nocap = personal.reduce(function (s, a) { return s + (a.nocap || 0); }, 0);
+      sum.official = officials.length;
+      sum.err = officials.filter(function (a) { return a.error; }).length;
+      document.getElementById("personalCount").textContent = personal.length + "人" + (sum.nocap ? "・本文なし " + sum.nocap + "件" : "");
+      document.getElementById("officialCount").textContent = officials.length + "人" + (sum.err ? "・エラー " + sum.err + "人" : "");
+      drawSum();
       // 対象の読み込みより先に投稿が渡ってきていたら、絞り直す
       if (groups && lastData) take(lastData);
     }).catch(function () {
@@ -732,7 +780,15 @@
         tr.appendChild(cell(a.name, link("https://www.instagram.com/" + encodeURIComponent(a.username) + "/", "@" + a.username)));
         // 合計と、そのうち公式APIで入った分・手で取り込んだ分
         var web = a.posts_web || 0;
-        tr.appendChild(cell(a.posts + "件", "公式" + (a.posts - web) + "・取込" + web));
+        var cnt = cell(a.posts + "件", "公式" + (a.posts - web) + "・取込" + web);
+        // 本文が入っていない投稿の数(IG取得（一つ一つ）で埋める目安)
+        if (a.nocap) {
+          var nc = document.createElement("small");
+          nc.className = "warnc";
+          nc.textContent = "本文なし " + a.nocap;
+          cnt.appendChild(nc);
+        }
+        tr.appendChild(cnt);
         // Instagram のプロフィールに出ている投稿数と比べる(追いついていれば取り込みは要らない)
         var ig;
         if (a.ig_count != null) {
@@ -799,9 +855,16 @@
       .then(function (d) {
         box.hidden = false;
         tbody.textContent = "";
+        if (d && !account) {
+          sum.gone = d.posts.length + (d.more ? "+" : "");
+          sum.suspects = (d.suspects || []).length;
+          drawSum();
+        }
         (d && d.suspects || []).forEach(function (s) { tbody.appendChild(suspectRow(s)); });
         // 0件・読み込めなかったときも、欄は出して理由を書く(「何も出ない」だけだと、0件なのか失敗なのか分からないため)
         if (d && !d.posts.length && d.suspects && d.suspects.length) return;
+        // 0件なら欄ごと隠す(上のまとめに「消えたかも 0件」と出る)
+        if (d && !d.posts.length && !account) { box.hidden = true; return; }
         if (!d || !d.posts.length) {
           var er = document.createElement("tr");
           var ec = document.createElement("td");
@@ -859,4 +922,82 @@
       .catch(function () { box.hidden = true; });
   }
   loadGone();
+
+  // ---------- 削除依頼の一覧と、アクセストークンの期限 ----------
+  function loadAdmin() {
+    var box = document.getElementById("tdBox");
+    if (!token) { box.hidden = true; return; }
+    fetch("/api/crawl/admin", { headers: { authorization: "Bearer " + token }, cache: "no-store" })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (d) {
+        if (!d) return;
+        // トークンの期限(0 は期限なし)
+        var t = d.token || {};
+        if (t.expires_at) {
+          sum.tokenDays = Math.floor((t.expires_at * 1000 - Date.now()) / 86400e3);
+          var when = new Date(t.expires_at * 1000 + 9 * 3600e3).toISOString().slice(0, 16).replace("T", " ");
+          document.getElementById("tokenState").title = "IG_ACCESS_TOKEN の期限: " + when + "（調べた日時: " + (t.checked_at || "") + "）";
+        }
+        // 削除依頼
+        var list = d.takedown || [];
+        var open = list.filter(function (x) { return !x.done; }).length;
+        sum.td = open;
+        drawSum();
+        box.hidden = !list.length;
+        box.open = open > 0;
+        document.getElementById("tdCount").textContent = "未対応 " + open + " / 全 " + list.length;
+        var ul = document.getElementById("tdList");
+        ul.textContent = "";
+        list.forEach(function (x) {
+          var li = document.createElement("li");
+          if (x.done) li.className = "done";
+          var m = document.createElement("p");
+          m.className = "m";
+          m.textContent = "#" + x.id + "　" + x.created_at + (x.done ? "　対応済み" : "");
+          li.appendChild(m);
+          var tg = document.createElement("p");
+          // 対象が URL なら押して開けるように
+          if (/^https?:\/\//.test(x.target)) {
+            var a = document.createElement("a");
+            a.href = x.target;
+            a.target = "_blank";
+            a.rel = "noopener noreferrer";
+            a.textContent = x.target;
+            tg.appendChild(a);
+          } else tg.textContent = x.target;
+          li.appendChild(tg);
+          if (x.contact) { var c = document.createElement("p"); c.textContent = "連絡先: " + x.contact; li.appendChild(c); }
+          if (x.message) { var g = document.createElement("p"); g.textContent = x.message; li.appendChild(g); }
+          var act = document.createElement("p");
+          [[x.done ? "未対応に戻す" : "対応済みにする", x.done ? "undo" : "done", ""], ["削除", "delete", "ghost"]].forEach(function (b) {
+            var btn = document.createElement("button");
+            btn.type = "button";
+            btn.textContent = b[0];
+            if (b[2]) btn.className = b[2];
+            btn.onclick = function () {
+              if (b[1] === "delete" && !confirm("依頼 #" + x.id + " を一覧から消します")) return;
+              btn.disabled = true;
+              fetch("/api/crawl/takedown", {
+                method: "POST",
+                headers: { "content-type": "application/json", authorization: "Bearer " + token },
+                body: JSON.stringify({ id: x.id, action: b[1] }),
+              }).then(function (r) {
+                if (!r.ok) throw new Error("HTTP " + r.status);
+                loadAdmin();
+              }).catch(function (e) {
+                btn.disabled = false;
+                alert("できませんでした: " + e.message);
+              });
+            };
+            act.appendChild(btn);
+          });
+          li.appendChild(act);
+          ul.appendChild(li);
+        });
+      })
+      .catch(function () { /* 読めなくても、ほかの欄は使える */ });
+  }
+  loadAdmin();
+  // 合言葉を入れ直したら、合言葉が要る欄を読み直す
+  document.getElementById("saveToken").addEventListener("click", function () { loadGone(); loadAdmin(); });
 })();

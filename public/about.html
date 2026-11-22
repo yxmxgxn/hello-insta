@@ -176,7 +176,7 @@
   </p>
   <p>
     そのため、消えた投稿がしばらくこのサイトに残っていることがあります（リンク先は開けません）。
-    個人アカウントの人の投稿は読み直せないので、見つけたら下の連絡先から教えてください。確かめたうえで消します。
+    個人アカウントの人の投稿は読み直せないので、見つけたら下のフォームから教えてください。確かめたうえで消します。
   </p>
 
   <h2>このサイトについて</h2>
@@ -190,13 +190,28 @@
   <p>
     Instagram（Meta）・ご本人・所属事務所から連絡があれば、確認のうえ速やかに投稿の削除、またはサイトの公開停止をします。
     そのほかの方からの「消してほしい・載せないでほしい」というご連絡にも対応します。
-    ご連絡は、<a href="https://karin-archive.com/">karin-archive</a>（同じ作者のサイト）のページ下にある「誤りの報告・追加のご要望」から送ってください。匿名で送れます。
+    ご連絡は、下のフォームから送ってください。投稿のURLかアカウント名だけで送れます。
+    返事が必要な場合は、連絡先も書いてください（返事のためだけに使います）。
+  </p>
+  <form id="td" class="td" autocomplete="off">
+    <label>投稿のURL または アカウント名（必須）
+      <input name="target" required maxlength="300" placeholder="例: https://www.instagram.com/p/… / @アカウント名"></label>
+    <label>連絡先（任意・メールアドレスなど）
+      <input name="contact" maxlength="200"></label>
+    <label>ひとこと（任意）
+      <textarea name="message" rows="3" maxlength="2000"></textarea></label>
+    <input name="website" class="hp" tabindex="-1" aria-hidden="true">
+    <button type="submit">送る</button>
+    <p id="td-msg" class="note" aria-live="polite"></p>
+  </form>
+  <p class="note">
+    投稿の誤りや追加のご要望は、<a href="https://karin-archive.com/">karin-archive</a>（同じ作者のサイト）のページ下にある「誤りの報告・追加のご要望」からどうぞ。
   </p>
 
   <h2>もしものとき</h2>
   <p>
-    このサイトは、連絡先やひとことなどの個人の情報を預かっていません。
-    ご連絡は、上の karin-archive の窓口で受けています。
+    このサイトが持っている個人の情報は、上のフォームに書いてもらった連絡先（任意）とひとことだけです。
+    送信元のIPアドレスは、そのままの形では残していません。
   </p>
   <p>
     管理用のアカウントが乗っ取られた、データが漏れた、などが分かったときは、すぐにサイトを止め、必要ならデータベースを消して、このページでお知らせします。
@@ -224,7 +239,7 @@
     <li><a href="https://developers.facebook.com/docs/instagram-platform/oembed" target="_blank" rel="noopener noreferrer">埋め込み（oEmbed）の資料</a>（2026年11月19日に確認）。埋め込み以外には使えない決まりなので、サーバーからは使わず、見に来た人のブラウザが読む公式の埋め込みだけを使っています</li>
   </ul>
 
-  <p class="note">最終更新：2026年11月20日</p>
+  <p class="note">最終更新：2026年11月22日</p>
 </main>
 
 <footer class="site-foot">
@@ -234,6 +249,29 @@
 </footer>
 
 <script>
+// 削除・公開停止の依頼
+document.getElementById("td").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const f = e.target, msg = document.getElementById("td-msg"), btn = f.querySelector("button");
+  btn.disabled = true;
+  msg.textContent = "送信中…";
+  try {
+    const r = await fetch("/api/takedown", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify(Object.fromEntries(new FormData(f))),
+    });
+    if (!r.ok) throw new Error(r.status === 429 ? "短い間に送りすぎです。少し待ってから" : String(r.status));
+    const d = await r.json().catch(() => ({}));
+    f.reset();
+    msg.textContent = "受け付けました" + (d.id ? `（受付番号 #${d.id}）` : "") + "。確認のうえ対応します。" +
+      (d.id ? "あとでお問い合わせいただくときのために、必要ならこの番号を控えておいてください。" : "");
+  } catch (err) {
+    msg.textContent = "送れませんでした（" + err.message + "）。時間をおいてもう一度お試しください。";
+  } finally {
+    btn.disabled = false;
+  }
+});
+
 // 収録件数は増えていくので、その時の数を出す
 fetch("/api/accounts").then((r) => r.json()).then((d) => {
   const got = d.accounts.filter((a) => a.posts > 0);

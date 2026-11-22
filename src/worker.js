@@ -6,6 +6,7 @@
  *   GET /api/calendar?ym=YYYY-MM&a=&q=        その月の日ごとの投稿数(a / q の条件込み)。ym なしなら月ごとの投稿数
  *   GET /api/accounts                         絞り込み用のアカウント一覧
  *   GET /api/day?d=YYYY-MM-DD                 その日の投稿を時刻の順に(/day のページ用)
+ *   POST /api/takedown                        削除・公開停止の依頼(about のフォーム)。Discord にも知らせる
  *
  * クローラ用API (Authorization: Bearer <CRAWL_TOKEN>。未設定なら存在しないことにする)
  *   GET  /api/crawl/state      アカウントごとの取得の進み具合
@@ -18,8 +19,12 @@
  *   POST /api/crawl/apify      Apify の Webhook から。Instagram Scraper の結果を読んで、個人アカウントの投稿を書く
  *   GET  /api/crawl/gone       周回で返ってこなかった(消えたかもしれない)投稿の一覧
  *   POST /api/crawl/gone       { id, action: "delete" | "keep" } 管理人が確かめて、消す・残す
+ *   GET  /api/crawl/admin      取り込みページの上のまとめ(削除依頼の一覧・アクセストークンの期限)
+ *   POST /api/crawl/takedown   { id, action: "done" | "undo" | "delete" } 削除依頼に印を付ける
+ *   POST /api/crawl/token      { expires_at } Fetch が調べたアクセストークンの期限(UNIX秒。0 は期限なし)
  *
  * 定期実行: 毎日 JST 20:00 に、収録件数・前回からの増加数・新着投稿を Discord へ送る(DISCORD_WEBHOOK)。
+ *           アクセストークンの期限が14日を切ったとき・未対応の削除依頼があるときは、その一言も足す。
  *           毎時37分に、GitHub Actions の Fetch(公式APIの取得)を起動する(GH_DISPATCH_TOKEN)。
  *
  * それ以外は静的アセット(public/)へ。
@@ -219,6 +224,7 @@ async function handleAccounts(env) {
       "SELECT a.username, a.name, a.section, a.active, s.last_error AS error, " +
       "(SELECT COUNT(*) FROM post WHERE account = a.username) AS posts, " +
       "(SELECT COUNT(*) FROM post WHERE account = a.username AND id LIKE 'web:%') AS posts_web, " +
+      "(SELECT COUNT(*) FROM post WHERE account = a.username AND ifnull(excerpt, '') = '') AS nocap, " +
       "(SELECT MIN(ts) FROM post WHERE account = a.username) AS first, " +
       "(SELECT MAX(ts) FROM post WHERE account = a.username) AS last, " +
       "(SELECT permalink FROM post WHERE account = a.username ORDER BY ts DESC LIMIT 1) AS last_url, " +
@@ -230,6 +236,104 @@ async function handleAccounts(env) {
     accounts: accounts.results,
     latest: latest.results[0] ? latest.results[0].ts : null,
   }, 200, "public, max-age=300");
+}
+
+/* ============================ 削除・公開停止の依頼 ============================ */
+
+// アメブロ検索(ameblo.karin-archive.com)と同じ作り。IP は日付とソルトを混ぜたハッシュだけ残し、同じ人の連投を数える。
+// 一覧と「対応済み」は、取り込みページ(GET /api/crawl/admin・POST /api/crawl/takedown)で見る・付ける
+const TD_RATE_MIN = 10;     // レート制限の窓(分)
+const TD_RATE_MAX = 5;      // 窓あたりの上限件数
+const TD_LIST_LIMIT = 200;  // 取り込みページに出す件数
+
+async function sha256Hex(s) {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
+  return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+async function handleTakedown(request, env, ctx) {
+  let b;
+  try { b = await request.json(); } catch { return json({ error: "bad" }, 400); }
+  if (b.website) return json({ ok: true });   // 人には見えない欄。埋まっていたら機械の送信なので黙って捨てる
+  const cut = (s, n) => String(s || "").trim().slice(0, n);
+  const target = cut(b.target, 300), contact = cut(b.contact, 200), message = cut(b.message, 2000);
+  if (!target) return json({ error: "target" }, 400);
+
+  const ip = request.headers.get("cf-connecting-ip") || "";
+  const today = new Date().toISOString().slice(0, 10);
+  const ipHash = await sha256Hex(`${env.TAKEDOWN_SALT || "hello-insta"}:${today}:${ip}`);
+  const cnt = await env.DB.prepare("SELECT count(*) AS n FROM takedown WHERE ip_hash = ? AND created_at > ?")
+    .bind(ipHash, new Date(Date.now() + 9 * 3600e3 - TD_RATE_MIN * 60000).toISOString().slice(0, 16).replace("T", " ")).first();
+  if ((cnt?.n || 0) >= TD_RATE_MAX) return json({ error: "rate" }, 429);
+
+  const ua = (request.headers.get("user-agent") || "").slice(0, 300);
+  const res = await env.DB.prepare(
+    "INSERT INTO takedown (target, contact, message, user_agent, ip_hash, created_at) VALUES (?, ?, ?, ?, ?, ?)"
+  ).bind(target, contact || null, message || null, ua, ipHash, nowJst()).run();
+  const id = res.meta.last_row_id;
+  if (env.DISCORD_WEBHOOK) {
+    ctx.waitUntil(fetch(env.DISCORD_WEBHOOK, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        username: "Instagram 検索",
+        content: (`**削除・公開停止の依頼 #${id}**\n対象: ${target}\n連絡先: ${contact || "(なし)"}` +
+          (message ? `\n${message}` : "") + `\n[取り込みページ](${SITE}/import)で対応済みにする`).slice(0, 1900),
+        allowed_mentions: { parse: [] },
+      }),
+    }).catch(() => {}));
+  }
+  return json({ ok: true, id });
+}
+
+// 取り込みページの上に出す、管理人向けのまとめ(削除依頼の一覧・アクセストークンの期限)
+async function crawlAdmin(env) {
+  const [td, meta] = await env.DB.batch([
+    env.DB.prepare("SELECT id, target, contact, message, done, created_at FROM takedown ORDER BY done ASC, id DESC LIMIT ?")
+      .bind(TD_LIST_LIMIT),
+    env.DB.prepare("SELECT k, v FROM meta WHERE k IN ('token_expires_at', 'token_checked_at')"),
+  ]);
+  const m = Object.fromEntries(meta.results.map((r) => [r.k, r.v]));
+  return json({
+    takedown: td.results,
+    token: { expires_at: m.token_expires_at == null ? null : Number(m.token_expires_at), checked_at: m.token_checked_at || null },
+  });
+}
+
+// { id, action: "done" | "undo" | "delete" }
+async function crawlTakedownDecide(request, env) {
+  const { id, action } = await request.json();
+  if (!Number.isInteger(id) || id <= 0) return json({ error: "bad_request" }, 400);
+  if (action === "delete") await env.DB.prepare("DELETE FROM takedown WHERE id = ?").bind(id).run();
+  else if (action === "done" || action === "undo") {
+    await env.DB.prepare("UPDATE takedown SET done = ? WHERE id = ?").bind(action === "done" ? 1 : 0, id).run();
+  } else return json({ error: "bad_request" }, 400);
+  return json({ ok: true });
+}
+
+// Fetch(GitHub Actions)が、毎回 Meta の debug_token で調べたアクセストークンの期限を送ってくる。
+// { expires_at }: UNIX 秒。0 は「期限なし」
+async function crawlToken(request, env) {
+  const { expires_at } = await request.json();
+  if (!Number.isFinite(expires_at)) return json({ error: "bad_request" }, 400);
+  await env.DB.batch([
+    env.DB.prepare("INSERT OR REPLACE INTO meta(k, v) VALUES('token_expires_at', ?)").bind(String(Math.floor(expires_at))),
+    env.DB.prepare("INSERT OR REPLACE INTO meta(k, v) VALUES('token_checked_at', ?)").bind(nowJst()),
+  ]);
+  return json({ ok: true });
+}
+
+// アクセストークンの期限が近いときの一言(毎日の報告に足す)。近くなければ空
+const TOKEN_WARN_DAYS = 14;
+async function tokenWarning(env) {
+  const v = await env.DB.prepare("SELECT v FROM meta WHERE k = 'token_expires_at'").first("v");
+  if (v == null || Number(v) === 0) return "";
+  const days = Math.floor((Number(v) * 1000 - Date.now()) / 86400e3);
+  if (days > TOKEN_WARN_DAYS) return "";
+  const when = new Date(Number(v) * 1000 + 9 * 3600e3).toISOString().slice(0, 16).replace("T", " ");
+  return days < 0
+    ? `\n⚠ **アクセストークン(IG_ACCESS_TOKEN)の期限が切れています**（${when}）。取得が止まっています。発行し直して GitHub の Secrets を更新してください`
+    : `\n⚠ **アクセストークン(IG_ACCESS_TOKEN)の期限まで、あと ${days} 日**（${when}）。発行し直して GitHub の Secrets を更新してください`;
 }
 
 /* ============================ クローラ用API ============================ */
@@ -830,11 +934,21 @@ async function dailyReport(env) {
     }
   }
 
+  let warn = "";
+  try {
+    warn = await tokenWarning(env);
+    const open = (await env.DB.prepare("SELECT COUNT(*) AS n FROM takedown WHERE done = 0").first()).n;
+    if (open) warn += `\n⚠ 削除・公開停止の依頼が **${open}** 件、未対応です（[取り込みページ](${SITE}/import)）`;
+  } catch (e) {
+    console.log("warn", e.message);
+  }
+
   const head =
     `収録 **${total.toLocaleString()}** 件` +
     (diff == null ? "" : `（前回から ${diff >= 0 ? "+" : ""}${diff.toLocaleString()}）`) +
     `\n新着 **${fresh.length}** 件（${since.slice(5).replace("-", "/")} 〜 ${now.slice(5).replace("-", "/")}）` +
     (gone ? `\n消えたかもしれない投稿 **${gone}** 件（[取り込みページ](${SITE}/import)で確かめる）` + (goneBy ? `\n　多い人: ${goneBy}` : "") : "") +
+    warn +
     (suspects.length ? `\n候補が多すぎる人（APIが期間ごと飛ばした疑い。一覧には出していない。[取り込みページ](${SITE}/import)で確かめる）: ${suspects.map((s) => `${s.name} ${s.n}`).join("、")}` : "");
 
   const res = await fetch(env.DISCORD_WEBHOOK, {
@@ -946,6 +1060,7 @@ export default {
       if (p === "/api/calendar" && request.method === "GET") return await cached(request, ctx, () => handleCalendar(url, env));
       if (p === "/api/accounts" && request.method === "GET") return await cached(request, ctx, () => handleAccounts(env));
       if (p === "/api/day" && request.method === "GET") return await cached(request, ctx, () => handleDay(url, env));
+      if (p === "/api/takedown" && request.method === "POST") return await handleTakedown(request, env, ctx);
     } catch (e) {
       return json({ error: "failed" }, 500);
     }
@@ -970,6 +1085,9 @@ export default {
         if (route === "POST apify") return await crawlApify(request, env);
         if (route === "GET gone") return await crawlGone(env, url);
         if (route === "POST gone") return await crawlGoneDecide(request, env);
+        if (route === "GET admin") return await crawlAdmin(env);
+        if (route === "POST takedown") return await crawlTakedownDecide(request, env);
+        if (route === "POST token") return await crawlToken(request, env);
         return new Response("Not found", { status: 404 });
       } catch (e) {
         // 例外のままだと Cloudflare の汎用エラー(1101)になって原因が分からないので中身を返す

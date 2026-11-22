@@ -59,3 +59,16 @@ CREATE TABLE IF NOT EXISTS meta (
   k TEXT PRIMARY KEY,
   v TEXT
 );
+
+-- 削除・公開停止の依頼(about のフォーム。アメブロ検索と同じ作り)。送られたら Discord にも知らせる。
+-- 一覧と対応済みの印は、取り込みページで見る・付ける
+CREATE TABLE IF NOT EXISTS takedown (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  target     TEXT NOT NULL,              -- 投稿のURL か アカウント名
+  contact    TEXT,                       -- 返事が欲しい人だけ(任意)
+  message    TEXT,                       -- 任意
+  user_agent TEXT,
+  ip_hash    TEXT,                       -- 日付とソルトを混ぜたIPのハッシュ。IPそのものは残さない(同じ人の連投を数えるため)
+  done       INTEGER NOT NULL DEFAULT 0,  -- 対応済みなら1
+  created_at TEXT NOT NULL
+);
