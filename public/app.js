@@ -303,13 +303,22 @@
     meta.className = "meta";
     meta.textContent = post.ts;   // 2026-11-18 21:01(アメブロ検索と同じハイフン。秒は持たない)
     li.appendChild(meta);
-    var nm = document.createElement("button");
-    nm.type = "button";
-    nm.className = "name";
-    nm.textContent = names[post.account] || post.account;
-    nm.setAttribute("aria-haspopup", "menu");
-    nm.onclick = function (e) { e.stopPropagation(); nameMenu(nm, post.account); };
-    li.appendChild(nm);
+    // 共同投稿は、持ち主のあとに共同投稿者を「×」でつなぐ(どの名前も押せる)
+    [post.account].concat(post.co ? post.co.split(",") : []).forEach(function (acc, i) {
+      if (i) {
+        var x = document.createElement("span");
+        x.className = "co-x";
+        x.textContent = "×";
+        li.appendChild(x);
+      }
+      var nm = document.createElement("button");
+      nm.type = "button";
+      nm.className = "name";
+      nm.textContent = names[acc] || acc;
+      nm.setAttribute("aria-haspopup", "menu");
+      nm.onclick = function (e) { e.stopPropagation(); nameMenu(nm, acc); };
+      li.appendChild(nm);
+    });
     if (TYPE[post.media_type]) {
       var t = document.createElement("span");
       t.className = "type";

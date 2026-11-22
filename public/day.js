@@ -69,7 +69,8 @@
       var li = document.createElement("li");
       var meta = el("p", "meta");
       meta.appendChild(el("time", null, r.ts.slice(11, 16)));
-      meta.appendChild(el("span", "who", names[r.account] || r.account));
+      // 共同投稿は、持ち主のあとに共同投稿者を「×」でつなぐ
+      meta.appendChild(el("span", "who", [r.account].concat(r.co ? r.co.split(",") : []).map(function (u) { return names[u] || u; }).join(" × ")));
       if (TYPE[r.media_type]) meta.appendChild(el("span", "type", TYPE[r.media_type]));
       li.appendChild(meta);
       // 本文の抜粋は黒い文字で、リンクにしない。元の投稿へは下の「Instagram で見る ↗」

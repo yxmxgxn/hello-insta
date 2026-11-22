@@ -135,17 +135,57 @@ const nowJst = () => new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 16
 // 「ハロプロ現役のみ」の対象の見出し(account.section の頭)。crawler/fetch.py の GROUPS(現役グループ)と同じものを保つ
 const ACTIVE_SECTIONS = ["モーニング娘。", "アンジュルム", "Juice=Juice", "つばきファクトリー", "BEYOOOOONDS", "OCHA NORMA", "ロージークロニクル"];
 
+// 共同投稿の、持ち主以外の対象アカウント(カンマ区切り。無ければ NULL)
+const CO_SQL = "(SELECT group_concat(account) FROM post_collab WHERE post_id = post.id) AS co";
+
+// 検索語のうち、色を付ける・抜粋を合わせる語(「-」の語は除く)。正規化したもの
+function searchTerms(q) {
+  return q.slice(0, MAX_Q).split(/[\s　]+/)
+    .filter((w) => w && !/^[-－‐−]/.test(w))
+    .map(normalize).filter((w) => w.length >= 2);
+}
+
+// 本文から、検索語が最初に当たった箇所の前後を、excerpt と同じ長さ(EXCERPT_LEN 文字)で切り出す。
+// 当たった箇所が先頭の近くなら null(いつもの先頭の抜粋のまま)。本文を持っていない投稿も null
+const SNIP_BEFORE = 20;   // 当たった語の前に残す文字数
+function snippet(caption, terms) {
+  if (!caption) return null;
+  const chars = Array.from(String(caption).split(/\s+/).filter(Boolean).join(" "));
+  // 1文字ずつ正規化して、正規化後の位置 → 元の文字の位置の対応を作る(索引と同じ正規化)
+  let flat = "";
+  const map = [];
+  chars.forEach((c, i) => {
+    const n = normalize(c);
+    for (let k = 0; k < n.length; k++) map.push(i);
+    flat += n;
+  });
+  let at = -1;
+  for (const t of terms) {
+    const i = flat.indexOf(t);
+    if (i >= 0 && (at < 0 || i < at)) at = i;
+  }
+  if (at < 0) return null;
+  const hit = map[at];
+  if (hit + 10 <= EXCERPT_LEN) return null;   // 先頭の抜粋の中に見えている
+  const start = Math.max(0, hit - SNIP_BEFORE);
+  const end = Math.min(chars.length, start + EXCERPT_LEN);
+  return (start > 0 ? "…" : "") + chars.slice(start, end).join("").trim() + (end < chars.length ? "…" : "");
+}
+
 function filters(p) {
   const where = [];
   const args = [];
   const accounts = (p.get("a") || "").split(",").map((s) => s.trim()).filter(Boolean).slice(0, 200);
+  // 共同投稿は、共同投稿者(post_collab)を選んだときにも出す
   if (accounts.length) {
-    where.push(`account IN (${accounts.map(() => "?").join(",")})`);
-    args.push(...accounts);
+    const qs = accounts.map(() => "?").join(",");
+    where.push(`(account IN (${qs}) OR id IN (SELECT post_id FROM post_collab WHERE account IN (${qs})))`);
+    args.push(...accounts, ...accounts);
   } else if (p.get("act") === "1") {
     // アカウントを選んでいないときだけ、現役グループの人に絞る(選んでいれば、その人たちを出す)
-    where.push(`account IN (SELECT username FROM account WHERE active = 1 AND (${ACTIVE_SECTIONS.map(() => "section LIKE ?").join(" OR ")}))`);
-    args.push(...ACTIVE_SECTIONS.map((s) => s + "%"));
+    const act = `SELECT username FROM account WHERE active = 1 AND (${ACTIVE_SECTIONS.map(() => "section LIKE ?").join(" OR ")})`;
+    where.push(`(account IN (${act}) OR id IN (SELECT post_id FROM post_collab WHERE account IN (${act})))`);
+    args.push(...ACTIVE_SECTIONS.map((s) => s + "%"), ...ACTIVE_SECTIONS.map((s) => s + "%"));
   }
   const from = p.get("from") || "";
   const to = p.get("to") || "";
@@ -168,10 +208,20 @@ async function handlePosts(url, env) {
   // order=old は古い順(続きの before は「これより新しいもの」になる)
   const old = p.get("order") === "old";
   if (before) { where.push(old ? "ts > ?" : "ts < ?"); args.push(before.slice(0, 16)); }
+  // 検索語があるときは本文も読み、抜粋を「当たった箇所の前後」にする(本文そのものは返さない)
+  const terms = searchTerms(p.get("q") || "");
   const sql =
-    "SELECT id, account, ts, permalink, media_type, excerpt FROM post" +
+    "SELECT id, account, ts, permalink, media_type, excerpt" + (terms.length ? ", caption" : "") + ", " + CO_SQL + " FROM post" +
     (where.length ? " WHERE " + where.join(" AND ") : "") + (old ? " ORDER BY ts ASC LIMIT ?" : " ORDER BY ts DESC LIMIT ?");
   const { results } = await env.DB.prepare(sql).bind(...args, PAGE).all();
+  for (const r of results) {
+    if (terms.length) {
+      const s = snippet(r.caption, terms);
+      if (s) r.excerpt = s;
+      delete r.caption;
+    }
+    if (!r.co) delete r.co;
+  }
   return json({ posts: results, more: results.length === PAGE }, 200, "public, max-age=300");
 }
 
@@ -211,7 +261,7 @@ async function handleDay(url, env) {
   const d = url.searchParams.get("d") || "";
   if (!DATE_RE.test(d)) return json({ error: "d" }, 400);
   const { results } = await env.DB
-    .prepare("SELECT account, ts, permalink, media_type, excerpt FROM post WHERE ts >= ? AND ts < ? ORDER BY ts, id LIMIT ?")
+    .prepare("SELECT account, ts, permalink, media_type, excerpt, " + CO_SQL + " FROM post WHERE ts >= ? AND ts < ? ORDER BY ts, id LIMIT ?")
     .bind(d, d + " 99", DAY_MAX + 1)
     .all();
   const truncated = results.length > DAY_MAX;
@@ -368,6 +418,7 @@ async function crawlAccounts(request, env) {
   const keep = new Set(accounts.map((a) => String(a.username)));
   for (const u of (Array.isArray(remove) ? remove : []).map(String).filter((u) => u && !keep.has(u))) {
     stmts.push(env.DB.prepare("DELETE FROM post_fts WHERE id IN (SELECT id FROM post WHERE account = ?)").bind(u));
+    stmts.push(env.DB.prepare("DELETE FROM post_collab WHERE account = ?1 OR post_id IN (SELECT id FROM post WHERE account = ?1)").bind(u));
     stmts.push(env.DB.prepare("DELETE FROM post WHERE account = ?").bind(u));
     stmts.push(env.DB.prepare("DELETE FROM fetch_state WHERE username = ?").bind(u));
     stmts.push(env.DB.prepare("DELETE FROM account WHERE username = ?").bind(u));
@@ -424,7 +475,7 @@ async function knownPosts(env, ids) {
   for (let i = 0; i < ids.length; i += 90) {
     const part = ids.slice(i, i + 90);
     const { results } = await env.DB
-      .prepare(`SELECT id, account, cap_hash, like_count, comments_count, product_type FROM post WHERE id IN (${part.map(() => "?").join(",")})`)
+      .prepare(`SELECT id, account, cap_hash, like_count, comments_count, product_type, caption IS NULL AS no_caption FROM post WHERE id IN (${part.map(() => "?").join(",")})`)
       .bind(...part).all();
     for (const r of results) known.set(r.id, r);
   }
@@ -454,26 +505,28 @@ function upsertPost(env, stmts, username, p, known) {
     // (いいね数を非表示にされたら値が来ないので、前に取れた数を残す)
     const nextLikes = likes ?? prev.like_count, nextComments = comments ?? prev.comments_count;
     const nextProduct = product ?? prev.product_type;
-    if (prev.account !== username || prev.like_count !== nextLikes || prev.comments_count !== nextComments ||
+    // 本文(caption)をまだ持っていない投稿(列を足す前に入ったもの)は、本文も書く
+    const fill = prev.no_caption && caption;
+    if (fill || prev.account !== username || prev.like_count !== nextLikes || prev.comments_count !== nextComments ||
         prev.product_type !== nextProduct) {
-      stmts.push(env.DB.prepare("UPDATE post SET account = ?, like_count = ?, comments_count = ?, product_type = ? WHERE id = ?")
-        .bind(username, nextLikes, nextComments, nextProduct, id));
+      stmts.push(env.DB.prepare("UPDATE post SET account = ?, like_count = ?, comments_count = ?, product_type = ?, caption = coalesce(?, caption) WHERE id = ?")
+        .bind(username, nextLikes, nextComments, nextProduct, fill ? caption : null, id));
     }
     return true;
   }
   // 取り直しでは added_at を変えない(初めて入った日時を残す)
   stmts.push(env.DB
     .prepare(
-      "INSERT INTO post(id, account, ts, permalink, media_type, excerpt, added_at, like_count, comments_count, cap_hash, product_type) " +
-      "VALUES(?, ?, ?, ?, ?, ?, coalesce((SELECT added_at FROM post WHERE id = ?), ?), ?, ?, ?, ?) " +
+      "INSERT INTO post(id, account, ts, permalink, media_type, excerpt, added_at, like_count, comments_count, cap_hash, product_type, caption) " +
+      "VALUES(?, ?, ?, ?, ?, ?, coalesce((SELECT added_at FROM post WHERE id = ?), ?), ?, ?, ?, ?, ?) " +
       "ON CONFLICT(id) DO UPDATE SET account = excluded.account, ts = excluded.ts, permalink = excluded.permalink, " +
-      "media_type = excluded.media_type, excerpt = excluded.excerpt, cap_hash = excluded.cap_hash, " +
+      "media_type = excluded.media_type, excerpt = excluded.excerpt, cap_hash = excluded.cap_hash, caption = excluded.caption, " +
       // いいね数を非表示にされたら値が来ないので、前に取れた数を残す
       "like_count = coalesce(excluded.like_count, like_count), " +
       "comments_count = coalesce(excluded.comments_count, comments_count), " +
       "product_type = coalesce(excluded.product_type, product_type)")
     .bind(id, username, ts, String(p.permalink || ""), p.media_type || null, excerpt, webId, nowJst(),
-      likes, comments, hash, product));
+      likes, comments, hash, product, caption || null));
   // known があれば、入っていない行を消しに行く文は省く
   if (webId && (!known || known.has(webId))) {
     stmts.push(env.DB.prepare("DELETE FROM post WHERE id = ?").bind(webId));
@@ -514,7 +567,12 @@ async function crawlPosts(request, env) {
   for (const p of posts) {
     const prev = known.get(String(p.id)) || known.get(WEB_ID + shortcode(p.permalink));
     const owner = p.username && target.get(String(p.username).toLowerCase());
-    upsertPost(env, stmts, owner || (prev && prev.account) || username, p, known);
+    const who = owner || (prev && prev.account) || username;
+    upsertPost(env, stmts, who, p, known);
+    // 持ち主以外の人の一覧で返ってきた = その人は共同投稿者。その人を選んだときにも出すよう覚える
+    if (p.id && who.toLowerCase() !== String(username).toLowerCase()) {
+      stmts.push(env.DB.prepare("INSERT OR IGNORE INTO post_collab(post_id, account) VALUES(?, ?)").bind(String(p.id), username));
+    }
   }
   if (state) {
     stmts.push(env.DB
@@ -603,6 +661,7 @@ async function crawlGoneDecide(request, env) {
   if (action === "delete") {
     await env.DB.batch([
       env.DB.prepare("DELETE FROM post_fts WHERE id = ?").bind(String(id)),
+      env.DB.prepare("DELETE FROM post_collab WHERE post_id = ?").bind(String(id)),
       env.DB.prepare("DELETE FROM post WHERE id = ?").bind(String(id)),
     ]);
   } else if (action === "keep") {
@@ -672,7 +731,7 @@ async function crawlPaste(request, env) {
   if (!acc.length) return json({ error: "unknown_account", message: `@${username} は対象アカウントにいません` }, 400);
   const user = acc[0].username;
   const { results: existing } = await env.DB
-    .prepare("SELECT id, ts, permalink, excerpt FROM post WHERE account = ?").bind(user).all();
+    .prepare("SELECT id, ts, permalink, excerpt, caption IS NULL AS no_caption FROM post WHERE account = ?").bind(user).all();
   const official = new Set(existing.filter((r) => !r.id.startsWith(WEB_ID)).map((r) => shortcode(r.permalink)));
   const have = new Set(existing.map((r) => r.id));
   const excerptOf = new Map(existing.map((r) => [r.id, r.excerpt || ""]));
@@ -696,7 +755,8 @@ async function crawlPaste(request, env) {
     return json({ ok: true, username: user, dry: true, ...n, extra });
   }
 
-  return json(await writeWebPosts(env, user, posts, ig_count, { official, have, excerptOf }));
+  const noCaption = new Set(existing.filter((r) => r.no_caption).map((r) => r.id));
+  return json(await writeWebPosts(env, user, posts, ig_count, { official, have, excerptOf, noCaption }));
 }
 
 // 画面から拾った投稿(取り込みページ・Apify)を web:<shortcode> で書く。
@@ -704,14 +764,15 @@ async function crawlPaste(request, env) {
 async function writeWebPosts(env, user, posts, ig_count, known) {
   if (!known) {
     const { results: existing } = await env.DB
-      .prepare("SELECT id, permalink, excerpt FROM post WHERE account = ?").bind(user).all();
+      .prepare("SELECT id, permalink, excerpt, caption IS NULL AS no_caption FROM post WHERE account = ?").bind(user).all();
     known = {
       official: new Set(existing.filter((r) => !r.id.startsWith(WEB_ID)).map((r) => shortcode(r.permalink))),
       have: new Set(existing.map((r) => r.id)),
       excerptOf: new Map(existing.map((r) => [r.id, r.excerpt || ""])),
+      noCaption: new Set(existing.filter((r) => r.no_caption).map((r) => r.id)),
     };
   }
-  const { official, have, excerptOf } = known;
+  const { official, have, excerptOf, noCaption } = known;
   const stmts = [];
   let added = 0, updated = 0, skipped = 0, same = 0;
   for (const p of posts) {
@@ -721,7 +782,9 @@ async function writeWebPosts(env, user, posts, ig_count, known) {
     const id = WEB_ID + code;
     // 本文が拾えなかった投稿は、もう入っていれば触らない(入っている本文を空で上書きしない)
     // 取り込み済みの投稿は、本文が前と違うとき(前は拾えなかった本文が今回拾えた、など)だけ書き直す
-    if (have.has(id) && (p.caption == null || makeExcerpt(p.caption) === excerptOf.get(id))) { same++; continue; }
+    // (本文の列を足す前に入った投稿は、先頭が同じでも、本文を持つために書き直す)
+    if (have.has(id) && (p.caption == null ||
+        (makeExcerpt(p.caption) === excerptOf.get(id) && !(noCaption && noCaption.has(id) && p.caption)))) { same++; continue; }
     const ok = upsertPost(env, stmts, user, {
       id,
       caption: String(p.caption || ""),
