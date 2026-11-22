@@ -161,7 +161,6 @@
   <h2>7. 技術の詳細</h2>
   <p>
     ここからは、作りを知りたい人向けの、細かい話です。このサイトが公開している範囲の説明で、鍵や合言葉は含みません。
-    このリポジトリの <code>docs/instagram.md</code> にも、投稿の取り方のまとめがあります。
   </p>
 
   <h3>構成</h3>
@@ -191,6 +190,33 @@
     <li>共同投稿は、持ち主（<code>username</code>）も一緒に聞きます。持ち主が収録している人なら、その人の投稿にします</li>
     <li>聞いた項目のどれかが使えない（Meta が返さない）ときは、その項目を外して、頼み直します</li>
   </ul>
+
+  <h3>APIで取れるもの、使っているもの</h3>
+  <p>
+    Business Discovery で、ほかの人の投稿について取れる主な項目と、このサイトで使っているかどうかです。
+    使うのは、検索と表示に要るものだけです。
+  </p>
+  <table class="spec">
+    <thead><tr><th>項目</th><th>中身</th><th>このサイト</th></tr></thead>
+    <tbody>
+      <tr><td><code>id</code></td><td>投稿のID</td><td>使う（同じ投稿を1件にまとめる）</td></tr>
+      <tr><td><code>caption</code></td><td>本文</td><td>使う（検索と、当たった箇所の前後の表示）</td></tr>
+      <tr><td><code>timestamp</code></td><td>投稿日時</td><td>使う</td></tr>
+      <tr><td><code>permalink</code></td><td>投稿のリンク</td><td>使う（埋め込みと、元の投稿へのリンク）</td></tr>
+      <tr><td><code>media_type</code></td><td>画像・動画・複数枚</td><td>使う</td></tr>
+      <tr><td><code>media_product_type</code></td><td>通常の投稿かリールか</td><td>使う</td></tr>
+      <tr><td><code>username</code></td><td>投稿の持ち主（共同投稿の判別）</td><td>使う</td></tr>
+      <tr><td><code>media_count</code></td><td>アカウントの投稿の総数</td><td>使う（追いついたかの確認）</td></tr>
+      <tr><td><code>like_count</code></td><td>いいねの数</td><td>取れるが、使わない</td></tr>
+      <tr><td><code>comments_count</code></td><td>コメントの数</td><td>取れるが、使わない</td></tr>
+      <tr><td><code>media_url</code>・<code>thumbnail_url</code></td><td>画像・動画のアドレス</td><td>取れるが、聞かない（画像・動画は保存しない）</td></tr>
+      <tr><td><code>children</code></td><td>複数枚の中身</td><td>取れるが、聞かない（同じ理由）</td></tr>
+      <tr><td>アカウントの <code>followers_count</code> など</td><td>フォロワー数・プロフィール</td><td>取れるが、聞かない（投稿以外は取らない）</td></tr>
+    </tbody>
+  </table>
+  <p>
+    コメントの中身は、Business Discovery では、そもそも取れません。
+  </p>
 
   <h3>取る順番と、上限</h3>
   <ul>

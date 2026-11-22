@@ -350,7 +350,7 @@ def fetch_page(username: str, after: str | None, limit: int = PAGE_SIZE, items: 
     media = f"media.limit({limit})" + (f".after({after})" if after else "")
     want = "id,caption,timestamp,permalink,media_type"
     if items == "full":
-        want += ",like_count,comments_count" + "".join("," + f for f in asking)
+        want += "".join("," + f for f in asking)   # いいね数・コメント数は、取れるが使わないので聞かない
     fields = f"business_discovery.username({username}){{media_count,{media}{{{want}}}}}"
     q = urllib.parse.urlencode({"fields": fields, "access_token": os.environ["IG_ACCESS_TOKEN"]})
     try:
