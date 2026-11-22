@@ -685,7 +685,7 @@
 
   // ---------- いちばん上のまとめ(押すとその欄へ) ----------
   // 各欄が読み込めたら、その分を埋めて描き直す。null はまだ分からない(出さない)
-  var sum = { personal: null, nocap: null, official: null, err: null, gone: null, suspects: null, td: null, tokenDays: null };
+  var sum = { cap: null, capLeft: null, personal: null, nocap: null, official: null, err: null, gone: null, suspects: null, td: null, tokenDays: null };
   function drawSum() {
     var ul = document.getElementById("sum");
     ul.textContent = "";
@@ -705,6 +705,8 @@
     if (sum.td) chip("#tdBox", "削除依頼 未対応 " + n(sum.td), true);
     if (sum.personal != null) chip("#personal", "個人 " + n(sum.personal) + "人" + (sum.nocap ? "・本文なし " + n(sum.nocap) + "件" : ""), false);
     if (sum.gone != null) chip("#goneBox", "消えたかも <b>" + sum.gone + "</b>件" + (sum.suspects ? "（ほかに要確認 " + n(sum.suspects) + "人）" : ""), sum.gone !== "0");
+    // 本文(検索で当たった箇所の前後を出すのに使う)を持っている件数。本文なしの投稿は数えない
+    if (sum.cap != null) chip("#officialBox", "本文の保存 " + n(sum.cap) + (sum.capLeft ? "・残り " + n(sum.capLeft) + "件" : "件 ✓"), false);
     if (sum.official != null) chip("#officialBox", "公式 " + n(sum.official) + "人" + (sum.err ? "・エラー " + n(sum.err) + "人" : ""), sum.err > 0);
     if (sum.tokenDays != null && sum.tokenDays > 14) chip("#tokenBox", "トークン あと " + n(sum.tokenDays) + " 日", false);
     if (!ul.children.length) chip("#personal", "読み込み中…", false);
@@ -743,6 +745,8 @@
       sum.personal = personal.length;
       sum.nocap = personal.reduce(function (s, a) { return s + (a.nocap || 0); }, 0);
       sum.official = officials.length;
+      sum.cap = active.reduce(function (s, a) { return s + (a.withcap || 0); }, 0);
+      sum.capLeft = active.reduce(function (s, a) { return s + Math.max(0, a.posts - (a.nocap || 0) - (a.withcap || 0)); }, 0);
       sum.err = officials.filter(function (a) { return a.error; }).length;
       document.getElementById("personalCount").textContent = personal.length + "人" + (sum.nocap ? "・本文なし " + sum.nocap + "件" : "");
       document.getElementById("officialCount").textContent = officials.length + "人" + (sum.err ? "・エラー " + sum.err + "人" : "");
@@ -781,6 +785,13 @@
         // 合計と、そのうち公式APIで入った分・手で取り込んだ分
         var web = a.posts_web || 0;
         var cnt = cell(a.posts + "件", "公式" + (a.posts - web) + "・取込" + web);
+        // 本文を持っていない投稿の数(本文なしの投稿は除く)。周回・取り込み直しで減る
+        var left = Math.max(0, a.posts - (a.nocap || 0) - (a.withcap || 0));
+        if (left) {
+          var cl = document.createElement("small");
+          cl.textContent = "本文の保存 残り " + left;
+          cnt.appendChild(cl);
+        }
         // 本文が入っていない投稿の数(IG取得（一つ一つ）で埋める目安)
         if (a.nocap) {
           var nc = document.createElement("small");
