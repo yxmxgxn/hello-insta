@@ -290,7 +290,10 @@
       var ready = !stale && ((it && it.caption != null && waited >= dwell) || waited >= Math.max(dwell, NOCAP_WAIT));
       if (!ready) { stepTimer = setTimeout(stepTick, 400); return; }
       if (!counted[stepCode]) { counted[stepCode] = true; stepCount++; }
-      prevCaption = it ? it.caption : null;
+      // 開いて待っても本文が出なかった投稿は、「確かめたが本文がない」として空の本文("")で送る
+      // (まだ開いていない投稿は、本文なし(null)のまま。取り込みページで「本文未取得」と分けて数える)
+      if (it && it.caption == null) it.caption = "";
+      prevCaption = it && it.caption ? it.caption : null;
       msg("自動で進めています… " + stepCount + "件目（本文を読んだ " + (sentTotal + Array.from(items.values()).filter(function (p) { return p.caption != null; }).length) + "）");
       if (stepCount >= MAX_RUN) { stepStop(MAX_RUN + "件で止めました。しばらく休んでから、続けてください", true); return; }
       if (items.size >= BATCH && !sending) {
@@ -743,7 +746,7 @@
       fillTable(document.getElementById("targets"), personal);
       fillTable(document.getElementById("officials"), officials);
       sum.personal = personal.length;
-      sum.nocap = personal.reduce(function (s, a) { return s + (a.nocap_web || 0); }, 0);
+      sum.nocap = personal.reduce(function (s, a) { return s + Math.max(0, (a.nocap_web || 0) - (a.nocap_chk || 0)); }, 0);
       sum.official = officials.length;
       sum.cap = active.reduce(function (s, a) { return s + (a.withcap || 0); }, 0);
       sum.capLeft = active.reduce(function (s, a) { return s + Math.max(0, a.posts - (a.nocap || 0) - (a.withcap || 0)); }, 0);
@@ -795,18 +798,18 @@
         // 本文が入っていない投稿の数(IG取得（一つ一つ）で埋める目安)
         // 公式APIで本文が空だった投稿は「本文なし」(本当にない)。画面から拾って本文が空の投稿は「本文未取得」
         // (本当にないのか、拾えなかったのかは分からない。IG取得（一つ一つ）で開き直すと分かる)
-        var ncWeb = a.nocap_web || 0, ncApi = (a.nocap || 0) - ncWeb;
+        var ncChk = a.nocap_chk || 0, ncWeb = (a.nocap_web || 0) - ncChk, ncApi = (a.nocap || 0) - (a.nocap_web || 0) + ncChk;
         if (ncWeb) {
           var nw = document.createElement("small");
           nw.className = "warnc";
           nw.textContent = "本文未取得 " + ncWeb;
-          nw.title = "IG取得で拾った投稿のうち、本文が入っていないもの（本当に本文がないものも含む）";
+          nw.title = "IG取得で拾った投稿のうち、まだ開いて確かめていないもの（本当に本文がないものも含む）。IG取得（一つ一つ）で開くと、本文が入るか、「本文なし」になる";
           cnt.appendChild(nw);
         }
         if (ncApi) {
           var nc = document.createElement("small");
           nc.textContent = "本文なし " + ncApi;
-          nc.title = "公式APIで本文が空だった投稿（本当に本文がない）";
+          nc.title = "本当に本文がない投稿（公式APIで空だったもの・開いて確かめたもの）";
           cnt.appendChild(nc);
         }
         tr.appendChild(cnt);
