@@ -277,7 +277,9 @@ async function handleAccounts(env) {
       "(SELECT COUNT(*) FROM post WHERE account = a.username AND ifnull(excerpt, '') = '') AS nocap, " +
       // 本文なしのうち、画面から拾った分(web:)。本当に本文がないのか、拾えなかったのかは分からない
       "(SELECT COUNT(*) FROM post WHERE account = a.username AND ifnull(excerpt, '') = '' AND id LIKE 'web:%') AS nocap_web, " +
-      "(SELECT COUNT(*) FROM post WHERE account = a.username AND caption IS NOT NULL) AS withcap, " +
+      "(SELECT COUNT(*) FROM post WHERE account = a.username AND caption IS NOT NULL AND caption != '') AS withcap, " +
+      // 本文なしのうち、投稿を開いて確かめて、本当に本文がなかったもの(caption が空文字)
+      "(SELECT COUNT(*) FROM post WHERE account = a.username AND ifnull(excerpt, '') = '' AND caption = '' AND id LIKE 'web:%') AS nocap_chk, " +
       "(SELECT MIN(ts) FROM post WHERE account = a.username) AS first, " +
       "(SELECT MAX(ts) FROM post WHERE account = a.username) AS last, " +
       "(SELECT permalink FROM post WHERE account = a.username ORDER BY ts DESC LIMIT 1) AS last_url, " +
@@ -529,7 +531,7 @@ function upsertPost(env, stmts, username, p, known) {
       "comments_count = coalesce(excluded.comments_count, comments_count), " +
       "product_type = coalesce(excluded.product_type, product_type)")
     .bind(id, username, ts, String(p.permalink || ""), p.media_type || null, excerpt, webId, nowJst(),
-      likes, comments, hash, product, caption || null));
+      likes, comments, hash, product, caption || (p.caption_checked ? "" : null)));
   // known があれば、入っていない行を消しに行く文は省く
   if (webId && (!known || known.has(webId))) {
     stmts.push(env.DB.prepare("DELETE FROM post WHERE id = ?").bind(webId));
@@ -786,11 +788,20 @@ async function writeWebPosts(env, user, posts, ig_count, known) {
     // 本文が拾えなかった投稿は、もう入っていれば触らない(入っている本文を空で上書きしない)
     // 取り込み済みの投稿は、本文が前と違うとき(前は拾えなかった本文が今回拾えた、など)だけ書き直す
     // (本文の列を足す前に入った投稿は、先頭が同じでも、本文を持つために書き直す)
+    // 開いて確かめて本文がなかった投稿(caption が空文字)は、まだ確かめていない投稿(NULL)と分けて、空文字で印を付ける
+    const checkedEmpty = p.caption === "";
     if (have.has(id) && (p.caption == null ||
-        (makeExcerpt(p.caption) === excerptOf.get(id) && !(noCaption && noCaption.has(id) && p.caption)))) { same++; continue; }
+        (makeExcerpt(p.caption) === excerptOf.get(id) && !(noCaption && noCaption.has(id) && p.caption)))) {
+      if (checkedEmpty && noCaption && noCaption.has(id) && !excerptOf.get(id)) {
+        stmts.push(env.DB.prepare("UPDATE post SET caption = '' WHERE id = ? AND caption IS NULL").bind(id));
+        updated++;
+      } else same++;
+      continue;
+    }
     const ok = upsertPost(env, stmts, user, {
       id,
       caption: String(p.caption || ""),
+      caption_checked: checkedEmpty,
       timestamp: new Date(taken * 1000).toISOString(),
       // サイトでは /p/ にそろえて出すので、最初から /p/ で持つ
       permalink: `https://www.instagram.com/p/${code}/`,
