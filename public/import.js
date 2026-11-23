@@ -108,6 +108,16 @@
           var a = root.querySelector('header a[href^="/"]');
           owner = a && (a.getAttribute("href").match(/^\/([A-Za-z0-9._]+)\/?$/) || [])[1];
         }
+        // 一つ一つで、プロフィールから開いて進んでいるとき: 共同投稿は、持ち主(最初に出る名前)が別の人のことがある。
+        // 持ち主が対象外の人なら、開いているプロフィールの人の投稿として入れる(持ち主を使うと、対象外で捨てられ、本文が入らない)。
+        // 持ち主が対象の人でも、連名にプロフィールの人がいれば、その人の投稿にする
+        if (MODE === "step" && profile && ALLOW[profile.toLowerCase()] && owner && owner.toLowerCase() !== profile.toLowerCase()) {
+          var authors = Array.prototype.map.call(root.querySelectorAll('header a[href^="/"]'), function (x) {
+            return ((x.getAttribute("href") || "").match(/^\/([A-Za-z0-9._]+)\/?$/) || [])[1];
+          });
+          var inCredits = authors.some(function (n) { return n && n.toLowerCase() === profile.toLowerCase(); });
+          if (!ALLOW[owner.toLowerCase()] || inCredits) owner = profile;
+        }
         put(here[3], owner || profile, here[2], h1 ? text(h1) : null, MODE === "step");
       }
       readCount();
