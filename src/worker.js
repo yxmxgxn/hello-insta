@@ -805,14 +805,18 @@ async function writeWebPosts(env, user, posts, ig_count, known) {
     // 取り込み済みの投稿は、本文が前と違うとき(前は拾えなかった本文が今回拾えた、など)だけ書き直す
     // (本文の列を足す前に入った投稿は、先頭が同じでも、本文を持つために書き直す)
     // 開いて確かめて本文がなかった投稿(caption が空文字)は、まだ確かめていない投稿(NULL)と分けて、空文字で印を付ける
+    // 空の本文("")は、開いて確かめて本文がなかったという印。前に違う本文(取り違えなど)が入っていた投稿も、これで空にする。
+    // 空にするのは、この印のときだけ。本文が拾えなかった(null)ときは、入っている本文を消さない
     const checkedEmpty = p.caption === "";
-    if (have.has(id) && (p.caption == null ||
-        (makeExcerpt(p.caption) === excerptOf.get(id) && !(noCaption && noCaption.has(id) && p.caption)))) {
-      if (checkedEmpty && noCaption && noCaption.has(id) && !excerptOf.get(id)) {
-        stmts.push(env.DB.prepare("UPDATE post SET caption = '' WHERE id = ? AND caption IS NULL").bind(id));
-        updated++;
-      } else same++;
-      continue;
+    if (have.has(id)) {
+      if (checkedEmpty) {
+        // もう確かめ済み(本文が空で、NULL でもない)なら、そのまま
+        if (!excerptOf.get(id) && !(noCaption && noCaption.has(id))) { same++; continue; }
+      } else if (p.caption == null ||
+          (makeExcerpt(p.caption) === excerptOf.get(id) && !(noCaption && noCaption.has(id) && p.caption))) {
+        same++;
+        continue;
+      }
     }
     const ok = upsertPost(env, stmts, user, {
       id,
