@@ -857,89 +857,6 @@ async function crawlApify(request, env) {
   return json({ ok: true, items: Array.isArray(items) ? items.length : 0, outside, results });
 }
 
-/* ============================ 自分用のランキング ============================ */
-
-// /_rank?t=<CRAWL_TOKEN>&a=<ユーザー名>&y=<年>&by=likes|comments
-// いいね数・コメント数の多い順の上位。公開画面・公開APIには出さない数字なので、合言葉が無ければ404のふりをする。
-// 数字は最後に取ったときのもの(最新の50件は取得のたびに更新、遡りで入った古い投稿はそのときの値のまま)
-const RANK_LIMIT = 100;
-
-function esc(s) {
-  return String(s ?? "").replace(/[&<>"']/g, (c) =>
-    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-}
-
-function sameText(a, b) {
-  if (!a || !b || a.length !== b.length) return false;
-  let diff = 0;
-  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  return diff === 0;
-}
-
-async function handleRank(url, env) {
-  const p = url.searchParams;
-  const token = p.get("t") || "";
-  if (!sameText(token, env.CRAWL_TOKEN || "")) return new Response("Not found", { status: 404 });
-
-  const by = p.get("by") === "comments" ? "comments_count" : "like_count";
-  const account = p.get("a") || "";
-  const year = /^\d{4}$/.test(p.get("y") || "") ? p.get("y") : "";
-  const where = [`p.${by} IS NOT NULL`];
-  const args = [];
-  if (account) { where.push("p.account = ?"); args.push(account); }
-  if (year) { where.push("p.ts >= ? AND p.ts < ?"); args.push(year, String(Number(year) + 1)); }
-
-  const [{ results: rows }, { results: accounts }, { results: years }] = await env.DB.batch([
-    env.DB.prepare(
-      "SELECT p.ts, p.permalink, p.excerpt, p.media_type, p.like_count, p.comments_count, " +
-      "ifnull(a.name, p.account) AS name FROM post p LEFT JOIN account a ON a.username = p.account " +
-      `WHERE ${where.join(" AND ")} ORDER BY p.${by} DESC LIMIT ${RANK_LIMIT}`).bind(...args),
-    env.DB.prepare("SELECT username, name FROM account WHERE active = 1 ORDER BY sort"),
-    env.DB.prepare("SELECT DISTINCT substr(ts, 1, 4) AS y FROM post ORDER BY y DESC"),
-  ]);
-
-  const opt = (v, label, cur) => `<option value="${esc(v)}"${v === cur ? " selected" : ""}>${esc(label)}</option>`;
-  const n = (x) => (x == null ? "" : Number(x).toLocaleString("ja-JP"));
-  const body = rows.map((r, i) => `<tr>
-    <td class="num">${i + 1}</td>
-    <td class="num">${n(r.like_count)}</td>
-    <td class="num">${n(r.comments_count)}</td>
-    <td>${esc(r.ts.replace(/-/g, "/"))}</td>
-    <td>${esc(r.name)}</td>
-    <td><a href="${esc(r.permalink.replace("/reel/", "/p/"))}" target="_blank" rel="noopener noreferrer">${esc(r.excerpt || "（本文なし）")}</a></td>
-  </tr>`).join("");
-
-  const html = `<!doctype html><html lang="ja"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="robots" content="noindex, nofollow">
-<title>ランキング（自分用）</title>
-<style>
-  body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; margin: 16px; color: #1f1f1f; background: #fafaf8; }
-  form { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
-  table { border-collapse: collapse; width: 100%; font-size: .88rem; }
-  th, td { border-bottom: 1px solid #e4e2dd; padding: 6px; text-align: left; vertical-align: top; }
-  th { background: #f0eef8; white-space: nowrap; }
-  td.num { text-align: right; white-space: nowrap; }
-  td a { color: #8C6BB8; word-break: break-all; }
-  p { color: #6b6b6b; font-size: .85rem; }
-</style></head><body>
-<h1>ランキング（自分用）</h1>
-<form method="get">
-  <input type="hidden" name="t" value="${esc(token)}">
-  <select name="by">${opt("likes", "いいね数", p.get("by") === "comments" ? "" : "likes")}${opt("comments", "コメント数", p.get("by") === "comments" ? "comments" : "")}</select>
-  <select name="a">${opt("", "全員", account)}${accounts.map((a) => opt(a.username, a.name, account)).join("")}</select>
-  <select name="y">${opt("", "全期間", year)}${years.map((y) => opt(y.y, y.y + "年", year)).join("")}</select>
-  <button type="submit">表示</button>
-</form>
-<p>上位${RANK_LIMIT}件。数字は最後に取ったときのもの（最近の投稿は取得のたびに更新、古い投稿は取ったときの値）。いいね数を非表示にしている投稿は出ません。</p>
-<table><thead><tr><th>#</th><th>いいね</th><th>コメント</th><th>日時</th><th>名前</th><th>本文</th></tr></thead>
-<tbody>${body || '<tr><td colspan="6">まだデータがありません</td></tr>'}</tbody></table>
-</body></html>`;
-  return new Response(html, {
-    headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store", "x-robots-tag": "noindex, nofollow" },
-  });
-}
-
 /* ============================ 毎日の報告 ============================ */
 
 const SITE = "https://insta.karin-archive.com";
@@ -1129,14 +1046,6 @@ export default {
       if (p === "/api/takedown" && request.method === "POST") return await handleTakedown(request, env, ctx);
     } catch (e) {
       return json({ error: "failed" }, 500);
-    }
-
-    if (p === "/_rank" && request.method === "GET") {
-      try {
-        return await handleRank(url, env);
-      } catch (e) {
-        return new Response("error", { status: 500 });
-      }
     }
 
     if (p.startsWith("/api/crawl/")) {
