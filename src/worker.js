@@ -20,6 +20,7 @@
  *   GET  /api/crawl/gone       周回で返ってこなかった(消えたかもしれない)投稿の一覧
  *   POST /api/crawl/gone       { id, action: "delete" | "keep" } 管理人が確かめて、消す・残す
  *   GET  /api/crawl/admin      取り込みページの上のまとめ(削除依頼の一覧・アクセストークンの期限)
+ *   GET  /api/crawl/nocap      ?account= 本文をまだ保存していない(画面から取り込んだ)投稿の一覧
  *   POST /api/crawl/takedown   { id, action: "done" | "undo" | "delete" } 削除依頼に印を付ける
  *   POST /api/crawl/token      { expires_at } Fetch が調べたアクセストークンの期限(UNIX秒。0 は期限なし)
  *
@@ -339,6 +340,21 @@ async function handleTakedown(request, env, ctx) {
     }).catch(() => {}));
   }
   return json({ ok: true, id });
+}
+
+// ?account=<ユーザー名>: 画面から取り込んだ(web:)投稿のうち、本文をまだ保存していない(caption が NULL)もの。
+// 開いて本文を入れるための一覧。確かめ済みの「本文なし」(空文字)は含めない。新しい順に NOCAP_MAX 件まで
+const NOCAP_MAX = 200;
+async function crawlNocap(env, url) {
+  const account = url.searchParams.get("account") || "";
+  if (!account) return json({ error: "bad_request" }, 400);
+  const { results } = await env.DB.prepare(
+    "SELECT ts, permalink, excerpt FROM post WHERE account = ? AND id LIKE 'web:%' AND caption IS NULL ORDER BY ts DESC LIMIT ?")
+    .bind(account, NOCAP_MAX + 1).all();
+  return json({
+    posts: results.slice(0, NOCAP_MAX).map((r) => ({ ts: r.ts, permalink: r.permalink, excerpt: r.excerpt || "" })),
+    more: results.length > NOCAP_MAX,
+  });
 }
 
 // 取り込みページの上に出す、管理人向けのまとめ(削除依頼の一覧・アクセストークンの期限)
@@ -1072,6 +1088,7 @@ export default {
         if (route === "GET gone") return await crawlGone(env, url);
         if (route === "POST gone") return await crawlGoneDecide(request, env);
         if (route === "GET admin") return await crawlAdmin(env);
+        if (route === "GET nocap") return await crawlNocap(env, url);
         if (route === "POST takedown") return await crawlTakedownDecide(request, env);
         if (route === "POST token") return await crawlToken(request, env);
         return new Response("Not found", { status: 404 });

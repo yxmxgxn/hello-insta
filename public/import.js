@@ -790,9 +790,19 @@
         var cnt = cell(a.posts + "件", "公式" + (a.posts - web) + "・取込" + web);
         // 本文を持っていない投稿の数(本文なしの投稿は除く)。周回・取り込み直しで減る
         var left = Math.max(0, a.posts - (a.nocap || 0) - (a.withcap || 0));
+        // 押すと、その人の、まだ本文が入っていない投稿の一覧(開いて本文を入れる)
+        function listBtn(label, acct, name) {
+          var b = document.createElement("button");
+          b.type = "button";
+          b.className = "nocapl-btn";
+          b.textContent = label;
+          b.title = "まだ本文が入っていない投稿の一覧を出す";
+          b.onclick = function () { loadNocap(acct, name); };
+          return b;
+        }
         if (left) {
           var cl = document.createElement("small");
-          cl.textContent = "本文の保存 残り " + left;
+          cl.appendChild(listBtn("本文の保存 残り " + left, a.username, a.name));
           cnt.appendChild(cl);
         }
         // 本文が入っていない投稿の数(IG取得（一つ一つ）で埋める目安)
@@ -802,7 +812,7 @@
         if (ncWeb) {
           var nw = document.createElement("small");
           nw.className = "warnc";
-          nw.textContent = "本文未取得 " + ncWeb;
+          nw.appendChild(listBtn("本文未取得 " + ncWeb, a.username, a.name));
           nw.title = "IG取得で拾った投稿のうち、まだ開いて確かめていないもの（本当に本文がないものも含む）。IG取得（一つ一つ）で開くと、本文が入るか、「本文なし」になる";
           cnt.appendChild(nw);
         }
@@ -833,6 +843,37 @@
       });
   }
   loadTargets();
+
+  // ---------- まだ本文が入っていない投稿の一覧(個人アカウントの人。開いて本文を入れる) ----------
+  function loadNocap(account, name) {
+    var box = document.getElementById("nocapBox"), head = document.getElementById("nocapHead"), ol = document.getElementById("nocapList");
+    if (!token) { alert("下の「合言葉」を開いて CRAWL_TOKEN を入れ、覚えさせてください"); return; }
+    box.hidden = false;
+    head.textContent = name + " の、まだ本文が入っていない投稿（読み込み中…）";
+    ol.textContent = "";
+    box.scrollIntoView({ block: "nearest" });
+    fetch("/api/crawl/nocap?account=" + encodeURIComponent(account), { headers: { authorization: "Bearer " + token }, cache: "no-store" })
+      .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+      .then(function (d) {
+        head.textContent = name + " の、まだ本文が入っていない投稿 " + d.posts.length + (d.more ? "件以上（新しい順）" : "件") + "（押すと開く。開いて本文が出たら IG取得（一つ一つ）で取り込む）";
+        d.posts.forEach(function (p) {
+          var li = document.createElement("li");
+          var a = document.createElement("a");
+          a.href = p.permalink.replace("/reel/", "/p/");
+          a.target = "_blank";
+          a.rel = "noopener noreferrer";
+          a.textContent = lastLabel(p.ts);
+          li.appendChild(a);
+          var sp = document.createElement("span");
+          // 本文の保存が残っている投稿は、前に取った先頭が見える。本文未取得は、まだ何も取れていない
+          sp.textContent = " " + (p.excerpt ? p.excerpt : "（本文未取得）");
+          li.appendChild(sp);
+          ol.appendChild(li);
+        });
+        if (!d.posts.length) { head.textContent = name + " は、本文がまだ入っていない投稿が 0 件です"; }
+      })
+      .catch(function (e) { head.textContent = name + " の一覧を読み込めませんでした（" + e.message + "）"; });
+  }
 
   // ---------- 消えたかもしれない投稿(周回で公式APIから返ってこなかったもの)。消すかどうかは管理人が決める ----------
   // 候補が多すぎる人(APIの異常かも)の行。「全部残す」か「一覧を出す」
