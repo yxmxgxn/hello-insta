@@ -52,6 +52,10 @@
   .import .box .msg { font-size: .85rem; color: var(--muted); margin: 0 0 6px; }
   @media (max-width: 600px) { .import .box { padding: 10px; } .import td:first-child { max-width: 100px; } }
   .import td, .import td small { font-variant-numeric: tabular-nums; }
+  .import .nocapl { margin: 4px 0; padding-left: 2.6em; font-size: .85rem; }
+  .import .nocapl li { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .import .nocapl li span { color: var(--muted); }
+  .import .nocapl-btn { padding: 0; border: 0; background: none; font: inherit; font-size: .74rem; color: inherit; text-decoration: underline dotted; cursor: pointer; }
   /* 削除依頼 */
   .import .tdl { list-style: none; margin: 0; padding: 0; }
   .import .tdl li { padding: 8px 0; border-bottom: 1px solid var(--line); font-size: .88rem; }
@@ -91,6 +95,11 @@
   <section class="box" id="personal">
     <h2 class="sub">個人アカウント <small id="personalCount"></small></h2>
     <table><tbody id="targets"><tr><td>読み込み中…</td></tr></tbody></table>
+    <!-- 「本文の保存 残り」「本文未取得」を押すと、その人の、まだ本文が入っていない投稿が並ぶ(開いて本文を入れる) -->
+    <div id="nocapBox" hidden>
+      <h2 class="sub" id="nocapHead"></h2>
+      <ol class="nocapl" id="nocapList"></ol>
+    </div>
   </section>
 
   <!-- 周回で公式APIから返ってこなかった投稿。開いて確かめ、消えていたら「消す」、あったら「残す」 -->
