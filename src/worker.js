@@ -21,6 +21,7 @@
  *   POST /api/crawl/gone       { id, action: "delete" | "keep" } 管理人が確かめて、消す・残す
  *   GET  /api/crawl/admin      取り込みページの上のまとめ(削除依頼の一覧・アクセストークンの期限)
  *   GET  /api/crawl/nocap      ?account= 本文をまだ保存していない(画面から取り込んだ)投稿の一覧
+ *   POST /api/crawl/remove     { code } 画面から取り込んだ(web:)投稿を、管理人が消す(個人アカウントの人の、Instagram で消えていた投稿)
  *   POST /api/crawl/takedown   { id, action: "done" | "undo" | "delete" } 削除依頼に印を付ける
  *   POST /api/crawl/token      { expires_at } Fetch が調べたアクセストークンの期限(UNIX秒。0 は期限なし)
  *
@@ -355,6 +356,26 @@ async function crawlNocap(env, url) {
     posts: results.slice(0, NOCAP_MAX).map((r) => ({ ts: r.ts, permalink: r.permalink, excerpt: r.excerpt || "" })),
     more: results.length > NOCAP_MAX,
   });
+}
+
+// { code }: 画面から取り込んだ(web:)投稿を消す。個人アカウントの人の投稿は、公式APIの周回で「消えたかも」に出ないので、
+// 管理人が Instagram で消えているのを確かめて、ここで消す。公式APIで入っている投稿は、消えたかもの一覧から消す
+async function crawlRemove(request, env) {
+  const { code } = await request.json();
+  if (!/^[A-Za-z0-9_-]{5,}$/.test(String(code || ""))) return json({ error: "bad_request" }, 400);
+  const id = WEB_ID + code;
+  const row = await env.DB.prepare("SELECT id FROM post WHERE id = ?").bind(id).first();
+  if (!row) {
+    const official = await env.DB.prepare("SELECT id FROM post WHERE permalink LIKE ? AND id NOT LIKE 'web:%' LIMIT 1")
+      .bind(`%/${code}/%`).first();
+    return json({ ok: false, removed: 0, reason: official ? "official" : "none" });
+  }
+  await env.DB.batch([
+    env.DB.prepare("DELETE FROM post_fts WHERE id = ?").bind(id),
+    env.DB.prepare("DELETE FROM post_collab WHERE post_id = ?").bind(id),
+    env.DB.prepare("DELETE FROM post WHERE id = ?").bind(id),
+  ]);
+  return json({ ok: true, removed: 1 });
 }
 
 // 取り込みページの上に出す、管理人向けのまとめ(削除依頼の一覧・アクセストークンの期限)
@@ -1093,6 +1114,7 @@ export default {
         if (route === "POST gone") return await crawlGoneDecide(request, env);
         if (route === "GET admin") return await crawlAdmin(env);
         if (route === "GET nocap") return await crawlNocap(env, url);
+        if (route === "POST remove") return await crawlRemove(request, env);
         if (route === "POST takedown") return await crawlTakedownDecide(request, env);
         if (route === "POST token") return await crawlToken(request, env);
         return new Response("Not found", { status: 404 });
