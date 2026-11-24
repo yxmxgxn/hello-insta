@@ -56,6 +56,10 @@
   .import .nocapl li { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .import .nocapl li span { color: var(--muted); }
   .import .nocapl-btn { padding: 0; border: 0; background: none; font: inherit; font-size: .74rem; color: inherit; text-decoration: underline dotted; cursor: pointer; }
+  .import #manual { display: grid; gap: 8px; max-width: 560px; }
+  .import #manual label { display: grid; gap: 2px; font-size: .85rem; color: var(--muted); }
+  .import #manual label.inline { display: flex; gap: 6px; align-items: center; }
+  .import #manual input[type=text], .import #manual input:not([type]), .import #manual select, .import #manual textarea { font: inherit; font-size: .95rem; color: var(--text); padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); width: 100%; }
   /* 削除依頼 */
   .import .tdl { list-style: none; margin: 0; padding: 0; }
   .import .tdl li { padding: 8px 0; border-bottom: 1px solid var(--line); font-size: .88rem; }
@@ -123,6 +127,21 @@
     <span>← ブックマークバーへドラッグ</span>
   </div>
 
+  <!-- 共同投稿など、IG取得で本文が読めない投稿を、手で入れる(Instagram の画面で本文を選んでコピー → ここに貼る) -->
+  <details class="box" id="manualBox">
+    <summary><h2 class="sub">本文を手で入れる <small>共同投稿など</small></h2></summary>
+    <form id="manual" autocomplete="off">
+      <label>入れる人
+        <select id="mAcct"></select></label>
+      <label>投稿のURL
+        <input id="mUrl" placeholder="https://www.instagram.com/p/…/" autocomplete="off"></label>
+      <label>本文（Instagram の画面で選んでコピー → 貼る。書かれたとおりに）
+        <textarea id="mCap" rows="5" autocomplete="off"></textarea></label>
+      <label class="inline"><input type="checkbox" id="mNone"> 本文がない投稿（開いて確かめた）</label>
+      <p><button type="submit" id="mSend">この投稿を登録</button> <span id="mMsg" class="msg"></span></p>
+    </form>
+  </details>
+
   <details id="tokenBox">
     <summary id="tokenState">合言葉</summary>
     <p>
@@ -137,6 +156,7 @@
     <ol>
       <li><strong>IG取得（スクロール）</strong>: Graph API とは<strong>別の</strong>アカウントでログインしたブラウザで、取りたい人のプロフィールかホームのフィードを開いて押す。対象アカウントの人の投稿だけを拾う（対象外の人は画面にあっても拾わない）。一覧のサムネイルからは、本文が取れないことが多い（Instagram が付ける説明が、本文でなくなったため）</li>
       <li><strong>IG取得（一つ一つ）</strong>: 本文を取るためのもの。プロフィールで投稿を1つ開いてから押し、パネルの「次へ自動」を押すと、その投稿から「次へ」を1件ずつ押して進み、開いた投稿の本文を読む。1件 2〜4.5秒で、ときどき6〜12秒休む。最初に押したときだけ、取り込みページのタブが前に出るので、Instagram のタブに戻る。40件たまるごとに、取り込みページへ送って、そのまま登録する（取り込みページを、開いておく。合言葉も覚えさせておく）。300件で止まる。開いても本文が出なかった投稿は、「本文なし」（確かめ済み）として登録され、まだ開いていない投稿の「本文未取得」と分けて数える。Instagram が制限のような表示を出したら止まる。「止める」でいつでも止められる</li>
+      <li><strong>本文を手で入れる</strong>: 共同投稿など、IG取得で本文が読めない投稿用。入れる人を選び、投稿のURLと、Instagram の画面で選んでコピーした本文を貼って「この投稿を登録」。共同投稿は、開いているプロフィールの人（連名のうち、対象の人）を選ぶ。本文がない投稿は「本文がない投稿」にチェック</li>
       <li><strong>IG窓</strong>: 見ている Instagram のページを、画面幅の 1/4 の細い窓で開き直し、窓の中で IG取得 を自動で始める。押すたびに左から順に並ぶ。窓は画面に見えるようにしておく（隠れると止まる）</li>
       <li>右下のパネルで「Scroll」（自動スクロール）か手でスクロールしてためる（本文が欲しい投稿は開くと拾える）</li>
       <li>「送る」でこのページに渡す（渡らないときは「コピー」して上の欄に貼る）→ 中身を確かめて「登録」</li>
