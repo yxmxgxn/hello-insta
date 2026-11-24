@@ -827,6 +827,12 @@
         var parts = [["公式", sr.api], ["Apify", sr.apify], ["IG取得", sr.import], ["手", sr.manual], ["不明", sr.unknown]]
           .filter(function (x) { return x[1]; }).map(function (x) { return x[0] + x[1]; });
         var cnt = cell(a.posts + "件", parts.length ? parts.join("・") : "公式" + (a.posts - web) + "・取込" + web);
+        // 共同投稿(持ち主は別の人)の件数。サイトでこの人を選ぶと、上の件数に足されて出る
+        if (a.collab) {
+          var cc = document.createElement("small");
+          cc.textContent = "＋共同 " + a.collab + "（持ち主は別の人）";
+          cnt.appendChild(cc);
+        }
         // 本文を持っていない投稿の数(本文なしの投稿は除く)。周回・取り込み直しで減る
         var left = Math.max(0, a.posts - (a.nocap || 0) - (a.withcap || 0));
         // 押すと、その人の、まだ本文が入っていない投稿の一覧(開いて本文を入れる)
@@ -865,8 +871,10 @@
         // Instagram のプロフィールに出ている投稿数と比べる(追いついていれば取り込みは要らない)
         var ig;
         if (a.ig_count != null) {
-          var pct = a.ig_count ? Math.floor(a.posts / a.ig_count * 100) : 100;
-          var ok = a.posts >= a.ig_count;
+          // Instagram のプロフィールの件数には、共同投稿(持ち主が別の人)も入っているので、共同投稿の分も足して比べる
+          var mine = a.posts + (a.collab || 0);
+          var pct = a.ig_count ? Math.floor(mine / a.ig_count * 100) : 100;
+          var ok = mine >= a.ig_count;
           // IG の件数を取ったあとに、Apify などで投稿が入っていたら、IG の件数は古い(件数のずれが、削除や漏れとは限らない)
           var stale = !!(a.ig_count_at && a.last_added && a.ig_count_at < a.last_added);
           if (stale) {
@@ -874,7 +882,7 @@
             ig.style.color = "var(--muted)";
             ig.title = "Instagram の件数は " + a.ig_count_at + " に取ったもので、そのあとに取り込みがあります。プロフィールを IG取得 で開き直すと、新しい件数になります";
           } else {
-            ig = cell("IG " + a.ig_count + (ok ? " ✓" : " " + pct + "%"), ok ? "追いついた" : "あと " + (a.ig_count - a.posts));
+            ig = cell("IG " + a.ig_count + (ok ? " ✓" : " " + pct + "%"), ok ? "追いついた" : "あと " + (a.ig_count - mine));
             ig.title = "Instagram の件数を取った日時: " + (a.ig_count_at || "");
             if (!ok) ig.style.color = "var(--accent)";
           }

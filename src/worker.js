@@ -277,6 +277,8 @@ async function handleAccounts(env, withSrc) {
       "SELECT a.username, a.name, a.section, a.active, s.last_error AS error, " +
       "(SELECT COUNT(*) FROM post WHERE account = a.username) AS posts, " +
       "(SELECT COUNT(*) FROM post WHERE account = a.username AND id LIKE 'web:%') AS posts_web, " +
+      // この人が共同投稿者として載っている投稿(持ち主は別の人)。Instagram のプロフィールの件数には、これも入っている
+      "(SELECT COUNT(*) FROM post_collab WHERE account = a.username) AS collab, " +
       "(SELECT COUNT(*) FROM post WHERE account = a.username AND ifnull(excerpt, '') = '') AS nocap, " +
       // 本文なしのうち、画面から拾った分(web:)。本当に本文がないのか、拾えなかったのかは分からない
       "(SELECT COUNT(*) FROM post WHERE account = a.username AND ifnull(excerpt, '') = '' AND id LIKE 'web:%') AS nocap_web, " +
