@@ -913,6 +913,28 @@
       .then(function () { btn.disabled = false; });
   });
 
+  // Instagram で消えていた投稿を、サイトからも消す(画面から取り込んだ投稿だけ。公式APIで入っている投稿は、消えたかもの一覧で)
+  function removeByCode(code, then) {
+    if (!token) { alert("下の「合言葉」を開いて CRAWL_TOKEN を入れ、覚えさせてください"); return; }
+    fetch("/api/crawl/remove", {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: "Bearer " + token },
+      body: JSON.stringify({ code: code }),
+    }).then(function (r) { if (r.status === 404) throw new Error("合言葉が違います"); if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+      .then(function (d) {
+        then(d.ok ? "消しました" : d.reason === "official" ? "公式APIで入っている投稿です。「消えたかもしれない投稿」の一覧で消してください" : "サイトに入っていない投稿です");
+      })
+      .catch(function (e) { then("できませんでした: " + e.message); });
+  }
+  document.getElementById("mRemove").addEventListener("click", function () {
+    var msg = document.getElementById("mMsg");
+    var m = document.getElementById("mUrl").value.trim().match(/instagram\.com\/(?:[A-Za-z0-9._]+\/)?(?:p|reel|tv)\/([A-Za-z0-9_-]{5,})/);
+    if (!m) { msg.textContent = "投稿のURLが読めません（https://www.instagram.com/p/…/ の形）"; return; }
+    if (!confirm("Instagram で消えているのを確かめましたか？ この投稿(" + m[1] + ")を、サイトから消します")) return;
+    msg.textContent = "消しています…";
+    removeByCode(m[1], function (t) { msg.textContent = t; if (t === "消しました") { document.getElementById("mUrl").value = ""; loadTargets(); } });
+  });
+
   // ---------- まだ本文が入っていない投稿の一覧(個人アカウントの人。開いて本文を入れる) ----------
   function loadNocap(account, name) {
     var box = document.getElementById("nocapBox"), head = document.getElementById("nocapHead"), ol = document.getElementById("nocapList");
@@ -933,6 +955,20 @@
           a.rel = "noopener noreferrer";
           a.textContent = lastLabel(p.ts);
           li.appendChild(a);
+          var codeM = p.permalink.match(/\/(?:p|reel|tv)\/([A-Za-z0-9_-]+)/);
+          if (codeM) {
+            var rm = document.createElement("button");
+            rm.type = "button";
+            rm.className = "nocapl-btn";
+            rm.textContent = "消す";
+            rm.title = "Instagram で消えていた投稿を、サイトからも消す";
+            rm.style.marginLeft = "8px";
+            rm.onclick = function () {
+              if (!confirm("Instagram で消えているのを確かめましたか？ " + lastLabel(p.ts) + " の投稿を、サイトから消します")) return;
+              removeByCode(codeM[1], function (t) { if (t === "消しました") { li.remove(); loadTargets(); } else alert(t); });
+            };
+            li.appendChild(rm);
+          }
           var sp = document.createElement("span");
           // 本文の保存が残っている投稿は、前に取った先頭が見える。本文未取得は、まだ何も取れていない
           sp.textContent = " " + (p.excerpt ? p.excerpt : "（本文未取得）");
