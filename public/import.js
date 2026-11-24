@@ -852,9 +852,17 @@
         if (a.ig_count != null) {
           var pct = a.ig_count ? Math.floor(a.posts / a.ig_count * 100) : 100;
           var ok = a.posts >= a.ig_count;
-          ig = cell("IG " + a.ig_count + (ok ? " ✓" : " " + pct + "%"), ok ? "追いついた" : "あと " + (a.ig_count - a.posts));
-          ig.title = "Instagram の件数を取った日時: " + (a.ig_count_at || "");
-          if (!ok) ig.style.color = "var(--accent)";
+          // IG の件数を取ったあとに、Apify などで投稿が入っていたら、IG の件数は古い(件数のずれが、削除や漏れとは限らない)
+          var stale = !!(a.ig_count_at && a.last_added && a.ig_count_at < a.last_added);
+          if (stale) {
+            ig = cell("IG " + a.ig_count, "古い " + lastLabel(a.ig_count_at));
+            ig.style.color = "var(--muted)";
+            ig.title = "Instagram の件数は " + a.ig_count_at + " に取ったもので、そのあとに取り込みがあります。プロフィールを IG取得 で開き直すと、新しい件数になります";
+          } else {
+            ig = cell("IG " + a.ig_count + (ok ? " ✓" : " " + pct + "%"), ok ? "追いついた" : "あと " + (a.ig_count - a.posts));
+            ig.title = "Instagram の件数を取った日時: " + (a.ig_count_at || "");
+            if (!ok) ig.style.color = "var(--accent)";
+          }
         } else {
           ig = cell("IG ?", "件数まだ");
           ig.title = "まだ Instagram の件数を取っていません（プロフィールを IG取得 で開くと取れます）";
