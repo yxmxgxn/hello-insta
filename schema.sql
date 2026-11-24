@@ -18,10 +18,26 @@ CREATE TABLE IF NOT EXISTS post (
   product_type TEXT,            -- 公式APIの media_product_type。通常の投稿(FEED)かリール(REELS)か
   seen_at    TEXT,              -- 最後に公式APIの返事に入っていた日時(JST)。周回で返ってこなかった投稿を「消えたかも」と出すのに使う
   keep       INTEGER,           -- 1=管理人が「消えていない」と確かめた(年齢制限などで API が返さない投稿)。消えたかもに出さない
+  source     TEXT,              -- 最初にどの経路で入ったか: api(公式API)・apify・import(IG取得)・manual(手で入れた)。NULL=不明(この列を足す前に入ったもの)
   caption    TEXT               -- 本文(Instagram に書かれたとおり)。画面には出さない。検索で当たった箇所の前後(excerpt と同じ長さ)を切り出すのにだけ使う
 );
 CREATE INDEX IF NOT EXISTS post_ts ON post(ts);
 CREATE INDEX IF NOT EXISTS post_account_ts ON post(account, ts);
+
+-- 画面から取り込んだ(web:)投稿の登録の履歴。1回の登録(Apify の1回・IG取得の送り・手で入れた1件)ごとに1行。
+-- 取り込みページの履歴と、毎日の報告(Apify が来ているか)に使う
+CREATE TABLE IF NOT EXISTS import_log (
+  id      INTEGER PRIMARY KEY AUTOINCREMENT,
+  at      TEXT NOT NULL,       -- 登録した日時(JST)
+  source  TEXT NOT NULL,       -- apify / import / manual
+  account TEXT NOT NULL,       -- 登録した先のアカウント(持ち主)
+  added   INTEGER NOT NULL DEFAULT 0,
+  updated INTEGER NOT NULL DEFAULT 0,
+  same    INTEGER NOT NULL DEFAULT 0,
+  skipped INTEGER NOT NULL DEFAULT 0,
+  collab  INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS import_log_at ON import_log(at);
 
 -- 共同投稿の、持ち主(post.account)以外の対象アカウント。公式APIは共同投稿を共同投稿者の一覧にも返すので、
 -- 持ち主以外の人の一覧で返ってきたら、ここに書く。その人を選んだときにも出す

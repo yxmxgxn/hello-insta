@@ -709,6 +709,7 @@
     draw();
     result.textContent += "\n（飛ばしたのは、公式APIで入っている投稿と、日時が読めないもの）";
     loadTargets();
+    loadHistory();
     // 登録しているあいだに、自動の送りが届いていたら、続けて登録する
     if (pendingAuto) { pendingAuto = false; autoRegister(); }
   });
@@ -763,7 +764,7 @@
   // ---------- 対象の一覧(公開APIの accounts から、個人アカウントの人だけ) ----------
   function loadTargets() {
     // サイト側(Worker)のキャッシュは URL ごとなので、毎回違う URL にして最新の件数を取る
-    fetch("/api/accounts?fresh=" + Date.now(), { cache: "no-store" }).then(function (r) { return r.json(); }).then(function (d) {
+    fetch("/api/accounts?src=1&fresh=" + Date.now(), { cache: "no-store" }).then(function (r) { return r.json(); }).then(function (d) {
       // 拾う・受け付けるのは対象アカウント全員。表は個人アカウントの人と公式APIで取れる人に分けて出す
       targets = {};
       var names = {};
@@ -821,7 +822,11 @@
         tr.appendChild(cell(a.name, link("https://www.instagram.com/" + encodeURIComponent(a.username) + "/", "@" + a.username)));
         // 合計と、そのうち公式APIで入った分・手で取り込んだ分
         var web = a.posts_web || 0;
-        var cnt = cell(a.posts + "件", "公式" + (a.posts - web) + "・取込" + web);
+        // 経路ごとの件数: 公式API・Apify・IG取得・手入力・不明(経路を記録する前に入ったもの)
+        var sr = a.src || {};
+        var parts = [["公式", sr.api], ["Apify", sr.apify], ["IG取得", sr.import], ["手", sr.manual], ["不明", sr.unknown]]
+          .filter(function (x) { return x[1]; }).map(function (x) { return x[0] + x[1]; });
+        var cnt = cell(a.posts + "件", parts.length ? parts.join("・") : "公式" + (a.posts - web) + "・取込" + web);
         // 本文を持っていない投稿の数(本文なしの投稿は除く)。周回・取り込み直しで減る
         var left = Math.max(0, a.posts - (a.nocap || 0) - (a.withcap || 0));
         // 押すと、その人の、まだ本文が入っていない投稿の一覧(開いて本文を入れる)
@@ -892,6 +897,13 @@
     var sel = document.getElementById("mAcct");
     var keep = sel.value;
     sel.textContent = "";
+    // 共同投稿の相手(なしが先頭)
+    var csel = document.getElementById("mCollab"), ckeep = csel.value;
+    csel.textContent = "";
+    var none = document.createElement("option");
+    none.value = "";
+    none.textContent = "（なし）";
+    csel.appendChild(none);
     // 個人アカウントの人を先に
     var act = accounts.filter(function (a) { return a.active; });
     act.sort(function (a, b) { return (/個人アカウント/.test(b.error || "") ? 1 : 0) - (/個人アカウント/.test(a.error || "") ? 1 : 0); });
@@ -900,8 +912,10 @@
       o.value = a.username;
       o.textContent = a.name + "（@" + a.username + "）";
       sel.appendChild(o);
+      csel.appendChild(o.cloneNode(true));
     });
     if (keep) sel.value = keep;
+    if (ckeep) csel.value = ckeep;
   }
   document.getElementById("manual").addEventListener("submit", function (e) {
     e.preventDefault();
@@ -920,7 +934,7 @@
     fetch("/api/crawl/paste", {
       method: "POST",
       headers: { "content-type": "application/json", authorization: "Bearer " + token },
-      body: JSON.stringify({ username: who, posts: [{ code: m[1], caption: none ? "" : cap }] }),
+      body: JSON.stringify({ username: who, manual: true, posts: [{ code: m[1], caption: none ? "" : cap, collab: document.getElementById("mCollab").value || undefined }] }),
     }).then(function (r) { return r.json().catch(function () { return {}; }).then(function (d) { return { ok: r.ok, status: r.status, d: d }; }); })
       .then(function (x) {
         if (x.status === 404) throw new Error("合言葉が違います");
@@ -931,6 +945,7 @@
           : d.added ? "新しく登録しました" : "本文を更新しました";
         if (!d.skipped) { document.getElementById("mUrl").value = ""; document.getElementById("mCap").value = ""; document.getElementById("mNone").checked = false; }
         loadTargets();
+        loadHistory();
       })
       .catch(function (err) { msg.textContent = "できませんでした: " + err.message; })
       .then(function () { btn.disabled = false; });
@@ -1191,6 +1206,43 @@
       .catch(function () { /* 読めなくても、ほかの欄は使える */ });
   }
   loadAdmin();
+
+  // ---------- 取り込みの履歴(画面から取り込んだ投稿の登録。経路ごと) ----------
+  var SRC_NAME = { apify: "Apify", import: "IG取得", manual: "手入力" };
+  function loadHistory() {
+    var box = document.getElementById("historyBox"), body = document.getElementById("history");
+    if (!token) { body.innerHTML = "<tr><td>合言葉を入れると出ます</td></tr>"; return; }
+    fetch("/api/crawl/imports", { headers: { authorization: "Bearer " + token }, cache: "no-store" })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (d) {
+        body.textContent = "";
+        if (!d) { body.innerHTML = "<tr><td>読み込めませんでした</td></tr>"; return; }
+        var rows = d.rows || [];
+        document.getElementById("historyCount").textContent = rows.length ? "最新 " + lastLabel(rows[0].at) + "・" + (SRC_NAME[rows[0].source] || rows[0].source) : "まだありません";
+        if (!rows.length) { body.innerHTML = "<tr><td>まだ履歴がありません（このあとの登録から残ります）</td></tr>"; return; }
+        // 日ごと・経路ごとにまとめる(新規・更新・人数)
+        var days = [], byKey = {};
+        rows.forEach(function (r) {
+          var key = r.at.slice(0, 10) + "|" + r.source;
+          var g = byKey[key];
+          if (!g) { g = byKey[key] = { day: r.at.slice(0, 10), source: r.source, added: 0, updated: 0, same: 0, runs: 0, who: {} }; days.push(g); }
+          g.added += r.added; g.updated += r.updated; g.same += r.same; g.runs++; g.who[r.name] = (g.who[r.name] || 0) + r.added + r.updated;
+        });
+        days.forEach(function (g) {
+          var tr = document.createElement("tr");
+          var td = document.createElement("td");
+          td.textContent = lastLabel(g.day + " 00:00").replace(" 00:00", "") + "　" + (SRC_NAME[g.source] || g.source);
+          var sm = document.createElement("small");
+          var who = Object.keys(g.who).filter(function (n) { return g.who[n]; }).map(function (n) { return n + " " + g.who[n]; }).join("、");
+          sm.textContent = "新規 " + g.added + "・更新 " + g.updated + "・そのまま " + g.same + "（" + g.runs + "回）" + (who ? "　" + who : "");
+          td.appendChild(sm);
+          tr.appendChild(td);
+          body.appendChild(tr);
+        });
+      })
+      .catch(function () { body.innerHTML = "<tr><td>読み込めませんでした</td></tr>"; });
+  }
+  loadHistory();
   // 合言葉を入れ直したら、合言葉が要る欄を読み直す
-  document.getElementById("saveToken").addEventListener("click", function () { loadGone(); loadAdmin(); });
+  document.getElementById("saveToken").addEventListener("click", function () { loadGone(); loadAdmin(); loadHistory(); });
 })();

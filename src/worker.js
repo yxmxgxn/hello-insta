@@ -21,6 +21,7 @@
  *   POST /api/crawl/gone       { id, action: "delete" | "keep" } 管理人が確かめて、消す・残す
  *   GET  /api/crawl/admin      取り込みページの上のまとめ(削除依頼の一覧・アクセストークンの期限)
  *   GET  /api/crawl/nocap      ?account= 本文をまだ保存していない(画面から取り込んだ)投稿の一覧
+ *   GET  /api/crawl/imports    画面から取り込んだ投稿の登録の履歴(経路ごと。新しい順に200行)
  *   POST /api/crawl/remove     { code } 画面から取り込んだ(web:)投稿を、管理人が消す(個人アカウントの人の、Instagram で消えていた投稿)
  *   POST /api/crawl/takedown   { id, action: "done" | "undo" | "delete" } 削除依頼に印を付ける
  *   POST /api/crawl/token      { expires_at } Fetch が調べたアクセストークンの期限(UNIX秒。0 は期限なし)
@@ -270,8 +271,8 @@ async function handleDay(url, env) {
   return json({ posts: results.slice(0, DAY_MAX), truncated }, 200, "public, max-age=300");
 }
 
-async function handleAccounts(env) {
-  const [accounts, latest] = await env.DB.batch([
+async function handleAccounts(env, withSrc) {
+  const [accounts, latest, srcRows] = await env.DB.batch([
     env.DB.prepare(
       "SELECT a.username, a.name, a.section, a.active, s.last_error AS error, " +
       "(SELECT COUNT(*) FROM post WHERE account = a.username) AS posts, " +
@@ -288,7 +289,17 @@ async function handleAccounts(env) {
       "(SELECT MAX(added_at) FROM post WHERE account = a.username) AS last_added, a.ig_count, a.ig_count_at, a.groups " +
       "FROM account a LEFT JOIN fetch_state s ON s.username = a.username ORDER BY a.active DESC, a.sort"),
     env.DB.prepare("SELECT MAX(ts) AS ts FROM post"),
+    // 取り込みページ用: 経路ごとの件数(?src=1 のときだけ)
+    env.DB.prepare(withSrc ? "SELECT account, ifnull(source, 'unknown') AS source, COUNT(*) AS n FROM post GROUP BY account, source" : "SELECT 1 WHERE 0"),
   ]);
+  if (withSrc) {
+    const by = new Map();
+    for (const r of srcRows.results) {
+      if (!by.has(r.account)) by.set(r.account, {});
+      by.get(r.account)[r.source] = r.n;
+    }
+    for (const a of accounts.results) a.src = by.get(a.username) || {};
+  }
   return json({
     accounts: accounts.results,
     latest: latest.results[0] ? latest.results[0].ts : null,
@@ -356,6 +367,14 @@ async function crawlNocap(env, url) {
     posts: results.slice(0, NOCAP_MAX).map((r) => ({ ts: r.ts, permalink: r.permalink, excerpt: r.excerpt || "" })),
     more: results.length > NOCAP_MAX,
   });
+}
+
+// 登録の履歴: いつ、どの経路(apify / import / manual)で、誰の投稿が、いくつ入ったか
+async function crawlImports(env) {
+  const { results } = await env.DB.prepare(
+    "SELECT l.at, l.source, ifnull(a.name, l.account) AS name, l.added, l.updated, l.same, l.skipped, l.collab " +
+    "FROM import_log l LEFT JOIN account a ON a.username = l.account ORDER BY l.id DESC LIMIT 200").all();
+  return json({ rows: results });
 }
 
 // { code }: 画面から取り込んだ(web:)投稿を消す。個人アカウントの人の投稿は、公式APIの周回で「消えたかも」に出ないので、
@@ -559,8 +578,8 @@ function upsertPost(env, stmts, username, p, known) {
   // 取り直しでは added_at を変えない(初めて入った日時を残す)
   stmts.push(env.DB
     .prepare(
-      "INSERT INTO post(id, account, ts, permalink, media_type, excerpt, added_at, like_count, comments_count, cap_hash, product_type, caption) " +
-      "VALUES(?, ?, ?, ?, ?, ?, coalesce((SELECT added_at FROM post WHERE id = ?), ?), ?, ?, ?, ?, ?) " +
+      "INSERT INTO post(id, account, ts, permalink, media_type, excerpt, added_at, like_count, comments_count, cap_hash, product_type, caption, source) " +
+      "VALUES(?, ?, ?, ?, ?, ?, coalesce((SELECT added_at FROM post WHERE id = ?), ?), ?, ?, ?, ?, ?, ?) " +
       "ON CONFLICT(id) DO UPDATE SET account = excluded.account, ts = excluded.ts, permalink = excluded.permalink, " +
       "media_type = excluded.media_type, excerpt = excluded.excerpt, cap_hash = excluded.cap_hash, caption = excluded.caption, " +
       // いいね数を非表示にされたら値が来ないので、前に取れた数を残す
@@ -568,7 +587,7 @@ function upsertPost(env, stmts, username, p, known) {
       "comments_count = coalesce(excluded.comments_count, comments_count), " +
       "product_type = coalesce(excluded.product_type, product_type)")
     .bind(id, username, ts, String(p.permalink || ""), p.media_type || null, excerpt, webId, nowJst(),
-      likes, comments, hash, product, caption || (p.caption_checked ? "" : null)));
+      likes, comments, hash, product, caption || (p.caption_checked ? "" : null), p.source || null));
   // known があれば、入っていない行を消しに行く文は省く
   if (webId && (!known || known.has(webId))) {
     stmts.push(env.DB.prepare("DELETE FROM post WHERE id = ?").bind(webId));
@@ -610,7 +629,7 @@ async function crawlPosts(request, env) {
     const prev = known.get(String(p.id)) || known.get(WEB_ID + shortcode(p.permalink));
     const owner = p.username && target.get(String(p.username).toLowerCase());
     const who = owner || (prev && prev.account) || username;
-    upsertPost(env, stmts, who, p, known);
+    upsertPost(env, stmts, who, { ...p, source: "api" }, known);
     // 持ち主以外の人の一覧で返ってきた = その人は共同投稿者。その人を選んだときにも出すよう覚える
     if (p.id && who.toLowerCase() !== String(username).toLowerCase()) {
       stmts.push(env.DB.prepare("INSERT OR IGNORE INTO post_collab(post_id, account) VALUES(?, ?)").bind(String(p.id), username));
@@ -763,7 +782,7 @@ const MEDIA_TYPE = { 1: "IMAGE", 2: "VIDEO", 8: "CAROUSEL_ALBUM" };
 // seen: 同じときに別の人の分として送られた shortcode(他の人が持ち主の共同投稿は、その人の分になるため)。
 // extra はプロフィールを一番下まで見た人(want_extra)だけ。共同投稿で数件まざっただけの人は比べても意味がない
 async function crawlPaste(request, env) {
-  const { username, posts, dry, ig_count, seen, want_extra } = await request.json();
+  const { username, posts, dry, ig_count, seen, want_extra, manual } = await request.json();
   // 書き込みは1回 PASTE_MAX 件まで。数えるだけ(dry)なら1人分をまとめて受ける
   if (!username || !Array.isArray(posts) || posts.length > (dry ? DRY_MAX : PASTE_MAX)) return json({ error: "bad_request" }, 400);
   const [{ results: acc }] = await env.DB.batch([
@@ -799,12 +818,12 @@ async function crawlPaste(request, env) {
 
   const noCaption = new Set(existing.filter((r) => r.no_caption).map((r) => r.id));
   const byCode = new Map(existing.map((r) => [shortcode(r.permalink), r.id]));
-  return json(await writeWebPosts(env, user, posts, ig_count, { official, have, excerptOf, noCaption, byCode }));
+  return json(await writeWebPosts(env, user, posts, ig_count, { official, have, excerptOf, noCaption, byCode }, manual ? "manual" : "import"));
 }
 
 // 画面から拾った投稿(取り込みページ・Apify)を web:<shortcode> で書く。
 // posts: [{ code, caption, taken_at, media_type, kind, product }]。known が無ければ、その人の入っている投稿を読む
-async function writeWebPosts(env, user, posts, ig_count, known) {
+async function writeWebPosts(env, user, posts, ig_count, known, source) {
   if (!known) {
     const { results: existing } = await env.DB
       .prepare("SELECT id, permalink, excerpt, caption IS NULL AS no_caption FROM post WHERE account = ?").bind(user).all();
@@ -830,6 +849,7 @@ async function writeWebPosts(env, user, posts, ig_count, known) {
     const taken = Number.isFinite(p.taken_at) ? p.taken_at : takenFromCode(code);
     if (!/^[A-Za-z0-9_-]+$/.test(code) || !taken || official.has(code)) { skipped++; continue; }
     const id = WEB_ID + code;
+    if (byCode && !byCode.has(code)) byCode.set(code, id);   // いま入れる投稿にも、同じ送りの共同投稿者を付けられるように
     // 本文が拾えなかった投稿は、もう入っていれば触らない(入っている本文を空で上書きしない)
     // 取り込み済みの投稿は、本文が前と違うとき(前は拾えなかった本文が今回拾えた、など)だけ書き直す
     // (本文の列を足す前に入った投稿は、先頭が同じでも、本文を持つために書き直す)
@@ -858,6 +878,7 @@ async function writeWebPosts(env, user, posts, ig_count, known) {
       like_count: p.like_count,
       comments_count: p.comments_count,
       media_product_type: p.product || null,
+      source: source || null,
     });
     if (!ok) skipped++;
     else if (have.has(id)) updated++;
@@ -874,6 +895,13 @@ async function writeWebPosts(env, user, posts, ig_count, known) {
       stmts.push(env.DB.prepare("INSERT OR IGNORE INTO post_collab(post_id, account) VALUES(?, ?)").bind(postId, who));
       collab++;
     }
+  }
+  // 履歴に1行(何も起きなかった送りは書かない)
+  if (source && (added || updated || same || skipped || collab)) {
+    stmts.push(env.DB.prepare(
+      "INSERT INTO import_log(at, source, account, added, updated, same, skipped, collab) VALUES(?, ?, ?, ?, ?, ?, ?, ?)")
+      .bind(nowJst(), source, user, added, updated, same, skipped, collab));
+    stmts.push(env.DB.prepare("DELETE FROM import_log WHERE id <= (SELECT MAX(id) FROM import_log) - 3000"));
   }
   if (stmts.length) await env.DB.batch(stmts);
   await setIgCount(env, user, ig_count);
@@ -923,7 +951,7 @@ async function crawlApify(request, env) {
   const results = [];
   for (const [user, posts] of groups) {
     for (let i = 0; i < posts.length; i += PASTE_MAX) {
-      results.push(await writeWebPosts(env, user, posts.slice(i, i + PASTE_MAX)));
+      results.push(await writeWebPosts(env, user, posts.slice(i, i + PASTE_MAX), undefined, undefined, "apify"));
     }
   }
   return json({ ok: true, items: Array.isArray(items) ? items.length : 0, outside, results });
@@ -991,7 +1019,19 @@ async function dailyReport(env) {
 
   let warn = "";
   try {
-    warn = await tokenWarning(env);
+    // 画面から取り込んだ分の、前回の報告からの登録(経路ごと)。Apify が長く来ていなければ、知らせる
+    const { results: srcs } = await env.DB.prepare(
+      "SELECT source, SUM(added) AS added, SUM(updated) AS updated, COUNT(*) AS runs FROM import_log WHERE at > ? GROUP BY source").bind(since).all();
+    const SRC = { apify: "Apify", import: "IG取得", manual: "手入力" };
+    if (srcs.length) {
+      warn += "\n個人アカウントの登録: " + srcs.map((r) => `${SRC[r.source] || r.source} 新規 ${r.added}・更新 ${r.updated}（${r.runs}回）`).join(" ／ ");
+    }
+    const lastApify = await env.DB.prepare("SELECT MAX(at) AS at FROM import_log WHERE source = 'apify'").first("at");
+    if (lastApify) {
+      const hours = (Date.parse(now.replace(" ", "T") + ":00+09:00") - Date.parse(lastApify.replace(" ", "T") + ":00+09:00")) / 3600e3;
+      if (hours > 36) warn += `\n⚠ Apify からの登録が、${Math.floor(hours)} 時間ありません（前回 ${lastApify}）。Apify の定期実行と Webhook を確かめてください`;
+    }
+    warn += await tokenWarning(env);
     const open = (await env.DB.prepare("SELECT COUNT(*) AS n FROM takedown WHERE done = 0").first()).n;
     if (open) warn += `\n⚠ 削除・公開停止の依頼が **${open}** 件、未対応です（[取り込みページ](${SITE}/import)）`;
   } catch (e) {
@@ -1113,7 +1153,7 @@ export default {
     try {
       if (p === "/api/posts" && request.method === "GET") return await cached(request, ctx, () => handlePosts(url, env));
       if (p === "/api/calendar" && request.method === "GET") return await cached(request, ctx, () => handleCalendar(url, env));
-      if (p === "/api/accounts" && request.method === "GET") return await cached(request, ctx, () => handleAccounts(env));
+      if (p === "/api/accounts" && request.method === "GET") return await cached(request, ctx, () => handleAccounts(env, url.searchParams.get("src") === "1"));
       if (p === "/api/day" && request.method === "GET") return await cached(request, ctx, () => handleDay(url, env));
       if (p === "/api/takedown" && request.method === "POST") return await handleTakedown(request, env, ctx);
     } catch (e) {
@@ -1135,6 +1175,7 @@ export default {
         if (route === "GET admin") return await crawlAdmin(env);
         if (route === "GET nocap") return await crawlNocap(env, url);
         if (route === "POST remove") return await crawlRemove(request, env);
+        if (route === "GET imports") return await crawlImports(env);
         if (route === "POST takedown") return await crawlTakedownDecide(request, env);
         if (route === "POST token") return await crawlToken(request, env);
         return new Response("Not found", { status: 404 });
