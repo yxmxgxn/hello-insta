@@ -62,7 +62,7 @@
       return alt.trim() || null;
     }
 
-    function put(code, account, kind, caption, force) {
+    function put(code, account, kind, caption, force, collab) {
       if (!code || !account) return;
       account = account.toLowerCase();
       if (!ALLOW[account]) return;
@@ -71,7 +71,11 @@
       // 一つ一つのときは、開いている投稿の本文だけを読むので、新しく読めた本文を使う(前の投稿の本文が残っていたときの取り違えを避ける)
       // force(一つ一つで、いま開いている投稿)のときは、画面にいま出ているとおりにする(本文のない投稿で、前の投稿の本文が残らないように)
       if (!force && old && old.caption != null && (caption == null || (MODE !== "step" && old.caption.length >= caption.length))) caption = old.caption;
-      items.set(code, { code: code, account: account, kind: (old && old.kind === "reel") ? "reel" : kind, caption: caption });
+      var it = { code: code, account: account, kind: (old && old.kind === "reel") ? "reel" : kind, caption: caption };
+      // 共同投稿: 開いているプロフィールの人(持ち主とは別の、対象の人)。取り込みページで、共同投稿者として覚える
+      var co = collab || (old && old.collab);
+      if (co && co.toLowerCase() !== account) it.collab = co;
+      items.set(code, it);
     }
 
     // ホームのフィードでは URL からも開いているページからも持ち主が分からないので、投稿のカードの上の投稿者の名前から取る
@@ -104,7 +108,9 @@
         if (!m) return;
         var img = a.querySelector("img[alt]");
         var owner = m[1] && grid && !ALLOW[m[1].toLowerCase()] ? profile : m[1] || ownerOf(a) || profile;
-        put(m[3], owner, m[2], captionFromAlt(img && img.getAttribute("alt")));
+        // 持ち主が別の対象の人の投稿が、この人のプロフィールに出ている = 共同投稿。この人も共同投稿者として送る
+        put(m[3], owner, m[2], captionFromAlt(img && img.getAttribute("alt")), false,
+          grid && profile && owner && owner.toLowerCase() !== profile.toLowerCase() && ALLOW[owner.toLowerCase()] ? profile : null);
       });
       // 投稿を1つ開いた画面(ポップアップか /p/ のページ)。本文は h1 にある
       var here = location.pathname.match(LINK);
@@ -121,15 +127,19 @@
         // 一つ一つで、プロフィールから開いて進んでいるとき: 共同投稿は、持ち主(最初に出る名前)が別の人のことがある。
         // 持ち主が対象外の人なら、開いているプロフィールの人の投稿として入れる(持ち主を使うと、対象外で捨てられ、本文が入らない)。
         // 持ち主が対象の人でも、連名にプロフィールの人がいれば、その人の投稿にする
+        var collabOf = null;
         if (MODE === "step" && profile && ALLOW[profile.toLowerCase()] && owner && owner.toLowerCase() !== profile.toLowerCase()) {
           var authors = Array.prototype.map.call(root.querySelectorAll('header a[href^="/"]'), function (x) {
             return ((x.getAttribute("href") || "").match(/^\/([A-Za-z0-9._]+)\/?$/) || [])[1];
           });
           var inCredits = authors.some(function (n) { return n && n.toLowerCase() === profile.toLowerCase(); });
-          if (!ALLOW[owner.toLowerCase()] || inCredits) owner = profile;
+          // 持ち主が対象外の人なら、プロフィールの人の投稿にする。持ち主が対象の人で、連名にプロフィールの人もいるときは、
+          // 持ち主の投稿のまま、プロフィールの人を共同投稿者として送る(公式APIで入っている投稿と分けない)
+          if (!ALLOW[owner.toLowerCase()]) owner = profile;
+          else if (inCredits) collabOf = profile;
         }
         // h1 があるのに文字が空のとき(記号や「.」で始まる本文など)は、「読めなかった」(null)にする。空の本文("")として送ると、入っている本文を消してしまう
-        put(here[3], owner || profile, here[2], (h1 && text(h1)) || null, MODE === "step");
+        put(here[3], owner || profile, here[2], (h1 && text(h1)) || null, MODE === "step", collabOf);
       }
       readCount();
       render();
@@ -660,7 +670,7 @@
       result.textContent = head + "\n" + Object.keys(sending).map(function (n) { return done[n] || rows[n] || "@" + n; }).join("\n");
     }
     for (who in sending) {
-      var sum = { added: 0, updated: 0, same: 0, skipped: 0 };
+      var sum = { added: 0, updated: 0, same: 0, skipped: 0, collab: 0 };
       var list = sending[who];
       try {
         for (var i = 0; i < list.length; i += CHUNK) {
@@ -683,9 +693,9 @@
           // 合言葉が違うと、Worker は存在しないふりをして 404 を返す
           if (res.status === 404) throw new Error("合言葉が違います（覚えさせた CRAWL_TOKEN が、サイトのものと合っていません）");
           if (!res.ok) throw new Error(r.message || r.error || "HTTP " + res.status);
-          sum.added += r.added; sum.updated += r.updated; sum.same += r.same || 0; sum.skipped += r.skipped;
+          sum.added += r.added; sum.updated += r.updated; sum.same += r.same || 0; sum.skipped += r.skipped; sum.collab += r.collab || 0;
         }
-        done[who] = "✓ @" + who + " 新規 " + sum.added + " / 本文を更新 " + sum.updated + " / そのまま " + sum.same + " / 飛ばした " + sum.skipped;
+        done[who] = "✓ @" + who + " 新規 " + sum.added + " / 本文を更新 " + sum.updated + " / そのまま " + sum.same + " / 飛ばした " + sum.skipped + (sum.collab ? " / 共同投稿の記録 " + sum.collab : "");
       } catch (e) {
         failed = true;
         done[who] = "✗ @" + who + " 失敗: " + e.message;
