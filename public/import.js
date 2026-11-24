@@ -20,7 +20,12 @@
     var NAMES = __NAMES__;
     var ALLOW = {};
     Object.keys(NAMES).forEach(function (u) { ALLOW[u] = true; });
-    if (window.__helloInsta) { window.__helloInsta.show(); return; }
+    // 同じタブで、もう一度押したときは、前のパネルを出し直す。
+    // 別のほう(スクロール ⇔ 一つ一つ)を押したときは、前のパネルを閉じて、押したほうで始め直す(閉じないと、前のほうが出てしまう)
+    if (window.__helloInsta) {
+      if (window.__helloInsta.mode === MODE || typeof window.__helloInsta.close !== "function") { window.__helloInsta.show(); return; }
+      window.__helloInsta.close();
+    }
 
     // shortcode → { code, account, kind, caption }
     var items = new Map();
@@ -362,7 +367,7 @@
     }
     bClose.onclick = close;
 
-    window.__helloInsta = { show: function () { panel.style.display = ""; scan(); }, msg: msg };
+    window.__helloInsta = { show: function () { panel.style.display = ""; scan(); }, msg: msg, mode: MODE, close: close };
     scan();
     // 対象の人のプロフィールで押したら、Scroll を押した状態で始める(ホームや対象外のページでは始めない)。一つ一つのときは、案内だけ出す
     if (MODE === "step") msg(LINK.test(location.pathname) ? "「次へ自動」を押すと、この投稿から1件ずつ進めます" : "投稿を1つ開いてから、「次へ自動」を押す");
