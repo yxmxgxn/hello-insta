@@ -942,7 +942,11 @@ async function crawlApify(request, env) {
     if (!user || !it.shortCode || !Number.isFinite(t)) { outside++; continue; }
     const pt = String(it.productType || "");
     if (!groups.has(user)) groups.set(user, []);
+    // 共同投稿: 読んでいたプロフィールの人(inputUrl)と持ち主が別の、対象の人どうしなら、プロフィールの人を共同投稿者として覚える
+    // (持ち主が対象外の人のときは、プロフィールの人の投稿として入るので、記録は要らない)
+    const reader = target.get(String(profile || "").toLowerCase());
     groups.get(user).push({
+      collab: reader && reader !== user ? reader : undefined,
       code: String(it.shortCode),
       caption: it.caption == null ? null : String(it.caption),
       taken_at: Math.floor(t / 1000),
