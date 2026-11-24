@@ -60,6 +60,8 @@
   .import #manual label { display: grid; gap: 2px; font-size: .85rem; color: var(--muted); }
   .import #manual label.inline { display: flex; gap: 6px; align-items: center; }
   .import #manual input[type=text], .import #manual input:not([type]), .import #manual select, .import #manual textarea { font: inherit; font-size: .95rem; color: var(--text); padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); width: 100%; }
+  .import #history td { white-space: normal; }
+  .import #history td small { white-space: normal; }
   /* 削除依頼 */
   .import .tdl { list-style: none; margin: 0; padding: 0; }
   .import .tdl li { padding: 8px 0; border-bottom: 1px solid var(--line); font-size: .88rem; }
@@ -113,6 +115,12 @@
     <table><tbody id="gone"></tbody></table>
   </section>
 
+  <!-- 画面から取り込んだ投稿の、登録の履歴(Apify・IG取得・手入力)。Apify が毎日来ているかを見る -->
+  <details class="box" id="historyBox">
+    <summary><h2 class="sub">取り込みの履歴 <small id="historyCount"></small></h2></summary>
+    <table><tbody id="history"><tr><td>読み込み中…</td></tr></tbody></table>
+  </details>
+
   <!-- 公式APIで取れる人は自動で入るので、ふだんは閉じておく。1人を2行(名前と@アカウント、件数と内訳…)にして横幅を詰める -->
   <details class="box" id="officialBox">
     <summary><h2 class="sub">公式APIで取れる人 <small id="officialCount"></small></h2></summary>
@@ -133,6 +141,8 @@
     <form id="manual" autocomplete="off">
       <label>入れる人
         <select id="mAcct"></select></label>
+      <label>共同投稿の相手（対象の人だけ。なければ空）
+        <select id="mCollab"></select></label>
       <label>投稿のURL
         <input id="mUrl" placeholder="https://www.instagram.com/p/…/" autocomplete="off"></label>
       <label>本文（Instagram の画面で選んでコピー → 貼る。書かれたとおりに）
