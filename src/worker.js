@@ -798,7 +798,8 @@ async function crawlPaste(request, env) {
   }
 
   const noCaption = new Set(existing.filter((r) => r.no_caption).map((r) => r.id));
-  return json(await writeWebPosts(env, user, posts, ig_count, { official, have, excerptOf, noCaption }));
+  const byCode = new Map(existing.map((r) => [shortcode(r.permalink), r.id]));
+  return json(await writeWebPosts(env, user, posts, ig_count, { official, have, excerptOf, noCaption, byCode }));
 }
 
 // 画面から拾った投稿(取り込みページ・Apify)を web:<shortcode> で書く。
@@ -812,11 +813,18 @@ async function writeWebPosts(env, user, posts, ig_count, known) {
       have: new Set(existing.map((r) => r.id)),
       excerptOf: new Map(existing.map((r) => [r.id, r.excerpt || ""])),
       noCaption: new Set(existing.filter((r) => r.no_caption).map((r) => r.id)),
+      byCode: new Map(existing.map((r) => [shortcode(r.permalink), r.id])),
     };
   }
-  const { official, have, excerptOf, noCaption } = known;
+  const { official, have, excerptOf, noCaption, byCode } = known;
   const stmts = [];
   let added = 0, updated = 0, skipped = 0, same = 0;
+  // 共同投稿: 持ち主(user)の投稿で、個人アカウントの人のプロフィールにも出ていたもの。その人(collab)も共同投稿者として覚える。
+  // 公式APIで入っている投稿にも付ける(公式APIの人どうしは API が自動で記録するが、個人アカウントの人は読めないため)
+  const collabs = [];
+  for (const p of posts) {
+    if (p.collab && p.code) collabs.push({ code: String(p.code), who: String(p.collab) });
+  }
   for (const p of posts) {
     const code = String(p.code || "");
     const taken = Number.isFinite(p.taken_at) ? p.taken_at : takenFromCode(code);
@@ -855,9 +863,21 @@ async function writeWebPosts(env, user, posts, ig_count, known) {
     else if (have.has(id)) updated++;
     else added++;
   }
+  let collab = 0;
+  if (collabs.length && byCode) {
+    const { results: accs } = await env.DB.prepare("SELECT username FROM account").all();
+    const names = new Map(accs.map((a) => [a.username.toLowerCase(), a.username]));
+    for (const c of collabs) {
+      const postId = byCode.get(c.code);
+      const who = names.get(c.who.toLowerCase());
+      if (!postId || !who || who.toLowerCase() === String(user).toLowerCase()) continue;
+      stmts.push(env.DB.prepare("INSERT OR IGNORE INTO post_collab(post_id, account) VALUES(?, ?)").bind(postId, who));
+      collab++;
+    }
+  }
   if (stmts.length) await env.DB.batch(stmts);
   await setIgCount(env, user, ig_count);
-  return { ok: true, username: user, added, updated, same, skipped };
+  return { ok: true, username: user, added, updated, same, skipped, collab };
 }
 
 /* ============================ Apify(個人アカウントの新着) ============================ */
