@@ -85,7 +85,7 @@
 
     // 一つ一つで、開いている投稿の画面を、いつもの形(article の中に時刻がある)で読めたか。
     // 読めたときだけ、本文がないことを「確かめた」と言える(共同投稿など、作りが違う画面では言えない)
-    var openStructured = false;
+    var openStructured = false, openHasH1 = false;
     function scan() {
       var first = location.pathname.split("/").filter(Boolean)[0];
       if (!first) profile = null;
@@ -107,6 +107,7 @@
         var root = document.querySelector('div[role="dialog"] article') || document.querySelector("main article") || document;
         var h1 = root.querySelector("h1");
         openStructured = root !== document && !!root.querySelector("time");
+        openHasH1 = !!h1;
         var owner = here[1];
         if (!owner) {
           var a = root.querySelector('header a[href^="/"]');
@@ -122,7 +123,8 @@
           var inCredits = authors.some(function (n) { return n && n.toLowerCase() === profile.toLowerCase(); });
           if (!ALLOW[owner.toLowerCase()] || inCredits) owner = profile;
         }
-        put(here[3], owner || profile, here[2], h1 ? text(h1) : null, MODE === "step");
+        // h1 があるのに文字が空のとき(記号や「.」で始まる本文など)は、「読めなかった」(null)にする。空の本文("")として送ると、入っている本文を消してしまう
+        put(here[3], owner || profile, here[2], (h1 && text(h1)) || null, MODE === "step");
       }
       readCount();
       render();
@@ -307,7 +309,8 @@
       // 開いて待っても本文が出なかった投稿は、「確かめたが本文がない」として空の本文("")で送る
       // (まだ開いていない投稿は、本文なし(null)のまま。取り込みページで「本文未取得」と分けて数える)
       // (画面の作りが違って読めなかった投稿は、本文なしと決めつけず、本文未取得のままにする)
-      if (it && it.caption == null && openStructured) it.caption = "";
+      // (h1 があるのに読めなかった投稿は、本文なしにしない)
+      if (it && it.caption == null && openStructured && !openHasH1) it.caption = "";
       prevCaption = it && it.caption ? it.caption : null;
       msg("自動で進めています… " + stepCount + "件目（本文を読んだ " + (sentTotal + Array.from(items.values()).filter(function (p) { return p.caption != null; }).length) + "）");
       if (stepCount >= MAX_RUN) { stepStop(MAX_RUN + "件で止めました。しばらく休んでから、続けてください", true); return; }
