@@ -755,6 +755,7 @@
         names[a.username.toLowerCase()] = a.name;
       });
       buildLink(names);
+      fillManualAccounts(d.accounts || []);
       var active = (d.accounts || []).filter(function (a) { return a.active; });
       var personal = active.filter(function (a) { return /個人アカウント/.test(a.error || ""); });
       var officials = active.filter(function (a) { return !/個人アカウント/.test(a.error || ""); });
@@ -858,6 +859,56 @@
       });
   }
   loadTargets();
+
+  // ---------- 本文を手で入れる(共同投稿など、IG取得で本文が読めない投稿) ----------
+  // 人を選び、投稿のURLと、Instagram の画面で選んでコピーした本文を貼って、登録する。本文は、貼ったとおり(書き換えない)
+  function fillManualAccounts(accounts) {
+    var sel = document.getElementById("mAcct");
+    var keep = sel.value;
+    sel.textContent = "";
+    // 個人アカウントの人を先に
+    var act = accounts.filter(function (a) { return a.active; });
+    act.sort(function (a, b) { return (/個人アカウント/.test(b.error || "") ? 1 : 0) - (/個人アカウント/.test(a.error || "") ? 1 : 0); });
+    act.forEach(function (a) {
+      var o = document.createElement("option");
+      o.value = a.username;
+      o.textContent = a.name + "（@" + a.username + "）";
+      sel.appendChild(o);
+    });
+    if (keep) sel.value = keep;
+  }
+  document.getElementById("manual").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var msg = document.getElementById("mMsg"), btn = document.getElementById("mSend");
+    var url = document.getElementById("mUrl").value.trim();
+    var m = url.match(/instagram\.com\/(?:[A-Za-z0-9._]+\/)?(?:p|reel|tv)\/([A-Za-z0-9_-]{5,})/) || url.match(/^\/?(?:p|reel)\/([A-Za-z0-9_-]{5,})/) || url.match(/^([A-Za-z0-9_-]{5,})$/);
+    var none = document.getElementById("mNone").checked;
+    var cap = document.getElementById("mCap").value;
+    if (!token) { msg.textContent = "下の「合言葉」を開いて CRAWL_TOKEN を入れ、覚えさせてください"; return; }
+    if (!m) { msg.textContent = "投稿のURLが読めません（https://www.instagram.com/p/…/ の形）"; return; }
+    if (!none && !cap.trim()) { msg.textContent = "本文を貼るか、「本文がない投稿」にチェックを入れてください"; return; }
+    var who = document.getElementById("mAcct").value;
+    btn.disabled = true;
+    msg.textContent = "登録中…";
+    // 本文がない投稿は、確かめ済みの印(空の本文)を送る
+    fetch("/api/crawl/paste", {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: "Bearer " + token },
+      body: JSON.stringify({ username: who, posts: [{ code: m[1], caption: none ? "" : cap }] }),
+    }).then(function (r) { return r.json().catch(function () { return {}; }).then(function (d) { return { ok: r.ok, status: r.status, d: d }; }); })
+      .then(function (x) {
+        if (x.status === 404) throw new Error("合言葉が違います");
+        if (!x.ok) throw new Error(x.d.message || x.d.error || "HTTP " + x.status);
+        var d = x.d;
+        msg.textContent = d.skipped ? "飛ばしました（公式APIで入っている投稿か、日時が読めない投稿です）"
+          : d.same ? "もう同じ本文が入っています"
+          : d.added ? "新しく登録しました" : "本文を更新しました";
+        if (!d.skipped) { document.getElementById("mUrl").value = ""; document.getElementById("mCap").value = ""; document.getElementById("mNone").checked = false; }
+        loadTargets();
+      })
+      .catch(function (err) { msg.textContent = "できませんでした: " + err.message; })
+      .then(function () { btn.disabled = false; });
+  });
 
   // ---------- まだ本文が入っていない投稿の一覧(個人アカウントの人。開いて本文を入れる) ----------
   function loadNocap(account, name) {
