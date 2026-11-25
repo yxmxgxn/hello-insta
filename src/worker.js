@@ -920,9 +920,60 @@ async function writeWebPosts(env, user, posts, ig_count, known, source) {
 const APIFY_FIELDS = "shortCode,caption,timestamp,type,productType,ownerUsername,inputUrl";
 const APIFY_TYPE = { Image: 1, Video: 2, Sidecar: 8 };
 
+const APIFY_STALE_HOURS = 120;  // 最後の受け取りがこれより古ければ、止まっているかもと知らせる(5日)
+const APIFY_BAD = { FAILED: "失敗しました", "TIMED-OUT": "時間切れです", ABORTED: "中止されました" };
+
+// Webhook の知らせが、失敗・時間切れ・中止のものなら、その種類を返す(成功ならnull)
+function apifyBad(body) {
+  const norm = (v) => String(v || "").toUpperCase().replace(/^ACTOR\.RUN\./, "").replace(/_/g, "-");
+  const ev = norm(body.eventType), st = norm(body.resource && body.resource.status);
+  return Object.keys(APIFY_BAD).find((k) => k === ev || k === st) || null;
+}
+
+// タスクの名前(Apify の画面と同じもの)。取れなければ空
+async function apifyTaskName(env, body) {
+  const id = String((body.resource && body.resource.actorTaskId) || body.actorTaskId || "");
+  if (!env.APIFY_TOKEN || !/^[A-Za-z0-9]+$/.test(id)) return "";
+  try {
+    const r = await fetch(`https://api.apify.com/v2/actor-tasks/${id}`, { headers: { authorization: `Bearer ${env.APIFY_TOKEN}` } });
+    if (!r.ok) return "";
+    const d = (await r.json()).data || {};
+    return String(d.title || d.name || "").replace(/[\[\]*_`~|>]/g, "").slice(0, 60);
+  } catch { return ""; }
+}
+
+// 毎日の知らせに載せる控え(最大5行。報告のあとで消す)
+async function apifyNote(env, line) {
+  const cur = await env.DB.prepare("SELECT v FROM meta WHERE k = 'apify_notes'").first("v");
+  const lines = (cur ? cur.split("\n") : []).concat(line).slice(-5);
+  await env.DB.prepare("INSERT OR REPLACE INTO meta(k, v) VALUES('apify_notes', ?)").bind(lines.join("\n")).run();
+}
+
 async function crawlApify(request, env) {
-  if (!env.APIFY_TOKEN) return json({ error: "no_token", message: "APIFY_TOKEN が Worker に入っていません" }, 500);
   const body = await request.json().catch(() => ({}));
+
+  // 実行が終わらなかった知らせ(失敗・時間切れ・中止)は、すぐ Discord に知らせる
+  const bad = apifyBad(body);
+  if (bad) {
+    const name = await apifyTaskName(env, body);
+    const runId = String((body.resource && body.resource.id) || (body.eventData && body.eventData.actorRunId) || "");
+    const link = /^[A-Za-z0-9]+$/.test(runId) ? `\n[実行を見る](https://console.apify.com/actors/runs/${runId})` : "";
+    let sent = false;
+    if (env.DISCORD_WEBHOOK) {
+      const r = await fetch(env.DISCORD_WEBHOOK, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          username: "Instagram 検索",
+          embeds: [{ title: "Apify", description: `⚠ Apify の実行が終わりませんでした: ${APIFY_BAD[bad]}${name ? `\nタスク: ${name}` : ""}${link}`, color: 0xd9534f }],
+        }),
+      }).catch(() => null);
+      sent = !!(r && r.ok);
+    }
+    return json({ ok: true, event: bad, notified: sent });
+  }
+
+  if (!env.APIFY_TOKEN) return json({ error: "no_token", message: "APIFY_TOKEN が Worker に入っていません" }, 500);
   const datasetId = body.datasetId || (body.resource && body.resource.defaultDatasetId);
   if (!/^[A-Za-z0-9]+$/.test(String(datasetId || ""))) return json({ error: "bad_request", message: "datasetId がありません" }, 400);
   const res = await fetch(`https://api.apify.com/v2/datasets/${datasetId}/items?clean=1&format=json&fields=${APIFY_FIELDS}`, {
@@ -960,7 +1011,20 @@ async function crawlApify(request, env) {
       results.push(await writeWebPosts(env, user, posts.slice(i, i + PASTE_MAX), undefined, undefined, "apify"));
     }
   }
-  return json({ ok: true, items: Array.isArray(items) ? items.length : 0, outside, results });
+  // 投稿が1件でも来たら「最後の受け取り」を控える。0件なら、毎日の知らせで気づけるよう控えておく
+  const rows = Array.isArray(items) ? items.length : 0;
+  const posts = [...groups.values()].reduce((n, g) => n + g.length, 0);
+  try {
+    if (posts > 0) {
+      await env.DB.prepare("INSERT OR REPLACE INTO meta(k, v) VALUES('apify_last', ?)").bind(nowJst()).run();
+    } else {
+      const name = await apifyTaskName(env, body);
+      await apifyNote(env, `${nowJst().slice(5).replace("-", "/")} ${name ? name + " " : ""}${rows} 行・投稿 0 件（対象外 ${outside}）。新着がなかっただけかもしれません`);
+    }
+  } catch (e) {
+    console.log("apify note", e.message);
+  }
+  return json({ ok: true, items: rows, outside, results });
 }
 
 /* ============================ 毎日の報告 ============================ */
@@ -977,7 +1041,7 @@ async function dailyReport(env) {
   if (!env.DISCORD_WEBHOOK) return;
   const [{ results: tot }, { results: prev }] = await env.DB.batch([
     env.DB.prepare("SELECT COUNT(*) AS n FROM post"),
-    env.DB.prepare("SELECT k, v FROM meta WHERE k IN ('report_at', 'report_total')"),
+    env.DB.prepare("SELECT k, v FROM meta WHERE k IN ('report_at', 'report_total', 'apify_last', 'apify_notes')"),
   ]);
   const total = tot[0].n;
   const m = Object.fromEntries(prev.map((r) => [r.k, r.v]));
@@ -1032,10 +1096,18 @@ async function dailyReport(env) {
     if (srcs.length) {
       warn += "\n個人アカウントの登録: " + srcs.map((r) => `${SRC[r.source] || r.source} 新規 ${r.added}・更新 ${r.updated}（${r.runs}回）`).join(" ／ ");
     }
-    const lastApify = await env.DB.prepare("SELECT MAX(at) AS at FROM import_log WHERE source = 'apify'").first("at");
-    if (lastApify) {
-      const hours = (Date.parse(now.replace(" ", "T") + ":00+09:00") - Date.parse(lastApify.replace(" ", "T") + ":00+09:00")) / 3600e3;
-      if (hours > 36) warn += `\n⚠ Apify からの登録が、${Math.floor(hours)} 時間ありません（前回 ${lastApify}）。Apify の定期実行と Webhook を確かめてください`;
+    if (env.APIFY_TOKEN) {
+      // 最後の受け取り(投稿が入った実行)。控えがなければ、登録の履歴から
+      const last = m.apify_last || await env.DB.prepare("SELECT MAX(at) AS at FROM import_log WHERE source = 'apify'").first("at");
+      if (!last) {
+        warn += "\n⚠ Apify: まだ一度も受け取っていません";
+      } else {
+        const hours = (Date.parse(now.replace(" ", "T") + ":00+09:00") - Date.parse(last.replace(" ", "T") + ":00+09:00")) / 3600e3;
+        warn += hours > APIFY_STALE_HOURS
+          ? `\n⚠ Apify: 最後の受け取りが ${Math.floor(hours)} 時間前です（${last}）。止まっているかもしれません`
+          : `\nApify: 最後の受け取り ${last}`;
+      }
+      if (m.apify_notes) warn += m.apify_notes.split("\n").map((l) => `\n⚠ Apify の取り込み: ${l}`).join("");
     }
     warn += await tokenWarning(env);
     const open = (await env.DB.prepare("SELECT COUNT(*) AS n FROM takedown WHERE done = 0").first()).n;
@@ -1070,6 +1142,7 @@ async function dailyReport(env) {
   await env.DB.batch([
     env.DB.prepare("INSERT OR REPLACE INTO meta(k, v) VALUES('report_at', ?)").bind(now),
     env.DB.prepare("INSERT OR REPLACE INTO meta(k, v) VALUES('report_total', ?)").bind(String(total)),
+    env.DB.prepare("DELETE FROM meta WHERE k = 'apify_notes'"),
   ]);
 }
 
