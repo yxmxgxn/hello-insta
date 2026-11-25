@@ -138,7 +138,6 @@ EXCLUDED: dict[str, str] = {
     "meg_5683": "管理人の判断で載せない(村上愛)",
     "helloproject_stream": "管理人の判断で載せない(HELLO!PROJECT STREAM)",
     "hello_shop_official": "管理人の判断で載せない(ハロショ。グッズの情報のため)",
-    "reina_ichioka": "管理人の判断で載せない(一岡伶奈)",
 }
 
 # 対象は「現役メンバー」「公式APIで取れる人」と、次の個人アカウントのOGだけ(管理人が決めた)。
@@ -154,6 +153,7 @@ PERSONAL_OG_KEEP = {
     "kobushifactory_official",      # こぶしファクトリー公式
     "countrygirls_official",        # カントリー・ガールズ公式
     "taiyo_and_ciscomoon",          # 太陽とシスコムーン公式
+    "reina_ichioka",                # 一岡伶奈(個人アカウント。TikTok も載せるので入れる。管理人が手で取り込む)
 }
 
 # スプシの判定に乗らないが対象にするアカウント: ユーザー名 → (表示名, 見出し)。一覧の一番下に並ぶ
