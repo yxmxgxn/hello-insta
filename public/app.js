@@ -62,10 +62,10 @@
 
   function fillAccounts(list) {
     var sel = $("acc"), blocked = [];
-    // 表示は「名前（件数）」。同じ名前のアカウントが複数ある人(本人のと書道のなど)だけ「名前（@アカウント）（件数）」にする
+    // 表示は「名前 (件数)」(半角の空白とかっこ)。同じ名前のアカウントが複数ある人(本人のと書道のなど)だけ「名前 (@アカウント) (件数)」にする
     var same = {};
     list.forEach(function (a) { same[a.name] = (same[a.name] || 0) + 1; });
-    function label(a) { return a.name + (same[a.name] > 1 ? "（@" + a.username + "）" : ""); }
+    function label(a) { return a.name + (same[a.name] > 1 ? " (@" + a.username + ")" : ""); }
     list.forEach(function (a) {
       names[a.username] = a.name;
       if (a.first && a.last) spans[a.username] = { first: a.first, last: a.last };
@@ -76,7 +76,7 @@
         return;
       }
       var sec = a.active ? a.section : "以前の対象";
-      var text = label(a) + (a.posts ? "（" + a.posts + "）" : "（未取得）");
+      var text = label(a) + (a.posts ? " (" + a.posts + ")" : " (未取得)");
       accs.push({ username: a.username, section: sec, group: a.active ? groupOf(sec) : "", text: text, off: !a.posts, groups: a.groups || "" });
       // 選んでいる人は、見えない select に持つ(URL・検索の条件はここから作る)
       var o = document.createElement("option");
@@ -146,7 +146,7 @@
       var bl = blocked.filter(inG);
       if (bl.length) {
         var bo = bl.map(function (a) {
-          var o = el("option", "", label(a) + "（" + reason(a.error) + "）");
+          var o = el("option", "", label(a) + " (" + reason(a.error) + ")");
           o.disabled = true;
           return o;
         });
