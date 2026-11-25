@@ -31,9 +31,10 @@
 <main>
   <form id="f" class="search" role="search" autocomplete="off">
     <div class="q-row">
-      <input id="q" type="search" placeholder="本文から探す（空のままなら新着）" aria-label="検索語" enterkeyhint="search">
+      <input id="q" type="search" placeholder="本文から探す" aria-label="検索語" enterkeyhint="search">
       <button type="submit">検索</button>
     </div>
+    <p class="hint">空白なら新着 ／ 空白で区切って検索、「-」で除く（例：ライブ -リハーサル）</p>
 
     <!-- 取得不可の人も並ぶので、検索結果の抜粋には使わせない(ページ全体は noindex にしない) -->
     <!-- 選んでいる人は見えない select に持つ(URL・検索の条件はここから作る) -->
@@ -63,7 +64,6 @@
       <select id="other" class="other" aria-label="その他のアカウント" data-nosnippet><option value="">その他のアカウント</option></select>
       <div class="panel-h"><button type="button" class="ghost" id="pick-close">閉じる</button></div>
     </div>
-    <p class="hint">空白で区切って検索すると全部含む投稿が並びます。語の前に「-」を付けると、その語を含まない投稿に絞れます（例：ライブ -リハーサル）。</p>
   </form>
 
   <section class="cal" id="cal" aria-label="投稿カレンダー" hidden>
