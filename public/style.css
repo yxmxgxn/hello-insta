@@ -192,6 +192,7 @@ select {
 .cal-head strong { flex: 1; text-align: center; font-size: .95rem; }
 .cal-head button { background: transparent; color: var(--accent); padding: 4px 10px; border: 1px solid var(--line); font-weight: 400; }
 .cal-head button:disabled { opacity: .3; cursor: default; }
+.cal-head .latest { margin-left: 6px; font-size: .78rem; padding: 4px 8px; white-space: nowrap; }
 .cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px; margin-bottom: 6px; font-size: .8rem; }
 .cal-grid .dow { text-align: center; font-size: .72rem; color: var(--muted); }
 /* 日付の横に件数(アメブロ検索の .days と同じ「日/件数件」) */

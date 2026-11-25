@@ -609,6 +609,7 @@
     var cur = curYm();
     $("prev").disabled = stepYm(cur, -1) === null;
     $("next").disabled = stepYm(cur, 1) === null;
+    $("latest").disabled = stepYm(cur, 1) === null;   // 次の月がなければ、いまが一番新しい月
     "日月火水木金土".split("").forEach(function (d) {
       var e = document.createElement("div");
       e.className = "dow";
@@ -668,6 +669,14 @@
     loadCalendar();
   }
 
+  // 一番新しい投稿がある月へ(今の条件で表示できる月のうち、最後の月)
+  function jumpLatest() {
+    var list = shownYms();
+    if (!list.length) return;
+    setYm(ym(list[list.length - 1]));
+    loadCalendar();
+  }
+
   function pickDay(key) {
     var on = !($("from").value === key && $("to").value === key);
     $("from").value = $("to").value = on ? key : "";
@@ -717,6 +726,7 @@
   });
   $("prev").addEventListener("click", function () { move(-1); });
   $("next").addEventListener("click", function () { move(1); });
+  $("latest").addEventListener("click", jumpLatest);
 
   getJson("/api/accounts")
     .then(function (d) {
