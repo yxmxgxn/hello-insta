@@ -153,7 +153,10 @@ select {
 .panel[hidden] { display: none; }
 .panel > * + * { margin-top: 10px; }
 .panel .gaccs { padding: 0; border: 0; }
-.panel-h { display: flex; justify-content: flex-end; }
+/* 「その他のアカウント」と同じ行の右端に「閉じる」(一番下の行を増やさない) */
+.panel-r { display: flex; align-items: center; gap: 8px; }
+.panel-r .other { flex: 1; min-width: 0; }
+.panel-r #pick-close { margin-left: auto; flex: none; }
 .gall { flex-basis: 100%; display: flex; justify-content: flex-end; }
 .panel .other { display: block; }
 .panel .other[hidden] { display: none; }
