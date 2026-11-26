@@ -278,6 +278,15 @@ main.doc pre code { background: none; padding: 0; overflow-wrap: normal; }
   border-radius: 12px;
 }
 .emodal-card.on { position: relative; visibility: visible; pointer-events: auto; }
+/* パソコン(広い画面): 前後の投稿を、カードの両側にうすく並べる(押すとそこへ移る)。‹ › の外側から画面の端まで */
+@media (min-width: 1100px) and (pointer: fine) {
+  .emodal { overflow: hidden; }
+  .emodal-card.side-prev, .emodal-card.side-next { visibility: visible; pointer-events: auto; opacity: .38; cursor: pointer; overflow: hidden; }
+  .emodal-card.side-prev { left: calc(-100% - 76px); }
+  .emodal-card.side-next { left: calc(100% + 76px); }
+  .emodal-card.side-prev:hover, .emodal-card.side-next:hover { opacity: .55; }
+  .emodal-card.side-prev::after, .emodal-card.side-next::after { content: ""; position: absolute; inset: 0; z-index: 3; }
+}
 /* 埋め込みになる前の、素の「Instagram で見る」のリンク(青い字で左に一瞬出て、動いて見える)は出さない。
    代わりに、枠と「読み込み中…」を出す。リンクは、右下の「Instagram で見る ↗」にある */
 .emodal-card > blockquote > a { display: none; }

@@ -57,6 +57,11 @@
     el.appendChild(bq);
     modal.querySelector(".emodal-stage").appendChild(el);
     cards.push({ li: li, el: el });
+    // パソコンで、両側にうすく見えている前後のカードは、押すとそこへ移る(中は Instagram の画面なので、上に重ねた幕が受ける)
+    el.addEventListener("click", function () {
+      if (el.classList.contains("side-prev")) step(-1);
+      else if (el.classList.contains("side-next")) step(1);
+    });
     // 8秒たっても埋め込みにならなければ(非公開・埋め込み禁止・読み込めないなど)、右下の「Instagram で開く」を案内する
     setTimeout(function () { if (!el.querySelector("iframe.instagram-media-rendered")) el.classList.add("fail"); }, 8000);
     loadEmbedJs()
@@ -84,6 +89,7 @@
         c.el.remove();
         return false;
       });
+      mark(li);
     }, 1500);
   }
 
@@ -97,11 +103,24 @@
     el.style.height = (max ? Math.min(h, max) : h) + "px";
   }
 
+  // いま出している投稿(on)と、一覧の前(side-prev)・後(side-next)のカードに印を付ける。
+  // 前後は、広い画面(パソコン)だけ、カードの両側にうすく見せる(style.css)。枠の高さは、3枚とも同じに決めておく
+  function mark(li) {
+    var all = items(li), i = all.indexOf(li);
+    cards.forEach(function (c) {
+      var k = all.indexOf(c.li) - i;
+      c.el.classList.toggle("on", k === 0);
+      c.el.classList.toggle("side-prev", k === -1);
+      c.el.classList.toggle("side-next", k === 1);
+      reserve(c.el);
+    });
+  }
+
   function show(li) {
     current = li;
+    ensure(li);
+    mark(li);
     var el = ensure(li);
-    reserve(el);
-    cards.forEach(function (c) { c.el.classList.toggle("on", c.el === el); });
     el.scrollTop = 0;
     // 前後の投稿(なければ「‹」「›」は押せない)。後ろの投稿が無くても、「さらに古い投稿」があれば押して読み込む
     var all = items(li), i = all.indexOf(li);
@@ -196,7 +215,7 @@
     // カードの中は Instagram の画面なので、スクロール(長いキャプション)は Instagram が受ける
     var wheelAt = 0;
     modal.addEventListener("wheel", function (e) {
-      if (stage.contains(e.target)) return;
+      if (e.target.closest && e.target.closest(".emodal-card.on")) return;   // 出している投稿の中は Instagram が受ける(両側のうすいカードの上は、前後へ移る)
       e.preventDefault();
       var now = Date.now();
       if (now - wheelAt < 450 || Math.abs(e.deltaY) + Math.abs(e.deltaX) < 8) return;   // 勢いのある1回で1つだけ
