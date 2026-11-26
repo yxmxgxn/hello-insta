@@ -130,6 +130,7 @@
     modal.querySelector(".emodal-count").textContent = (i + 1) + " / " + all.length + (more && !more.hidden ? "+" : "");
     // 右下の「Instagram で見る ↗」も、この投稿に(動画はこちらのほうがきれい。コメントもできる)
     modal.querySelector(".emodal-link").href = urlOf(li);
+    modal.querySelector(".emodal-who").textContent = li.getAttribute("data-who") || "";
     // 後ろの一覧も、いま出している投稿に合わせて動かす
     li.scrollIntoView({ block: "nearest" });
     warm(li);
@@ -204,12 +205,19 @@
     link.target = "_blank";
     link.rel = "noopener noreferrer";
     link.textContent = "Instagram で見る ↗";
+    // カードの下の行: 左に「2026/11/26 宮本佳林@ID」、右に「Instagram で見る ↗」
+    var who = document.createElement("span");
+    who.className = "emodal-who";
+    var foot = document.createElement("div");
+    foot.className = "emodal-foot";
+    foot.appendChild(who);
+    foot.appendChild(link);
     modal.appendChild(bg);
     modal.appendChild(btn("emodal-x", "閉じる", "×", close));
     modal.appendChild(btn("emodal-prev", "前の投稿", "‹", function () { step(-1); }));
     modal.appendChild(stage);
     modal.appendChild(btn("emodal-next", "次の投稿", "›", function () { step(1); }));
-    modal.appendChild(link);
+    modal.appendChild(foot);
     modal.appendChild(count);
     // パソコン: 暗い背景(カードの外)でマウスのホイールを回すと、前後の投稿へ。下に回すと次。
     // カードの中は Instagram の画面なので、スクロール(長いキャプション)は Instagram が受ける
@@ -230,7 +238,13 @@
   }
 
   // 投稿の下の操作の行:「▶ ここで見る」(ポップアップで開く)と「Instagram で見る ↗」(元の投稿へ)
-  function actions(li, permalink) {
+  // 「2026/11/26 宮本佳林@ID」(共同投稿は「 × 」でつなぐ)。ポップアップのカードの下に出す
+  window.postLabel = function (ts, accounts, names) {
+    return String(ts).slice(0, 10).replace(/-/g, "/") + " " + accounts.map(function (u) { return (names[u] || u) + "@" + u; }).join(" × ");
+  };
+
+  function actions(li, permalink, label) {
+    if (label) li.setAttribute("data-who", label);
     // /reel/ だと別の動画に飛ばされることがあるので、リールも開ける /p/ にそろえる
     var url = permalink.replace("/reel/", "/p/");
     li.setAttribute("data-url", url);

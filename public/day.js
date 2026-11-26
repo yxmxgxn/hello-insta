@@ -75,7 +75,7 @@
       li.appendChild(meta);
       // 本文の抜粋は黒い文字で、リンクにしない。元の投稿へは下の「Instagram で見る ↗」
       li.appendChild(el("p", "text", clean(r.excerpt) || "（本文なし）"));
-      li.appendChild(window.postActions(li, r.permalink));
+      li.appendChild(window.postActions(li, r.permalink, window.postLabel(r.ts, [r.account].concat(r.co ? r.co.split(",") : []), names)));
       list.appendChild(li);
     });
     var name = pick ? pick + "・" : "";
