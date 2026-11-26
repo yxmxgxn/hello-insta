@@ -327,8 +327,11 @@ main.doc pre code { background: none; padding: 0; overflow-wrap: normal; }
 }
 .emodal-next::before { transform: translateX(-2px) rotate(45deg); }
 .emodal-prev::before { transform: translateX(2px) rotate(-135deg); }
+/* カードの下の行: 左に日付と名前(@ID)、右に「Instagram で見る ↗」 */
+.emodal-foot { grid-area: link; position: relative; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: -4px; min-width: 0; }
+.emodal-who { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .8rem; color: rgba(255, 255, 255, .85); }
 .emodal-link {
-  grid-area: link; justify-self: end; position: relative; z-index: 1; margin-top: -4px;
+  flex: none;
   padding: 7px 14px; border-radius: 999px; background: rgba(255, 255, 255, .92); color: #1f1f1f;
   font-size: .85rem; text-decoration: none; white-space: nowrap;
 }
@@ -348,7 +351,7 @@ main.doc pre code { background: none; padding: 0; overflow-wrap: normal; }
 @media (max-width: 700px) {
   .emodal { grid-template-columns: 1fr 1fr; grid-template-areas: "card card" "link link" "prev next"; align-content: center; padding: 12px 0 36px; row-gap: 10px; }   /* 左右の余白は0(カードを画面の幅いっぱいに) */
   .emodal-card { max-height: calc(100vh - 190px); max-height: calc(100dvh - 190px); border-radius: 0; }
-  .emodal-link { margin-right: 16px; }
+  .emodal-foot { padding: 0 16px; }
   .emodal-prev { justify-self: end; margin-right: 16px; }
   .emodal-next { justify-self: start; margin-left: 16px; }
 }

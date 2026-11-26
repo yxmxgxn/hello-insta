@@ -332,7 +332,7 @@
     var text = (post.excerpt || "").replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, "");
     if (text) highlight(p, text, q); else p.textContent = "（本文なし）";
     li.appendChild(p);
-    li.appendChild(window.postActions(li, post.permalink));
+    li.appendChild(window.postActions(li, post.permalink, window.postLabel(post.ts, [post.account].concat(post.co ? post.co.split(",") : []), names)));
     return li;
   }
 
