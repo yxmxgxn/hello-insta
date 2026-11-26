@@ -374,9 +374,10 @@ main.doc p { margin: 8px 0; }
 main.doc ul, main.doc ol { margin: 8px 0; padding-left: 24px; }
 main.doc li { margin: 6px 0; }
 /* アカウント一覧(/links): 名前のリンクと、ユーザー名 */
-main.doc ul.acc { list-style: none; padding-left: 0; columns: 2 260px; column-gap: 24px; }
-main.doc ul.acc li { margin: 0; padding: 4px 0; break-inside: avoid; }   /* 余白は padding で(margin だと、列の先頭の高さがずれる) */
-.acc .at { color: var(--muted); font-size: .8rem; overflow-wrap: anywhere; }
+main.doc ul.acc { list-style: none; padding-left: 0; columns: 2; column-gap: 20px; }
+main.doc ul.acc li { margin: 0; padding: 6px 0; break-inside: avoid; }   /* 余白は padding で(margin だと、列の先頭の高さがずれる) */
+.acc a { overflow-wrap: anywhere; }
+.acc .at { display: block; color: var(--muted); font-size: .75rem; overflow-wrap: anywhere; line-height: 1.4; }   /* ユーザー名は名前の下の行(狭い画面でも2列にするため) */
 main.doc a { color: var(--accent); }
 .note { font-size: .92rem; color: var(--muted); margin-top: 12px; }
 main.doc strong { color: var(--accent); font-weight: 600; }
