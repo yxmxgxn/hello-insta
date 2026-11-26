@@ -336,7 +336,13 @@ main.doc pre code { background: none; padding: 0; overflow-wrap: normal; }
 .emodal-prev { grid-area: prev; }
 .emodal-next { grid-area: next; }
 .emodal-prev:disabled, .emodal-next:disabled { opacity: .3; cursor: default; }
-.emodal-x { position: absolute; top: 12px; right: 12px; z-index: 2; width: 40px; height: 40px; font-size: 1.4rem; }
+/* × は、文字だと字の高さの分だけ下にずれるので、細い線を2本、丸の真ん中で交差させる */
+.emodal-x { position: absolute; top: 12px; right: 12px; z-index: 2; width: 40px; height: 40px; font-size: 0; }
+.emodal-x::before, .emodal-x::after {
+  content: ""; position: absolute; left: 50%; top: 50%; width: 16px; height: 1.5px; background: #262626;
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+.emodal-x::after { transform: translate(-50%, -50%) rotate(-45deg); }
 .emodal-count { position: absolute; left: 0; right: 0; bottom: 10px; z-index: 1; text-align: center; font-size: .8rem; color: rgba(255, 255, 255, .8); font-variant-numeric: tabular-nums; pointer-events: none; }
 /* 狭い画面では、‹ › をカードの下に並べる */
 @media (max-width: 700px) {
