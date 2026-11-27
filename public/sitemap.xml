@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 手で更新する。日付ごとのページ(/day?d=…)は数が多いので入れない(フッターや日付の移動リンクから辿れる) -->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://insta.karin-archive.com/</loc></url>
+  <url><loc>https://insta.karin-archive.com/links</loc></url>
+  <url><loc>https://insta.karin-archive.com/about</loc></url>
+  <url><loc>https://insta.karin-archive.com/tech</loc></url>
+  <url><loc>https://insta.karin-archive.com/changes</loc></url>
+</urlset>
