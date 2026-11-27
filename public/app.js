@@ -352,7 +352,7 @@
     var parts = [], q = $("q").value.trim(), sel = selected();
     if (q) parts.push("「" + q + "」");
     if (sel.length) {
-      var nm = sel.map(function (u) { return names[u] || u; });
+      var nm = sel.map(function (u) { return (names[u] || u) + "@" + u; });   // 条件の行は「江口紗耶@saya_eguchi.official」と長く
       parts.push(nm.length > 3 ? nm.slice(0, 3).join("・") + " ほか" + (nm.length - 3) + "人" : nm.join("・"));
     } else if ($("act").checked) {
       parts.push("ハロプロ現役のみ");
