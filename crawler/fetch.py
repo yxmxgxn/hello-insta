@@ -140,6 +140,12 @@ EXCLUDED: dict[str, str] = {
     "hello_shop_official": "管理人の判断で載せない(ハロショ。グッズの情報のため)",
 }
 
+# 表示名を、スプシの名前ではなく、ここで決めるアカウント: ユーザー名 → 表示名。
+# 同じ人のほかのアカウントは、(これを数えずに)ふつうの名前で出す
+NAME_OVERRIDE: dict[str, str] = {
+    "miyamoto_mg": "宮本佳林の裏側",
+}
+
 # 対象は「現役メンバー」「公式APIで取れる人」と、次の個人アカウントのOGだけ(管理人が決めた)。
 # ほかの個人アカウントのOGは、個人アカウントと分かった時点で外し、D1 からも消す(公式APIで入った投稿がある人は消さない)。
 # 宮本佳林さんのアカウントは何があっても外さない
@@ -239,10 +245,10 @@ def load_targets() -> list[dict]:
     out: dict[str, dict] = {}
     for _, m, sec in sorted(picked, key=lambda t: t[0]):
         # 載せないアカウント(EXCLUDED)は、数えない(福田花音のように、片方を載せない人は、名前にユーザー名を添えない)
-        shown = [u for u in m["ig"] if u not in EXCLUDED]
+        shown = [u for u in m["ig"] if u not in EXCLUDED and u not in NAME_OVERRIDE]
         for user in m["ig"]:
             # 載せるアカウントを複数持つ人(例: 書道用の別アカウント)は、ユーザー名を添えて区別する
-            name = m["name"] if len(shown) <= 1 else f"{m['name']}（@{user}）"
+            name = NAME_OVERRIDE.get(user) or (m["name"] if len(shown) <= 1 else f"{m['name']}（@{user}）")
             out.setdefault(user, {"username": user, "name": name, "section": sec,
                                   "groups": ("," + ",".join(m.get("groups", [])) + ",") if m.get("groups") else ""})
     for user, (name, sec) in EXTRA_ACCOUNTS.items():
