@@ -94,7 +94,7 @@ function toJst(ts) {
   return new Date(d.getTime() + 9 * 3600e3).toISOString().slice(0, 16).replace("T", " ");
 }
 
-// 合言葉を聞く画面(Basic 認証)。サイトの鍵と取り込みページで同じ realm にし、ブラウザが覚えた合言葉を使い回せるようにする
+// 合言葉を聞く画面(Basic 認証)。取り込みページ(/import)だけに使う
 function locked() {
   return new Response("この画面は非公開です。\n", {
     status: 401,
@@ -1200,26 +1200,11 @@ export default {
     const url = new URL(request.url);
     const p = url.pathname;
 
-    // 取り込みページ(管理人用)は、サイトの鍵(SITE_PASS)を外して公開したあとも、CRAWL_TOKEN を合言葉にして閉じたままにする
+    // 取り込みページ(管理人用)は、公開していても、CRAWL_TOKEN を合言葉にして閉じたままにする
     // (Basic 認証。利用者名は何でもよい)。中のデータの読み書きは、別に Bearer の CRAWL_TOKEN で守っている
     if (p === "/import" || p.startsWith("/import.")) {
       if (!env.CRAWL_TOKEN) return new Response("Not found", { status: 404 });
       if (!unlocked(request, env.CRAWL_TOKEN)) return locked();
-    }
-
-    // 鍵: SITE_PASS(Worker のシークレット)があるあいだは、合言葉を知っている人だけ通す(Basic 認証。利用者名は何でもよい)。
-    // 取り込みページと同じ CRAWL_TOKEN でも通す(合言葉を1つ覚えておけば両方開けるように)。
-    // クローラ用APIは Bearer トークンで守っているので対象外。SITE_PASS を消せば関門ごと無くなる(取り込みページは閉じたまま)
-    if (env.SITE_PASS) {
-      if (p === "/robots.txt") {
-        return new Response("User-agent: *\nDisallow: /\n", {
-          headers: { "content-type": "text/plain; charset=utf-8", "x-robots-tag": "noindex, nofollow" },
-        });
-      }
-      if (!p.startsWith("/api/crawl/") && !unlocked(request, env.SITE_PASS) &&
-          !(env.CRAWL_TOKEN && unlocked(request, env.CRAWL_TOKEN))) {
-        return locked();
-      }
     }
 
     // 公開API: 同一IPからの叩きすぎを止める
