@@ -8,10 +8,10 @@
   "assets": {
     "directory": "./public",
     "binding": "ASSETS",
-    // すべて Worker を通す。合言葉(SITE_PASS)を画面にも掛けるため。
-    // 鍵を外すときは ["/api/*", "/import*"] にすると、ほかの静的ファイルは Worker を通らず配信される。
+    // 画面の静的ファイルは Worker を通さず直接配信する(公開したので、サイト全体の鍵は無い)。
+    // API(/api/*)と取り込みページ(/import*)だけ Worker を通す。
     // **取り込みページ(/import)は必ず Worker を通すこと**(CRAWL_TOKEN の合言葉で閉じたままにしているため)
-    "run_worker_first": true
+    "run_worker_first": ["/api/*", "/import*"]
   },
   // 公開URL insta.karin-archive.com はダッシュボードで付けたカスタムドメイン
   // (Workers & Pages → hello-insta → 設定 → ドメインとルート)。
