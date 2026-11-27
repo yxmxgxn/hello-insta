@@ -1,6 +1,4 @@
 User-agent: *
 Allow: /
-Disallow: /api/
-Disallow: /import
 
 Sitemap: https://insta.karin-archive.com/sitemap.xml
