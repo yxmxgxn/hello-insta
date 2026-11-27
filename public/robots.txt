@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://insta.karin-archive.com/sitemap.xml
