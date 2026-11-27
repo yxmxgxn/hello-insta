@@ -40,6 +40,8 @@
 
   // グループのボタン(押すと、その見出しのアカウントがボタンで並ぶ)。見出しの名前の頭で照らし合わせる
   // (モーニング娘。は年で名前が変わるため)。ここに入らない見出しの人は「そのほか」のプルダウンへ
+  // 個人アカウントがなく、グループのアカウントだけのグループ。ボタンを押すと、メンバーの一覧を開かず、そのアカウントだけを選ぶ
+  var SOLO_GROUPS = ["ロージークロニクル"];
   var ACTIVE_GROUPS = ["モーニング娘。", "アンジュルム", "Juice=Juice", "つばきファクトリー", "BEYOOOOONDS", "OCHA NORMA", "ロージークロニクル"];
   var GROUP_BUTTONS = ["モーニング娘。", "アンジュルム", "Juice=Juice", "つばきファクトリー", "BEYOOOOONDS",
     "OCHA NORMA", "ロージークロニクル", "J.P ROOM", "UP-FRONT CREATE", "UP-FRONT PROMOTION"];
@@ -95,6 +97,16 @@
         if (!key) {
           // すべて = 全員(選んでいる人を外して、開いているグループも閉じる)
           options().forEach(function (o) { o.selected = false; });
+          openGroup = "";
+          changed();
+          return;
+        }
+        if (SOLO_GROUPS.indexOf(key) >= 0) {
+          var one = accs.filter(function (a) { return a.group === key; })[0];
+          if (!one) return;
+          var already = selected().length === 1 && isSelected(one.username);   // もう一度押すと外す
+          options().forEach(function (o) { o.selected = false; });
+          if (!already) setSelected(one.username, true);
           openGroup = "";
           changed();
           return;
@@ -175,7 +187,8 @@
     document.querySelectorAll("#gbtn .gb").forEach(function (b) {
       var g = b.getAttribute("data-g");
       b.hidden = act && !!g && ACTIVE_GROUPS.indexOf(g) < 0;
-      var on = g ? g === openGroup : !sel.length;
+      var solo = accs.filter(function (a) { return SOLO_GROUPS.indexOf(g) >= 0 && a.group === g; })[0];
+      var on = solo ? sel.length === 1 && sel[0] === solo.username : g ? g === openGroup : !sel.length;
       b.classList.toggle("on", on);
       b.setAttribute("aria-pressed", on ? "true" : "false");
       // 開いていなくても、そのグループに選んでいる人がいれば印を付ける
